@@ -1,4 +1,4 @@
-name: Release (tag)
+name: release
 
 on:
   push:
@@ -74,3 +74,19 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew tap formula
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]; then
+            echo "missing required secret: HOMEBREW_TAP_GITHUB_TOKEN" >&2
+            exit 1
+          fi
+          chmod +x scripts/update-homebrew-formula.sh
+          scripts/update-homebrew-formula.sh \
+            --repo bsmartlabs/dev-vault \
+            --tag "${GITHUB_REF_NAME}" \
+            --tap bsmartlabs/homebrew-dev-tools \
+            --token "${HOMEBREW_TAP_GITHUB_TOKEN}"

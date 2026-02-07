@@ -6,6 +6,13 @@ It is configured per-project via a committed `.scw.json` manifest that maps secr
 
 ## Install
 
+### Homebrew (macOS)
+
+```bash
+brew tap bsmartlabs/dev-tools
+brew install dev-vault
+```
+
 ### From source (Go)
 
 ```bash
