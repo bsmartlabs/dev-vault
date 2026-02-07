@@ -1,6 +1,37 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "extends": ["config:recommended"],
+
+  "dependencyDashboard": true,
+  "labels": ["dependencies"],
+
+  "platformAutomerge": true,
+  "automerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "rebaseWhen": "conflicted",
+
+  "packageRules": [
+    {
+      "description": "Automerge GitHub Actions updates (infrastructure) when CI is green",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge Go module patch/minor updates when CI is green",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Do not automerge Go module major updates",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
   ]
 }
