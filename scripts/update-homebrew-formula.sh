@@ -94,7 +94,7 @@ cat >"$formula_path" <<EOF
 # frozen_string_literal: true
 
 class DevVault < Formula
-  desc "Scaleway Secret Manager CLI to sync -dev secrets to disk for local development"
+  desc "Scaleway Secret Manager CLI to pull/push -dev secrets to disk for local development"
   homepage "https://github.com/bsmartlabs/dev-vault"
   version "${version}"
 
