@@ -81,8 +81,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]; then
-            echo "missing required secret: HOMEBREW_TAP_GITHUB_TOKEN" >&2
-            exit 1
+            echo "HOMEBREW_TAP_GITHUB_TOKEN not set; skipping tap update."
+            exit 0
           fi
           chmod +x scripts/update-homebrew-formula.sh
           scripts/update-homebrew-formula.sh \
