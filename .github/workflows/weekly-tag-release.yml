@@ -16,6 +16,9 @@ permissions:
 
 jobs:
   tag:
+    # Safety: keep scheduled tagging disabled by default. Enable by setting the repo variable:
+    # DEV_VAULT_ENABLE_SCHEDULED_RELEASES=true
+    if: github.event_name != 'schedule' || vars.DEV_VAULT_ENABLE_SCHEDULED_RELEASES == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
