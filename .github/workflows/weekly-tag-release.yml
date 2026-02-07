@@ -1,0 +1,91 @@
+name: weekly-tag-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional explicit tag to create (e.g. v0.1.0). If omitted, bumps patch from latest v* tag."
+        required: false
+        type: string
+  schedule:
+    # Weekly cadence. Adjust as needed.
+    - cron: "15 9 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
+      - name: Test (100% coverage) and build (smoke)
+        run: |
+          set -euo pipefail
+          go test ./... -coverprofile=coverage.out
+          total="$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}')"
+          if [ "$total" != "100.0%" ]; then
+            echo "coverage is $total, expected 100.0%"
+            exit 1
+          fi
+          go build ./cmd/dev-vault
+
+      - name: Create and push tag
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+          latest_tag="$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)"
+
+          if [ -n "${INPUT_VERSION}" ]; then
+            new_tag="${INPUT_VERSION}"
+          else
+            if [ -z "$latest_tag" ]; then
+              new_tag="v0.0.1"
+            else
+              # Patch bump: vMAJOR.MINOR.PATCH -> increment PATCH
+              v="${latest_tag#v}"
+              IFS='.' read -r major minor patch <<EOF
+${v}
+EOF
+              : "${major:=0}"
+              : "${minor:=0}"
+              : "${patch:=0}"
+              patch="$((patch + 1))"
+              new_tag="v${major}.${minor}.${patch}"
+            fi
+          fi
+
+          if [[ "$new_tag" != v* ]]; then
+            echo "tag must start with v (got: $new_tag)" >&2
+            exit 2
+          fi
+
+          # If there are no commits since the latest tag, skip scheduled releases.
+          if [ -z "${INPUT_VERSION}" ] && [ -n "$latest_tag" ]; then
+            if [ "$(git rev-list "${latest_tag}..HEAD" --count)" -eq 0 ]; then
+              echo "No commits since ${latest_tag}; skipping."
+              exit 0
+            fi
+          fi
+
+          if git rev-parse -q --verify "refs/tags/${new_tag}" >/dev/null; then
+            echo "tag already exists: ${new_tag}" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${new_tag}" -m "${new_tag}"
+          git push origin "${new_tag}"
+
