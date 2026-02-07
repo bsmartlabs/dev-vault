@@ -87,7 +87,7 @@ go test ./... -coverprofile=coverage.out
 go tool cover -func=coverage.out | tail -n 1
 ```
 
-CI runs on every push and PR and builds multi-arch binaries.
+CI runs on PRs and on pushes to `main`, and includes a multi-arch build smoke test.
 
 To test GitHub Actions locally with `act`:
 
