@@ -1,0 +1,76 @@
+name: Release (tag)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        run: |
+          set -euo pipefail
+          tag="$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          version="${tag#v}"
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) arch="x64" ;;
+            aarch64|arm64) arch="arm64" ;;
+            i386|i686) arch="x32" ;;
+            *) echo "unsupported arch: $arch" >&2; exit 2 ;;
+          esac
+
+          tmp="$(mktemp -d)"
+          curl -fsSL -o "$tmp/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${version}_linux_${arch}.tar.gz"
+          tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp"
+          "$tmp/gitleaks" detect --redact --verbose
+
+  test:
+    runs-on: ubuntu-latest
+    needs: gitleaks
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
+      - name: Test (100% coverage)
+        run: |
+          set -euo pipefail
+          go test ./... -coverprofile=coverage.out
+          total="$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}')"
+          if [ "$total" != "100.0%" ]; then
+            echo "coverage is $total, expected 100.0%"
+            exit 1
+          fi
+
+  goreleaser:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

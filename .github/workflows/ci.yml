@@ -1,0 +1,87 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        run: |
+          set -euo pipefail
+          tag="$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          version="${tag#v}"
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) arch="x64" ;;
+            aarch64|arm64) arch="arm64" ;;
+            i386|i686) arch="x32" ;;
+            *) echo "unsupported arch: $arch" >&2; exit 2 ;;
+          esac
+
+          tmp="$(mktemp -d)"
+          curl -fsSL -o "$tmp/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${version}_linux_${arch}.tar.gz"
+          tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp"
+          "$tmp/gitleaks" detect --redact --verbose
+
+  test:
+    needs: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+      - name: Test (100% coverage)
+        run: |
+          set -euo pipefail
+          go test ./... -coverprofile=coverage.out
+          total="$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $3}')"
+          if [ "$total" != "100.0%" ]; then
+            echo "coverage is $total, expected 100.0%"
+            exit 1
+          fi
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+        exclude:
+          - os: windows
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+      - name: Build
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          export CGO_ENABLED=0
+          export GOOS='${{ matrix.os }}'
+          export GOARCH='${{ matrix.arch }}'
+
+          BIN="dev-vault"
+          if [ "$GOOS" = "windows" ]; then
+            BIN="${BIN}.exe"
+          fi
+
+          VERSION="${GITHUB_SHA}"
+          COMMIT="${GITHUB_SHA}"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o "dist/${BIN}" ./cmd/dev-vault

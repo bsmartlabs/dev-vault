@@ -1,0 +1,9 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Go build/test outputs
+dist/
+coverage.out
+coverage-*.out
+coverage*.html
