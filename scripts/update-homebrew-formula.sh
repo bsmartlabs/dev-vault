@@ -119,7 +119,8 @@ end
 EOF
 
 pushd "$tmp/tap" >/dev/null
-if git diff --quiet; then
+# git diff ignores untracked files; use status so a newly created formula is detected.
+if [ -z "$(git status --porcelain)" ]; then
   echo "No formula changes."
   exit 0
 fi
@@ -133,4 +134,3 @@ git push origin HEAD:main
 popd >/dev/null
 
 echo "Updated ${tap}:Formula/dev-vault.rb for ${tag}"
-
