@@ -211,6 +211,19 @@ func TestRun_GlobalFlagParseError(t *testing.T) {
 	}
 }
 
+func TestRun_GlobalHelpFlag(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "Usage:") {
+		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	}
+}
+
 func TestRun_MissingDeps(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "version"}, &out, &errBuf, Dependencies{})
@@ -255,6 +268,71 @@ func TestRun_Help(t *testing.T) {
 	}
 }
 
+func TestRun_HelpCommandSpecific(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "pull"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "dev-vault") || !strings.Contains(out.String(), "pull") {
+		t.Fatalf("unexpected help output: %s", out.String())
+	}
+}
+
+func TestRun_HelpCommandSpecific_Version(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "version"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "dev-vault version") {
+		t.Fatalf("unexpected help output: %s", out.String())
+	}
+}
+
+func TestRun_HelpCommandSpecific_List(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "list"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "list") || !strings.Contains(out.String(), "name-regex") {
+		t.Fatalf("unexpected help output: %s", out.String())
+	}
+}
+
+func TestRun_HelpCommandSpecific_Push(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "push"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "push") || !strings.Contains(out.String(), "--yes") {
+		t.Fatalf("unexpected help output: %s", out.String())
+	}
+}
+
+func TestRun_HelpUnknownCommandSpecific(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "nope"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 2 {
+		t.Fatalf("expected 2, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "unknown command for help") {
+		t.Fatalf("unexpected stderr: %s", errBuf.String())
+	}
+}
+
 func TestRun_NoCommand(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -265,6 +343,83 @@ func TestRun_NoCommand(t *testing.T) {
 	}
 	if !strings.Contains(errBuf.String(), "Usage:") {
 		t.Fatalf("expected usage on stderr")
+	}
+}
+
+func TestRun_SubcommandHelpFlag(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "pull", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "Usage:") {
+		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	}
+}
+
+func TestRun_SubcommandHelpFlag_List(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "list", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "Usage:") {
+		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	}
+}
+
+func TestRun_SubcommandHelpFlag_Push(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "push", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "Usage:") {
+		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	}
+}
+
+func TestRun_SubcommandConfigFlag(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir, `{
+  "organization_id": "00000000-0000-0000-0000-000000000000",
+  "project_id": "11111111-1111-1111-1111-111111111111",
+  "region": "fr-par",
+  "mapping": {
+    "bweb-env-bsmart-dev": {
+      "file": ".env.bsmart.rework",
+      "format": "raw",
+      "type": "opaque",
+      "mode": "sync"
+    }
+  }
+}
+`)
+
+	api := newFakeSecretAPI()
+	api.AddSecret("11111111-1111-1111-1111-111111111111", "bweb-env-bsmart-dev", "/", secret.SecretTypeOpaque)
+
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		if cfg.ProjectID != "11111111-1111-1111-1111-111111111111" {
+			t.Fatalf("unexpected project id: %s", cfg.ProjectID)
+		}
+		return api, nil
+	})
+
+	// Use subcommand-level --config (this used to fail with "flag provided but not defined").
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "list", "--config", filepath.Join(dir, config.DefaultConfigName), "--json"}, &out, &errBuf, deps)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "bweb-env-bsmart-dev") {
+		t.Fatalf("unexpected list output: %s", out.String())
 	}
 }
 
@@ -1491,7 +1646,7 @@ func (c *createSecretNoPersist) CreateSecretVersion(req *secret.CreateSecretVers
 
 func TestPrintUsage_Coverage(t *testing.T) {
 	var b bytes.Buffer
-	printUsage(&b)
+	printMainUsage(&b)
 	if !strings.Contains(b.String(), config.DefaultConfigName) {
 		t.Fatalf("expected config name in usage")
 	}

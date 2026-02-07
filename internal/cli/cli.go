@@ -113,22 +113,45 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	global.StringVar(&profileOverride, "profile", "", "Scaleway config profile override")
 
 	global.Usage = func() {
-		printUsage(stderr)
+		printMainUsage(stderr)
 	}
 
 	if err := global.Parse(args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 	rest := global.Args()
 	if len(rest) == 0 {
-		printUsage(stderr)
+		printMainUsage(stderr)
 		return 2
 	}
 
 	cmd := rest[0]
 	switch cmd {
 	case "help":
-		printUsage(stdout)
+		if len(rest) > 1 {
+			switch rest[1] {
+			case "list":
+				printListUsage(stdout)
+				return 0
+			case "pull":
+				printPullUsage(stdout)
+				return 0
+			case "push":
+				printPushUsage(stdout)
+				return 0
+			case "version":
+				printVersionUsage(stdout)
+				return 0
+			default:
+				fmt.Fprintf(stderr, "unknown command for help: %s\n", rest[1])
+				printMainUsage(stderr)
+				return 2
+			}
+		}
+		printMainUsage(stdout)
 		return 0
 	case "version":
 		fmt.Fprintf(stdout, "dev-vault %s (commit=%s date=%s)\n", deps.Version, deps.Commit, deps.Date)
@@ -141,23 +164,112 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		return runPush(rest[1:], stdout, stderr, configPath, profileOverride, deps)
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
-		printUsage(stderr)
+		printMainUsage(stderr)
 		return 2
 	}
 }
 
-func printUsage(w io.Writer) {
+func printMainUsage(w io.Writer) {
+	fmt.Fprintln(w, "dev-vault")
+	fmt.Fprintln(w, "  Pull/push Scaleway Secret Manager secrets to disk for local development.")
+	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] <command> [options]")
+	fmt.Fprintln(w, "  dev-vault [global options] <command> [command options] [args...]")
+	fmt.Fprintln(w, "  dev-vault help [command]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Global options:")
+	fmt.Fprintf(w, "  --config <path>   Path to %s. If omitted: search upward from cwd.\n", config.DefaultConfigName)
+	fmt.Fprintln(w, "  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  version")
-	fmt.Fprintln(w, "  list   [--name-contains <s> ...] [--name-regex <re>] [--path <p>] [--type <t>] [--json]")
-	fmt.Fprintln(w, "  pull   (--all | <secret-dev> ...) [--overwrite]")
-	fmt.Fprintln(w, "  push   (--all | <secret-dev> ...) [--yes] [--disable-previous] [--description <s>] [--create-missing]")
+	fmt.Fprintln(w, "  list")
+	fmt.Fprintln(w, "  pull")
+	fmt.Fprintln(w, "  push")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Config discovery:")
-	fmt.Fprintf(w, "  Searches upward from cwd for %s unless --config is provided.\n", config.DefaultConfigName)
+	fmt.Fprintln(w, "Hard safety constraints:")
+	fmt.Fprintln(w, "  - Refuses to operate on secret names that do not end with '-dev'.")
+	fmt.Fprintln(w, "  - Never prints secret payloads.")
+	fmt.Fprintln(w, "  - Pull writes files atomically and chmods them to 0600 (on Unix).")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Batch behavior:")
+	fmt.Fprintln(w, "  - pull --all includes mapping entries with mapping.mode in {pull, sync}.")
+	fmt.Fprintln(w, "  - push --all includes mapping entries with mapping.mode in {push, sync}.")
+	fmt.Fprintln(w, "  - If you do not use --all, you can ignore mapping.mode entirely.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Examples:")
+	fmt.Fprintln(w, "  dev-vault list --json")
+	fmt.Fprintln(w, "  dev-vault pull bweb-env-bsmart-dev --overwrite")
+	fmt.Fprintln(w, "  dev-vault push bweb-env-bsmart-dev")
+	fmt.Fprintln(w, "  dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Notes for automation/LLMs:")
+	fmt.Fprintln(w, "  - Global options can be passed either before the command or as command options (e.g. 'pull --config ...').")
+	fmt.Fprintln(w, "  - Exit codes: 0=success, 1=runtime error, 2=usage error.")
+}
+
+func printVersionUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  dev-vault version")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Prints the build version/commit/date.")
+}
+
+func printListUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] list [options]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Lists secrets in the configured Scaleway project/region.")
+	fmt.Fprintln(w, "This command always filters to secret names ending with '-dev'.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Options:")
+	fmt.Fprintln(w, "  --config <path>         (optional) Path to .scw.json")
+	fmt.Fprintln(w, "  --profile <name>        (optional) Scaleway profile override")
+	fmt.Fprintln(w, "  --name-contains <s>     (repeatable) substring filter (AND semantics)")
+	fmt.Fprintln(w, "  --name-regex <re>       Go regexp to match names")
+	fmt.Fprintln(w, "  --path <p>              Exact Scaleway secret path to match (default: any)")
+	fmt.Fprintln(w, "  --type <t>              One of: opaque|key_value|basic_credentials|database_credentials|ssh_key|certificate")
+	fmt.Fprintln(w, "  --json                  Output JSON")
+}
+
+func printPullUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] pull (--all | <secret-dev> ...) [options]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Pulls one or more secrets to disk based on .scw.json mapping.")
+	fmt.Fprintln(w, "Secrets must exist in mapping and names must end with '-dev'.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Options:")
+	fmt.Fprintln(w, "  --config <path>   (optional) Path to .scw.json")
+	fmt.Fprintln(w, "  --profile <name>  (optional) Scaleway profile override")
+	fmt.Fprintln(w, "  --all             Pull all mapping entries with mapping.mode in {pull, sync}")
+	fmt.Fprintln(w, "  --overwrite       Overwrite existing files (otherwise pull fails if the file exists)")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Formats:")
+	fmt.Fprintln(w, "  - mapping.format=raw    writes secret bytes as-is")
+	fmt.Fprintln(w, "  - mapping.format=dotenv expects a JSON object payload and writes a deterministic .env file")
+}
+
+func printPushUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] push (--all | <secret-dev> ...) [options]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Pushes one or more secrets from disk to Scaleway Secret Manager as a new version.")
+	fmt.Fprintln(w, "Secrets must exist in mapping and names must end with '-dev'.")
+	fmt.Fprintln(w, "Never prints secret payloads.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Options:")
+	fmt.Fprintln(w, "  --config <path>         (optional) Path to .scw.json")
+	fmt.Fprintln(w, "  --profile <name>        (optional) Scaleway profile override")
+	fmt.Fprintln(w, "  --all                   Push all mapping entries with mapping.mode in {push, sync}")
+	fmt.Fprintln(w, "  --yes                   Required when pushing more than one secret (including --all)")
+	fmt.Fprintln(w, "  --disable-previous      Disable the previously enabled version when creating the new version")
+	fmt.Fprintln(w, "  --description <text>    Optional description for the new version (default is auto-generated)")
+	fmt.Fprintln(w, "  --create-missing        Create the secret if it does not exist (requires mapping.type)")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Formats:")
+	fmt.Fprintln(w, "  - mapping.format=raw    reads file bytes as-is and uploads them")
+	fmt.Fprintln(w, "  - mapping.format=dotenv reads .env file and uploads a JSON object payload")
 }
 
 type stringSliceFlag []string
@@ -172,6 +284,10 @@ func (s *stringSliceFlag) Set(v string) error {
 func runList(argv []string, stdout, stderr io.Writer, configPath, profileOverride string, deps Dependencies) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	fs.Usage = func() { printListUsage(stderr) }
+
+	cfgPath := configPath
+	prof := profileOverride
 
 	var contains stringSliceFlag
 	var nameRegex string
@@ -179,6 +295,8 @@ func runList(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 	var typeFilter string
 	var jsonOut bool
 
+	fs.StringVar(&cfgPath, "config", cfgPath, "Path to .scw.json (default: search upward from cwd)")
+	fs.StringVar(&prof, "profile", prof, "Scaleway config profile override")
 	fs.Var(&contains, "name-contains", "Substring filter (repeatable)")
 	fs.StringVar(&nameRegex, "name-regex", "", "Go regexp to match secret names")
 	fs.StringVar(&pathFilter, "path", "", "Exact Scaleway secret path to filter")
@@ -186,6 +304,8 @@ func runList(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 	fs.BoolVar(&jsonOut, "json", false, "Output JSON")
 
 	argv = reorderFlags(argv, map[string]bool{
+		"config":        true,
+		"profile":       true,
 		"name-contains": true,
 		"name-regex":    true,
 		"path":          true,
@@ -193,10 +313,13 @@ func runList(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 		"json":          false,
 	})
 	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 
-	loaded, api, ok := loadAndOpenAPI(configPath, profileOverride, stderr, deps)
+	loaded, api, ok := loadAndOpenAPI(cfgPath, prof, stderr, deps)
 	if !ok {
 		return 1
 	}
@@ -299,19 +422,31 @@ type listItem struct {
 func runPull(argv []string, stdout, stderr io.Writer, configPath, profileOverride string, deps Dependencies) int {
 	fs := flag.NewFlagSet("pull", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	fs.Usage = func() { printPullUsage(stderr) }
+
+	cfgPath := configPath
+	prof := profileOverride
+
 	var all bool
 	var overwrite bool
+	fs.StringVar(&cfgPath, "config", cfgPath, "Path to .scw.json (default: search upward from cwd)")
+	fs.StringVar(&prof, "profile", prof, "Scaleway config profile override")
 	fs.BoolVar(&all, "all", false, "Pull all mapping entries with mode pull|sync")
 	fs.BoolVar(&overwrite, "overwrite", false, "Overwrite existing files")
 	argv = reorderFlags(argv, map[string]bool{
+		"config":    true,
+		"profile":   true,
 		"all":       false,
 		"overwrite": false,
 	})
 	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 
-	loaded, api, ok := loadAndOpenAPI(configPath, profileOverride, stderr, deps)
+	loaded, api, ok := loadAndOpenAPI(cfgPath, prof, stderr, deps)
 	if !ok {
 		return 1
 	}
@@ -378,12 +513,19 @@ func runPull(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 func runPush(argv []string, stdout, stderr io.Writer, configPath, profileOverride string, deps Dependencies) int {
 	fs := flag.NewFlagSet("push", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	fs.Usage = func() { printPushUsage(stderr) }
+
+	cfgPath := configPath
+	prof := profileOverride
+
 	var all bool
 	var yes bool
 	var disablePrevious bool
 	var description string
 	var createMissing bool
 
+	fs.StringVar(&cfgPath, "config", cfgPath, "Path to .scw.json (default: search upward from cwd)")
+	fs.StringVar(&prof, "profile", prof, "Scaleway config profile override")
 	fs.BoolVar(&all, "all", false, "Push all mapping entries with mode push|sync")
 	fs.BoolVar(&yes, "yes", false, "Confirm batch push (required when pushing more than one secret)")
 	fs.BoolVar(&disablePrevious, "disable-previous", false, "Disable previous enabled version when creating a new version")
@@ -391,6 +533,8 @@ func runPush(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 	fs.BoolVar(&createMissing, "create-missing", false, "Create missing secrets (requires mapping.type)")
 
 	argv = reorderFlags(argv, map[string]bool{
+		"config":           true,
+		"profile":          true,
 		"all":              false,
 		"yes":              false,
 		"disable-previous": false,
@@ -398,10 +542,13 @@ func runPush(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 		"create-missing":   false,
 	})
 	if err := fs.Parse(argv); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 
-	loaded, api, ok := loadAndOpenAPI(configPath, profileOverride, stderr, deps)
+	loaded, api, ok := loadAndOpenAPI(cfgPath, prof, stderr, deps)
 	if !ok {
 		return 1
 	}
