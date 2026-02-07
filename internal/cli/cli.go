@@ -193,9 +193,11 @@ func printMainUsage(w io.Writer) {
 	fmt.Fprintln(w, "  - Pull writes files atomically and chmods them to 0600 (on Unix).")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Batch behavior:")
-	fmt.Fprintln(w, "  - pull --all includes mapping entries with mapping.mode in {pull, sync}.")
-	fmt.Fprintln(w, "  - push --all includes mapping entries with mapping.mode in {push, sync}.")
+	fmt.Fprintln(w, "  - mapping.mode defaults to both.")
+	fmt.Fprintln(w, "  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
+	fmt.Fprintln(w, "  - push --all includes mapping entries with mapping.mode in {push, both}.")
 	fmt.Fprintln(w, "  - If you do not use --all, you can ignore mapping.mode entirely.")
+	fmt.Fprintln(w, "  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Examples:")
 	fmt.Fprintln(w, "  dev-vault list --json")
@@ -252,7 +254,7 @@ func printPullUsage(w io.Writer) {
 	fmt.Fprintln(w, "Options:")
 	fmt.Fprintln(w, "  --config <path>   (optional) Path to .scw.json")
 	fmt.Fprintln(w, "  --profile <name>  (optional) Scaleway profile override")
-	fmt.Fprintln(w, "  --all             Pull all mapping entries with mapping.mode in {pull, sync}")
+	fmt.Fprintln(w, "  --all             Pull all mapping entries with mapping.mode in {pull, both}")
 	fmt.Fprintln(w, "  --overwrite       Overwrite existing files (otherwise pull fails if the file exists)")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Formats:")
@@ -282,7 +284,7 @@ func printPushUsage(w io.Writer) {
 	fmt.Fprintln(w, "Options:")
 	fmt.Fprintln(w, "  --config <path>         (optional) Path to .scw.json")
 	fmt.Fprintln(w, "  --profile <name>        (optional) Scaleway profile override")
-	fmt.Fprintln(w, "  --all                   Push all mapping entries with mapping.mode in {push, sync}")
+	fmt.Fprintln(w, "  --all                   Push all mapping entries with mapping.mode in {push, both}")
 	fmt.Fprintln(w, "  --yes                   Required when pushing more than one secret (including --all)")
 	fmt.Fprintln(w, "  --disable-previous      Disable the previously enabled version when creating the new version")
 	fmt.Fprintln(w, "  --description <text>    Optional description for the new version (default is auto-generated)")
@@ -465,7 +467,7 @@ func runPull(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 	var overwrite bool
 	fs.StringVar(&cfgPath, "config", cfgPath, "Path to .scw.json (default: search upward from cwd)")
 	fs.StringVar(&prof, "profile", prof, "Scaleway config profile override")
-	fs.BoolVar(&all, "all", false, "Pull all mapping entries with mode pull|sync")
+	fs.BoolVar(&all, "all", false, "Pull all mapping entries with mode pull|both (mode defaults to both)")
 	fs.BoolVar(&overwrite, "overwrite", false, "Overwrite existing files")
 	argv = reorderFlags(argv, map[string]bool{
 		"config":    true,
@@ -560,7 +562,7 @@ func runPush(argv []string, stdout, stderr io.Writer, configPath, profileOverrid
 
 	fs.StringVar(&cfgPath, "config", cfgPath, "Path to .scw.json (default: search upward from cwd)")
 	fs.StringVar(&prof, "profile", prof, "Scaleway config profile override")
-	fs.BoolVar(&all, "all", false, "Push all mapping entries with mode push|sync")
+	fs.BoolVar(&all, "all", false, "Push all mapping entries with mode push|both (mode defaults to both)")
 	fs.BoolVar(&yes, "yes", false, "Confirm batch push (required when pushing more than one secret)")
 	fs.BoolVar(&disablePrevious, "disable-previous", false, "Disable previous enabled version when creating a new version")
 	fs.StringVar(&description, "description", "", "Description for the new version (optional)")
@@ -818,9 +820,9 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 	isAllowedMode := func(entry config.MappingEntry) bool {
 		switch mode {
 		case "pull":
-			return entry.Mode == "pull" || entry.Mode == "sync"
+			return entry.Mode == "pull" || entry.Mode == "both"
 		case "push":
-			return entry.Mode == "push" || entry.Mode == "sync"
+			return entry.Mode == "push" || entry.Mode == "both"
 		default:
 			return false
 		}

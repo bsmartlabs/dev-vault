@@ -54,9 +54,7 @@ jobs:
             else
               # Patch bump: vMAJOR.MINOR.PATCH -> increment PATCH
               v="${latest_tag#v}"
-              IFS='.' read -r major minor patch <<EOF
-${v}
-EOF
+              IFS='.' read -r major minor patch <<<"${v}"
               : "${major:=0}"
               : "${minor:=0}"
               : "${patch:=0}"
@@ -88,4 +86,3 @@ EOF
 
           git tag -a "${new_tag}" -m "${new_tag}"
           git push origin "${new_tag}"
-

@@ -23,7 +23,7 @@ type MappingEntry struct {
 	File   string `json:"file"`
 	Format string `json:"format,omitempty"` // raw|dotenv
 	Path   string `json:"path,omitempty"`   // default "/"
-	Mode   string `json:"mode,omitempty"`   // pull|push|sync default sync
+	Mode   string `json:"mode,omitempty"`   // pull|push|both (default: both). "sync" is accepted as legacy alias for "both".
 	Type   string `json:"type,omitempty"`   // expected secret type
 }
 
@@ -159,10 +159,14 @@ func (c *Config) normalizeAndValidate() error {
 		}
 
 		if entry.Mode == "" {
-			entry.Mode = "sync"
+			entry.Mode = "both"
+		}
+		if entry.Mode == "sync" {
+			// Back-compat: older manifests used "sync" to mean "both".
+			entry.Mode = "both"
 		}
 		switch entry.Mode {
-		case "pull", "push", "sync":
+		case "pull", "push", "both":
 		default:
 			return fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}

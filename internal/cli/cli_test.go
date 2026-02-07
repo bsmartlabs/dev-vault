@@ -1007,12 +1007,12 @@ func TestHelpersAndBranches(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 
-	// selectMappingTargets default-mode and various errors.
-	mapping := map[string]config.MappingEntry{
-		"a-dev": {File: "a", Mode: "sync"},
-		"b-dev": {File: "b", Mode: "pull"},
-		"c-dev": {File: "c", Mode: "push"},
-	}
+		// selectMappingTargets default-mode and various errors.
+		mapping := map[string]config.MappingEntry{
+			"a-dev": {File: "a", Mode: "both"},
+			"b-dev": {File: "b", Mode: "pull"},
+			"c-dev": {File: "c", Mode: "push"},
+		}
 	if _, err := selectMappingTargets(mapping, true, []string{"a-dev"}, "pull"); err == nil {
 		t.Fatalf("expected error")
 	}

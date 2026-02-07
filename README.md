@@ -36,8 +36,8 @@ Example:
 
 ```json
 {
-  "organization_id": "00000000-0000-0000-0000-000000000000",
-  "project_id": "11111111-1111-1111-1111-111111111111",
+  "organization_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "project_id": "89abcdef-0123-4567-89ab-cdef01234567",
   "region": "fr-par",
   "profile": "default",
   "mapping": {
@@ -45,7 +45,6 @@ Example:
       "file": ".env.bsmart.rework",
       "format": "dotenv",
       "path": "/",
-      "mode": "sync",
       "type": "key_value"
     },
     "some-cert-dev": {

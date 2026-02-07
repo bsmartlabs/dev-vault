@@ -143,21 +143,37 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
-	t.Run("DefaultsApplied", func(t *testing.T) {
-		dir := t.TempDir()
-		cfgPath := filepath.Join(dir, DefaultConfigName)
-		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
-			t.Fatalf("write config: %v", err)
-		}
-		loaded, err := Load(dir, cfgPath)
-		if err != nil {
-			t.Fatalf("load: %v", err)
-		}
-		ent := loaded.Cfg.Mapping["a-dev"]
-		if ent.Format != "raw" || ent.Path != "/" || ent.Mode != "sync" {
-			t.Fatalf("defaults not applied: %+v", ent)
-		}
-	})
+		t.Run("DefaultsApplied", func(t *testing.T) {
+			dir := t.TempDir()
+			cfgPath := filepath.Join(dir, DefaultConfigName)
+			if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+			loaded, err := Load(dir, cfgPath)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			ent := loaded.Cfg.Mapping["a-dev"]
+			if ent.Format != "raw" || ent.Path != "/" || ent.Mode != "both" {
+				t.Fatalf("defaults not applied: %+v", ent)
+			}
+		})
+
+		t.Run("LegacySyncAliasNormalizesToBoth", func(t *testing.T) {
+			dir := t.TempDir()
+			cfgPath := filepath.Join(dir, DefaultConfigName)
+			if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"sync"}}}`), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+			loaded, err := Load(dir, cfgPath)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			ent := loaded.Cfg.Mapping["a-dev"]
+			if ent.Mode != "both" {
+				t.Fatalf("expected mode both, got: %+v", ent)
+			}
+		})
 
 	t.Run("DiscoverySuccess", func(t *testing.T) {
 		root := t.TempDir()
