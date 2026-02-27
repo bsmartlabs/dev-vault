@@ -7,3 +7,7 @@ dist/
 coverage.out
 coverage-*.out
 coverage*.html
+
+# Desloppify generated artifacts
+.desloppify/
+scorecard.png
