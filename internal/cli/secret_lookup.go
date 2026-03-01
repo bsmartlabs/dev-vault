@@ -5,7 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
@@ -22,10 +21,15 @@ func (e *notFoundError) Error() string {
 	return fmt.Sprintf("secret not found: name=%s path=%s", e.name, e.path)
 }
 
-func resolveSecretByNameAndPath(api SecretLister, cfg config.Config, name, path string) (*SecretRecord, error) {
+type secretProjectScope struct {
+	Region    string
+	ProjectID string
+}
+
+func resolveSecretByNameAndPath(api SecretLister, scope secretProjectScope, name, path string) (*SecretRecord, error) {
 	respSecrets, err := listSecretsByTypes(api, ListSecretsInput{
-		Region:    cfg.Region,
-		ProjectID: cfg.ProjectID,
+		Region:    scope.Region,
+		ProjectID: scope.ProjectID,
 		Name:      name,
 		Path:      path,
 	}, supportedSecretTypes())

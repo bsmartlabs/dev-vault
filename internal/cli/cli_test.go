@@ -30,12 +30,10 @@ type fakeSecretAPI struct {
 }
 
 type fakeVersion struct {
-	revision     uint32
-	enabled      bool
-	data         []byte
-	description  *string
-	disablePrev  bool
-	createdAtUTC time.Time
+	revision    uint32
+	enabled     bool
+	data        []byte
+	description *string
 }
 
 func newFakeSecretAPI() *fakeSecretAPI {
@@ -1362,7 +1360,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	_, err := resolveSecretByNameAndPath(api, config.Config{ProjectID: "proj", Region: "fr-par"}, "dup-dev", "/")
+	_, err := resolveSecretByNameAndPath(api, secretProjectScope{ProjectID: "proj", Region: "fr-par"}, "dup-dev", "/")
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -1370,7 +1368,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 
 func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 	api := newFakeSecretAPI()
-	_, err := resolveSecretByNameAndPath(api, config.Config{ProjectID: "proj", Region: "fr-par"}, "missing-dev", "/")
+	_, err := resolveSecretByNameAndPath(api, secretProjectScope{ProjectID: "proj", Region: "fr-par"}, "missing-dev", "/")
 	var nf *notFoundError
 	if !errors.As(err, &nf) {
 		t.Fatalf("expected notFoundError, got %v", err)

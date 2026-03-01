@@ -19,7 +19,7 @@ type parsedCommand struct {
 	profileOverride string
 }
 
-func parseCommand(ctx commandContext, argv []string, spec commandSpec) (*parsedCommand, int, error) {
+func parseCommand(ctx commandContext, argv []string, spec commandSpec) (*parsedCommand, int) {
 	fs := flag.NewFlagSet(spec.name, flag.ContinueOnError)
 	fs.SetOutput(ctx.stderr)
 	fs.Usage = func() { spec.usage(ctx.stderr) }
@@ -35,14 +35,14 @@ func parseCommand(ctx commandContext, argv []string, spec commandSpec) (*parsedC
 	reordered := reorderFlags(argv, withGlobalFlagSpecs(spec.localFlagSpecs))
 	if err := fs.Parse(reordered); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return nil, 0, nil
+			return nil, 0
 		}
-		return nil, 2, usageError(err)
+		return nil, 2
 	}
 
 	return &parsedCommand{
 		fs:              fs,
 		configPath:      configPath,
 		profileOverride: profileOverride,
-	}, -1, nil
+	}, -1
 }

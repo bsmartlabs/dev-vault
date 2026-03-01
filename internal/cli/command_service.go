@@ -46,6 +46,13 @@ func newCommandService(loaded *config.Loaded, api SecretAPI, deps Dependencies) 
 	}
 }
 
+func (s commandService) projectScope() secretProjectScope {
+	return secretProjectScope{
+		Region:    s.loaded.Cfg.Region,
+		ProjectID: s.loaded.Cfg.ProjectID,
+	}
+}
+
 func (s commandService) list(query listQuery) ([]listRecord, error) {
 	req := ListSecretsInput{
 		Region:    s.loaded.Cfg.Region,
@@ -116,7 +123,7 @@ func (s commandService) pull(targets []string, overwrite bool) ([]pullResult, er
 			return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
 		}
 
-		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.loaded.Cfg, name, entry.Path)
+		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), name, entry.Path)
 		if err != nil {
 			return nil, fmt.Errorf("resolve %s: %w", name, err)
 		}
@@ -229,7 +236,7 @@ func (s commandService) readPushPayload(name string, entry config.MappingEntry) 
 }
 
 func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool) (*SecretRecord, error) {
-	resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.loaded.Cfg, name, entry.Path)
+	resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), name, entry.Path)
 	if err == nil {
 		if entry.Type != "" && resolvedSecret.Type != entry.Type {
 			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)

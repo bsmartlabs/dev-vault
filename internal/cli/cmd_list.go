@@ -15,7 +15,7 @@ func runList(ctx commandContext, argv []string) int {
 	var typeFilter string
 	var jsonOut bool
 
-	parsed, exitCode, err := parseCommand(ctx, argv, commandSpec{
+	parsed, exitCode := parseCommand(ctx, argv, commandSpec{
 		name:  "list",
 		usage: printListUsage,
 		localFlagSpecs: map[string]bool{
@@ -38,6 +38,7 @@ func runList(ctx commandContext, argv []string) int {
 	}
 
 	var re *regexp.Regexp
+	var err error
 	if nameRegex != "" {
 		compiled, err := regexp.Compile(nameRegex)
 		if err != nil {
@@ -48,13 +49,21 @@ func runList(ctx commandContext, argv []string) int {
 		re = compiled
 	}
 
-	filtered, warnings, err := executeList(parsed.configPath, parsed.profileOverride, ctx.deps, listQuery{
+	loaded, api, err := loadAndOpenAPI(parsed.configPath, parsed.profileOverride, ctx.deps)
+	if err != nil {
+		runErr := runtimeError(err)
+		fmt.Fprintln(ctx.stderr, runErr.Error())
+		return exitCodeForError(runErr)
+	}
+	service := newCommandService(loaded, api, ctx.deps)
+
+	filtered, err := service.list(listQuery{
 		NameContains: contains,
 		NameRegex:    re,
 		Path:         pathFilter,
 		Type:         typeFilter,
 	})
-	printConfigWarnings(ctx.stderr, warnings)
+	printConfigWarnings(ctx.stderr, loaded.Warnings)
 	if err != nil {
 		fmt.Fprintln(ctx.stderr, err.Error())
 		return exitCodeForError(err)

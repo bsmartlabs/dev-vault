@@ -8,7 +8,7 @@ import (
 func runPull(ctx commandContext, argv []string) int {
 	var all bool
 	var overwrite bool
-	parsed, exitCode, err := parseCommand(ctx, argv, commandSpec{
+	parsed, exitCode := parseCommand(ctx, argv, commandSpec{
 		name:           "pull",
 		usage:          printPullUsage,
 		localFlagSpecs: map[string]bool{"all": false, "overwrite": false},
@@ -21,8 +21,22 @@ func runPull(ctx commandContext, argv []string) int {
 		return exitCode
 	}
 
-	results, warnings, err := executePull(parsed.configPath, parsed.profileOverride, ctx.deps, all, parsed.fs.Args(), overwrite)
-	printConfigWarnings(ctx.stderr, warnings)
+	loaded, api, err := loadAndOpenAPI(parsed.configPath, parsed.profileOverride, ctx.deps)
+	if err != nil {
+		runErr := runtimeError(err)
+		fmt.Fprintln(ctx.stderr, runErr.Error())
+		return exitCodeForError(runErr)
+	}
+	service := newCommandService(loaded, api, ctx.deps)
+
+	targets, err := selectMappingTargets(loaded.Cfg.Mapping, all, parsed.fs.Args(), "pull")
+	printConfigWarnings(ctx.stderr, loaded.Warnings)
+	if err != nil {
+		fmt.Fprintln(ctx.stderr, err.Error())
+		return exitCodeForError(err)
+	}
+
+	results, err := service.pull(targets, overwrite)
 	if err != nil {
 		fmt.Fprintln(ctx.stderr, err.Error())
 		return exitCodeForError(err)

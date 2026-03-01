@@ -82,8 +82,8 @@ Unit tests are fully mocked (no Scaleway network calls).
 
 Provider compatibility gate:
 
-- Adapter contract tests (`internal/cli/scaleway_secret_api_test.go`) validate DTO translation and request shaping without network access.
-- Optional live integration gate (read-only list call through the adapter):
+- Secret API contract tests (`internal/cli/scaleway_secret_api_test.go`) validate DTO translation and request shaping without network access.
+- Optional live integration gate (read-only list call through the Secret API):
 
 ```bash
 DEV_VAULT_TEST_PROJECT_ID=<project-id> \

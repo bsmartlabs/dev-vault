@@ -17,7 +17,7 @@ func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
 		region = "fr-par"
 	}
 	if projectID == "" || orgID == "" {
-		t.Skip("set DEV_VAULT_TEST_PROJECT_ID and DEV_VAULT_TEST_ORGANIZATION_ID to run integration adapter gate")
+		t.Skip("set DEV_VAULT_TEST_PROJECT_ID and DEV_VAULT_TEST_ORGANIZATION_ID to run integration secret API gate")
 	}
 
 	api, err := OpenScalewaySecretAPI(config.Config{
@@ -36,6 +36,6 @@ func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
 		Type:      "opaque",
 	})
 	if err != nil {
-		t.Fatalf("list secrets via adapter: %v", err)
+		t.Fatalf("list secrets via secret api: %v", err)
 	}
 }

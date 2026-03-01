@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
@@ -17,7 +16,7 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 	fake := newFakeSecretAPI()
 	s := fake.AddSecret("project", "x-dev", "/", secret.SecretTypeOpaque)
 
-	found, err := resolveSecretByNameAndPath(fake, config.Config{
+	found, err := resolveSecretByNameAndPath(fake, secretProjectScope{
 		Region:    "fr-par",
 		ProjectID: "project",
 	}, "x-dev", "/")
