@@ -121,34 +121,22 @@ func TestRun_ReportsServiceInitErrorWhenAPIIsNil(t *testing.T) {
 	}
 }
 
-func TestParseCommandErrorContract(t *testing.T) {
-	base := errors.New("parse boom")
-	parseErr := &parseCommandError{code: 2, err: base}
-	if parseErr.Error() != "parse boom" {
-		t.Fatalf("unexpected parse error string: %q", parseErr.Error())
+func TestCommandErrorExitCodeContract(t *testing.T) {
+	base := errors.New("boom")
+	if code := exitCodeForError(nil); code != 0 {
+		t.Fatalf("expected 0, got %d", code)
 	}
-	if parseErr.Unwrap() != base {
-		t.Fatalf("unexpected unwrap: %v", parseErr.Unwrap())
+	if code := exitCodeForError(helpError(base)); code != 0 {
+		t.Fatalf("expected 0 for help, got %d", code)
 	}
-
-	fallback := &parseCommandError{code: 0}
-	if fallback.Error() != "command parse exit" {
-		t.Fatalf("unexpected fallback error: %q", fallback.Error())
+	if code := exitCodeForError(usageError(base)); code != 2 {
+		t.Fatalf("expected 2 for usage, got %d", code)
 	}
-
-	code, terminal := parseCommandExitCode(nil)
-	if terminal || code != 0 {
-		t.Fatalf("nil parse error should continue, got code=%d terminal=%v", code, terminal)
+	if code := exitCodeForError(runtimeError(base)); code != 1 {
+		t.Fatalf("expected 1 for runtime, got %d", code)
 	}
-
-	code, terminal = parseCommandExitCode(parseErr)
-	if !terminal || code != 2 {
-		t.Fatalf("parse command error should exit usage, got code=%d terminal=%v", code, terminal)
-	}
-
-	code, terminal = parseCommandExitCode(errors.New("other"))
-	if !terminal || code != 1 {
-		t.Fatalf("non-parse error should map to runtime, got code=%d terminal=%v", code, terminal)
+	if code := exitCodeForError(outputError(base)); code != 1 {
+		t.Fatalf("expected 1 for output, got %d", code)
 	}
 }
 

@@ -8,6 +8,7 @@ const (
 	commandErrorUsage commandErrorKind = iota + 1
 	commandErrorRuntime
 	commandErrorOutput
+	commandErrorHelp
 )
 
 type commandError struct {
@@ -46,6 +47,10 @@ func outputError(err error) error {
 	return wrapCommandError(commandErrorOutput, err)
 }
 
+func helpError(err error) error {
+	return wrapCommandError(commandErrorHelp, err)
+}
+
 func exitCodeForError(err error) int {
 	if err == nil {
 		return 0
@@ -53,6 +58,8 @@ func exitCodeForError(err error) int {
 	var commandErr *commandError
 	if errors.As(err, &commandErr) {
 		switch commandErr.kind {
+		case commandErrorHelp:
+			return 0
 		case commandErrorUsage:
 			return 2
 		default:

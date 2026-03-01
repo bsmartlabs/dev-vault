@@ -38,15 +38,11 @@ func TestParseCommand_SingleDashHelpPath(t *testing.T) {
 	if parsed != nil {
 		t.Fatalf("expected nil parsed command on help, got %#v", parsed)
 	}
-	var parseErr *parseCommandError
-	if !errors.As(err, &parseErr) {
-		t.Fatalf("expected parseCommandError, got %T", err)
+	if exitCodeForError(err) != 0 {
+		t.Fatalf("expected help exit code 0, got %d", exitCodeForError(err))
 	}
-	if parseErr.code != 0 {
-		t.Fatalf("expected help exit code 0, got %d", parseErr.code)
-	}
-	if !errors.Is(parseErr.err, flag.ErrHelp) {
-		t.Fatalf("expected ErrHelp, got %v", parseErr.err)
+	if !errors.Is(err, flag.ErrHelp) {
+		t.Fatalf("expected ErrHelp, got %v", err)
 	}
 }
 
@@ -63,11 +59,7 @@ func TestParseCommand_SingleDashHelpWriteFailure(t *testing.T) {
 	if parsed != nil {
 		t.Fatalf("expected nil parsed command on help failure, got %#v", parsed)
 	}
-	var parseErr *parseCommandError
-	if !errors.As(err, &parseErr) {
-		t.Fatalf("expected parseCommandError, got %T", err)
-	}
-	if parseErr.code != 1 {
-		t.Fatalf("expected output failure code 1, got %d", parseErr.code)
+	if exitCodeForError(err) != 1 {
+		t.Fatalf("expected output failure code 1, got %d", exitCodeForError(err))
 	}
 }

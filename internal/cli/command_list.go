@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
@@ -103,13 +102,13 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 			return nil
 		}
 
-		tw := tabwriter.NewWriter(ctx.stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(tw, "NAME\tTYPE\tPATH\tID")
-		for _, it := range filtered {
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", it.Name, it.Type, it.Path, it.ID)
-		}
-		if err := tw.Flush(); err != nil {
+		if _, err := fmt.Fprintln(ctx.stdout, "NAME\tTYPE\tPATH\tID"); err != nil {
 			return outputError(err)
+		}
+		for _, it := range filtered {
+			if _, err := fmt.Fprintf(ctx.stdout, "%s\t%s\t%s\t%s\n", it.Name, it.Type, it.Path, it.ID); err != nil {
+				return outputError(err)
+			}
 		}
 		return nil
 	})

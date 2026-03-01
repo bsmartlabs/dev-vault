@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"flag"
 )
 
@@ -32,39 +31,12 @@ func (p *parsedCommand) Strings(name string) []string {
 	return out
 }
 
-type parseCommandError struct {
-	code int
-	err  error
-}
-
-func (e *parseCommandError) Error() string {
-	if e.err != nil {
-		return e.err.Error()
-	}
-	return "command parse exit"
-}
-
-func (e *parseCommandError) Unwrap() error {
-	return e.err
-}
-
-func parseCommandExitCode(err error) (code int, terminal bool) {
-	if err == nil {
-		return 0, false
-	}
-	var parseErr *parseCommandError
-	if errors.As(err, &parseErr) {
-		return parseErr.code, true
-	}
-	return 1, true
-}
-
 func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCommand, error) {
 	if hasHelpFlag(argv) {
 		if err := printCommandUsage(ctx.stdout, def); err != nil {
-			return nil, &parseCommandError{code: 1, err: outputError(err)}
+			return nil, outputError(err)
 		}
-		return nil, &parseCommandError{code: 0, err: flag.ErrHelp}
+		return nil, helpError(flag.ErrHelp)
 	}
 
 	fs := flag.NewFlagSet(def.Name, flag.ContinueOnError)
@@ -101,7 +73,7 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 
 	reordered := reorderFlags(argv, withGlobalFlagSpecs(takesValueMap(def)))
 	if err := fs.Parse(reordered); err != nil {
-		return nil, &parseCommandError{code: 2, err: err}
+		return nil, usageError(err)
 	}
 
 	boolValues := make(map[string]bool, len(boolHolders))
@@ -146,8 +118,8 @@ func hasHelpFlag(argv []string) bool {
 
 func runParsedCommand(ctx commandContext, argv []string, def commandDef, run func(parsed *parsedCommand) int) int {
 	parsed, parseErr := parseCommand(ctx, argv, def)
-	if code, terminal := parseCommandExitCode(parseErr); terminal {
-		return code
+	if parseErr != nil {
+		return exitCodeForError(parseErr)
 	}
 	return run(parsed)
 }
