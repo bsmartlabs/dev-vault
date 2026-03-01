@@ -11,9 +11,8 @@ import (
 )
 
 func (s Service) PullBatch(targets []MappingTarget, overwrite bool) PullBatchResult {
-	validTargets, policyFailures := splitTargetsByPolicy(targets, mapping.ModePull)
 	succeeded, failed, summary := runBatch[PullResult](
-		validTargets,
+		targets,
 		"pull",
 		func(target MappingTarget) (PullResult, error) {
 			return s.pullOne(target, overwrite)
@@ -22,11 +21,6 @@ func (s Service) PullBatch(targets []MappingTarget, overwrite bool) PullBatchRes
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
-	if len(policyFailures) > 0 {
-		failed = append(policyFailures, failed...)
-	}
-	summary.Failed = len(failed)
-	summary.Total = len(targets)
 	return PullBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
 }
 

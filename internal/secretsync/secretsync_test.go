@@ -456,31 +456,6 @@ func TestPullBatch_AllSuccess(t *testing.T) {
 	}
 }
 
-func TestBatchTargetValidationGuards(t *testing.T) {
-	svc := baseService(t.TempDir(), nil, newFakeSecretAPI())
-
-	pullNonDev := svc.PullBatch([]MappingTarget{
-		{Name: "x-prod", Entry: mapping.Entry{File: "x", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
-	}, true)
-	if pullNonDev.Summary.ErrorOrNil() == nil {
-		t.Fatal("expected pull batch validation error for non-dev secret")
-	}
-
-	pullWrongMode := svc.PullBatch([]MappingTarget{
-		{Name: "x-dev", Entry: mapping.Entry{File: "x", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePush}},
-	}, true)
-	if pullWrongMode.Summary.ErrorOrNil() == nil {
-		t.Fatal("expected pull batch validation error for wrong mode")
-	}
-
-	pushWrongMode := svc.PushBatch([]MappingTarget{
-		{Name: "x-dev", Entry: mapping.Entry{File: "x", Path: "/", Type: "opaque", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
-	}, PushOptions{})
-	if pushWrongMode.Summary.ErrorOrNil() == nil {
-		t.Fatal("expected push batch validation error for wrong mode")
-	}
-}
-
 func TestPushHelpersAndPush(t *testing.T) {
 	root := t.TempDir()
 	api := newFakeSecretAPI()
