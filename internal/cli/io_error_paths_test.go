@@ -125,7 +125,7 @@ func TestRuntimeExecute_ErrorWriteFailureStillReturnsExitCode(t *testing.T) {
 	api := newFakeSecretAPI()
 	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
-	api.createVerErr = errors.New("version boom")
+	api.CreateVerErr = errors.New("version boom")
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	code := runPush(commandContext{

@@ -32,7 +32,7 @@ func TestCommandServiceModule_NewServiceWiresDeps(t *testing.T) {
 
 func TestCommandService_LookupMappedSecret_ListError(t *testing.T) {
 	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
 		Now:      time.Now,
 		Hostname: func() (string, error) { return "host", nil },
@@ -64,7 +64,7 @@ func TestCommandService_ResolveMappedSecret_NoCreateMissing(t *testing.T) {
 
 func TestCommandService_List_ListError(t *testing.T) {
 	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
 		Now:      time.Now,
 		Hostname: func() (string, error) { return "host", nil },
@@ -96,7 +96,7 @@ func TestCommandService_ResolveMappedSecret_CreateMissingRequiresType(t *testing
 
 func TestCommandService_ResolveMappedSecret_ListErrorWithCreateMissing(t *testing.T) {
 	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
 		Now:      time.Now,
 		Hostname: func() (string, error) { return "host", nil },

@@ -19,8 +19,8 @@ func (c *createSecretNoPersist) AccessSecretVersion(req AccessSecretVersionInput
 }
 func (c *createSecretNoPersist) CreateSecret(req CreateSecretInput) (*SecretRecord, error) {
 	// Do not persist.
-	if c.inner.createSecretErr != nil {
-		return nil, c.inner.createSecretErr
+	if c.inner.CreateSecretErr != nil {
+		return nil, c.inner.CreateSecretErr
 	}
 	return &SecretRecord{ID: "tmp", ProjectID: "proj", Name: req.Name, Path: "/", Type: req.Type}, nil
 }

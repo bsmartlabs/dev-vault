@@ -488,8 +488,8 @@ func TestRunList_JSONAndTableAndErrors(t *testing.T) {
 	})
 
 	t.Run("ListAPIError", func(t *testing.T) {
-		api.listErr = errors.New("boom")
-		defer func() { api.listErr = nil }()
+		api.ListErr = errors.New("boom")
+		defer func() { api.ListErr = nil }()
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "list"}, &out, &errBuf, deps)
 		if code != 1 {
@@ -514,7 +514,7 @@ func TestRunList_JSONAndTableAndErrors(t *testing.T) {
 	})
 
 	t.Run("JSONEncodeError", func(t *testing.T) {
-		api.listCalls = 0
+		api.ListCalls = 0
 		failWriter := &failingWriter{}
 		var errBuf bytes.Buffer
 		code := runList(commandContext{

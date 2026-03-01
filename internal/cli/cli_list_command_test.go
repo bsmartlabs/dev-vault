@@ -71,13 +71,13 @@ func TestRunList_MoreBranches(t *testing.T) {
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 		var out, errBuf bytes.Buffer
-		api.listCalls = 0
+		api.ListCalls = 0
 		code := Run([]string{"dev-vault", "--config", cfgPath, "list", "--type", "opaque", "--json"}, &out, &errBuf, deps)
 		if code != 0 {
 			t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 		}
-		if api.listCalls != 1 {
-			t.Fatalf("expected 1 list call, got %d", api.listCalls)
+		if api.ListCalls != 1 {
+			t.Fatalf("expected 1 list call, got %d", api.ListCalls)
 		}
 	})
 
@@ -131,8 +131,8 @@ func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
 		t.Fatalf("expected 0, got %d", code)
 	}
 	// List command should use a single filtered API query for untyped lists.
-	if api.listCalls != 1 {
-		t.Fatalf("expected 1 list call, got %d", api.listCalls)
+	if api.ListCalls != 1 {
+		t.Fatalf("expected 1 list call, got %d", api.ListCalls)
 	}
 }
 

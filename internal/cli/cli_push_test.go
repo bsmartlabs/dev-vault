@@ -71,8 +71,8 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 		}
-		vers := api.versions[foo.ID]
-		if len(vers) != 1 || string(vers[0].data) != "DATA" {
+		vers := api.Versions[foo.ID]
+		if len(vers) != 1 || string(vers[0].Data) != "DATA" {
 			t.Fatalf("unexpected versions: %#v", vers)
 		}
 	})
@@ -83,12 +83,12 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 		}
-		vers := api.versions[bar.ID]
+		vers := api.Versions[bar.ID]
 		if len(vers) != 1 {
 			t.Fatalf("expected 1 version, got %d", len(vers))
 		}
 		var m map[string]string
-		if err := json.Unmarshal(vers[0].data, &m); err != nil {
+		if err := json.Unmarshal(vers[0].Data, &m); err != nil {
 			t.Fatalf("unmarshal pushed json: %v", err)
 		}
 		want := map[string]string{"A": "1", "B": "x"}
@@ -105,9 +105,9 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
 		}
 		// new secret should now exist.
 		var created *SecretRecord
-		for i := range api.secrets {
-			if api.secrets[i].Name == "new-dev" {
-				created = &api.secrets[i]
+		for i := range api.Secrets {
+			if api.Secrets[i].Name == "new-dev" {
+				created = &api.Secrets[i]
 			}
 		}
 		if created == nil {
@@ -183,12 +183,12 @@ func TestRunPush_MoreBranches(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 		}
-		vers := api.versions[foo.ID]
-		if len(vers) != 1 || vers[0].description == nil {
+		vers := api.Versions[foo.ID]
+		if len(vers) != 1 || vers[0].Description == nil {
 			t.Fatalf("expected description to be set, got %#v", vers)
 		}
-		if !strings.Contains(*vers[0].description, "dev-vault push") || !strings.Contains(*vers[0].description, "host") {
-			t.Fatalf("unexpected description: %q", *vers[0].description)
+		if !strings.Contains(*vers[0].Description, "dev-vault push") || !strings.Contains(*vers[0].Description, "host") {
+			t.Fatalf("unexpected description: %q", *vers[0].Description)
 		}
 	})
 }
@@ -332,7 +332,7 @@ func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 
 func TestListSecretsByTypes_Error(t *testing.T) {
 	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
 	_, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"})
 	if err == nil {
@@ -359,8 +359,8 @@ func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T)
 		ResolveProjectPath: pathpolicy.ResolveProjectFile,
 	}
 
-	api.createVerErr = errors.New("boom")
-	defer func() { api.createVerErr = nil }()
+	api.CreateVerErr = errors.New("boom")
+	defer func() { api.CreateVerErr = nil }()
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "foo-dev"}, &out, &errBuf, deps)
 	if code != 1 {
@@ -389,8 +389,8 @@ func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.
 	})
 
 	t.Run("CreateSecretError", func(t *testing.T) {
-		api.createSecretErr = errors.New("boom")
-		defer func() { api.createSecretErr = nil }()
+		api.CreateSecretErr = errors.New("boom")
+		defer func() { api.CreateSecretErr = nil }()
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev", "--create-missing"}, &out, &errBuf, deps)
@@ -464,11 +464,11 @@ func TestRunPush_DisablePrevious(t *testing.T) {
 	if code := Run([]string{"dev-vault", "--config", cfgPath, "push", "foo-dev", "--disable-previous", "--description", "d2"}, &out2, &err2, deps); code != 0 {
 		t.Fatalf("second push: %d (%s)", code, err2.String())
 	}
-	vers := api.versions[foo.ID]
+	vers := api.Versions[foo.ID]
 	if len(vers) != 2 {
 		t.Fatalf("expected 2 versions, got %d", len(vers))
 	}
-	if vers[0].enabled {
+	if vers[0].Enabled {
 		t.Fatalf("expected rev1 disabled")
 	}
 }
@@ -480,7 +480,7 @@ func TestRunPush_ListErrorViaLookupIndex(t *testing.T) {
 		t.Fatalf("write in.bin: %v", err)
 	}
 	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "foo-dev", "--description", "desc"}, &out, &errBuf, deps)
@@ -530,7 +530,7 @@ func TestRunPush_CreateMissing_ResolveStillFails(t *testing.T) {
 	api := newFakeSecretAPI()
 	// Override CreateSecret to succeed but not persist, forcing resolve to still fail.
 	api2 := *api
-	api2.createSecretErr = nil
+	api2.CreateSecretErr = nil
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return &api2, nil
 	})

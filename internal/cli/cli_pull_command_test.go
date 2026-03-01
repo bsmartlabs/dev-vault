@@ -85,8 +85,8 @@ func TestRunPull_RawAndErrors(t *testing.T) {
 	})
 
 	t.Run("AccessError", func(t *testing.T) {
-		api.accessErr = errors.New("boom")
-		defer func() { api.accessErr = nil }()
+		api.AccessErr = errors.New("boom")
+		defer func() { api.AccessErr = nil }()
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)
 		if code != 1 {
@@ -247,7 +247,7 @@ func TestRunPull_ListErrorViaResolve(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)

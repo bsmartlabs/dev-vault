@@ -11,155 +11,15 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
+	testsecretapi "github.com/bsmartlabs/dev-vault/internal/testdouble/secretapi"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-type deterministicFakeSecretAPI struct {
-	listErr         error
-	accessErr       error
-	createSecretErr error
-	createVerErr    error
-
-	secrets  []secretprovider.SecretRecord
-	versions map[string][]deterministicFakeVersion
-}
-
-type deterministicFakeVersion struct {
-	revision    uint32
-	enabled     bool
-	data        []byte
-	description *string
-}
-
 func newDeterministicFakeSecretAPI() *deterministicFakeSecretAPI {
-	return &deterministicFakeSecretAPI{
-		secrets:  []secretprovider.SecretRecord{},
-		versions: make(map[string][]deterministicFakeVersion),
-	}
+	return testsecretapi.NewDeterministicFakeSecretAPI()
 }
 
-func (f *deterministicFakeSecretAPI) AddSecret(projectID, name, path string, typ secret.SecretType) *secretprovider.SecretRecord {
-	id := "sec-" + name + "-" + projectID
-	s := secretprovider.SecretRecord{
-		ID:        id,
-		ProjectID: projectID,
-		Name:      name,
-		Path:      path,
-		Type:      secretprovider.SecretType(typ),
-	}
-	f.secrets = append(f.secrets, s)
-	return &f.secrets[len(f.secrets)-1]
-}
-
-func (f *deterministicFakeSecretAPI) AddEnabledVersion(secretID string, data []byte) uint32 {
-	rev := uint32(len(f.versions[secretID]) + 1)
-	f.versions[secretID] = append(f.versions[secretID], deterministicFakeVersion{
-		revision: rev,
-		enabled:  true,
-		data:     data,
-	})
-	return rev
-}
-
-func (f *deterministicFakeSecretAPI) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider.SecretRecord, error) {
-	if f.listErr != nil {
-		return nil, f.listErr
-	}
-	var out []secretprovider.SecretRecord
-	for _, s := range f.secrets {
-		if req.Name != "" && s.Name != req.Name {
-			continue
-		}
-		if req.Path != "" && s.Path != req.Path {
-			continue
-		}
-		if req.Type != "" && s.Type != req.Type {
-			continue
-		}
-		out = append(out, s)
-	}
-	return out, nil
-}
-
-func (f *deterministicFakeSecretAPI) AccessSecretVersion(req secretprovider.AccessSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
-	if f.accessErr != nil {
-		return nil, f.accessErr
-	}
-	s := f.findSecret(req.SecretID)
-	if s == nil {
-		return nil, errors.New("unknown secret")
-	}
-	versions := f.versions[req.SecretID]
-	var chosen *deterministicFakeVersion
-	switch req.Revision {
-	case secretprovider.RevisionLatestEnabled:
-		for i := range versions {
-			v := versions[i]
-			if v.enabled {
-				if chosen == nil || v.revision > chosen.revision {
-					chosen = &v
-				}
-			}
-		}
-	default:
-		return nil, errors.New("unsupported revision selector")
-	}
-	if chosen == nil {
-		return nil, errors.New("no enabled version")
-	}
-	return &secretprovider.SecretVersionRecord{
-		SecretID: req.SecretID,
-		Revision: chosen.revision,
-		Data:     chosen.data,
-		Type:     s.Type,
-	}, nil
-}
-
-func (f *deterministicFakeSecretAPI) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovider.SecretRecord, error) {
-	if f.createSecretErr != nil {
-		return nil, f.createSecretErr
-	}
-	path := "/"
-	if req.Path != "" {
-		path = req.Path
-	}
-	return f.AddSecret("proj", req.Name, path, secret.SecretType(req.Type)), nil
-}
-
-func (f *deterministicFakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
-	if f.createVerErr != nil {
-		return nil, f.createVerErr
-	}
-	s := f.findSecret(req.SecretID)
-	if s == nil {
-		return nil, errors.New("unknown secret")
-	}
-	rev := uint32(len(f.versions[req.SecretID]) + 1)
-	if req.DisablePrevious != nil && *req.DisablePrevious {
-		for i := len(f.versions[req.SecretID]) - 1; i >= 0; i-- {
-			if f.versions[req.SecretID][i].enabled {
-				f.versions[req.SecretID][i].enabled = false
-				break
-			}
-		}
-	}
-	f.versions[req.SecretID] = append(f.versions[req.SecretID], deterministicFakeVersion{
-		revision:    rev,
-		enabled:     true,
-		data:        append([]byte(nil), req.Data...),
-		description: req.Description,
-	})
-	return &secretprovider.SecretVersionRecord{Revision: rev, SecretID: req.SecretID, Status: "enabled"}, nil
-}
-
-func (f *deterministicFakeSecretAPI) findSecret(id string) *secretprovider.SecretRecord {
-	for i := range f.secrets {
-		if f.secrets[i].ID == id {
-			return &f.secrets[i]
-		}
-	}
-	return nil
-}
+type deterministicFakeSecretAPI = testsecretapi.FakeSecretAPI
 
 func baseService(root string, _ map[string]mapping.Entry, api secretprovider.SecretAPI) Service {
 	svc, err := New(Config{Root: root}, api, Dependencies{
@@ -253,11 +113,11 @@ func TestLookupMappedSecret(t *testing.T) {
 	api := newDeterministicFakeSecretAPI()
 	svc := baseService(t.TempDir(), nil, api)
 
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected list error, got %v", err)
 	}
-	api.listErr = nil
+	api.ListErr = nil
 
 	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil {
 		t.Fatal("expected not found")
@@ -288,7 +148,7 @@ func TestLookupMappedSecret(t *testing.T) {
 
 func TestList(t *testing.T) {
 	api := newDeterministicFakeSecretAPI()
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	svc := baseService(t.TempDir(), nil, api)
 	if _, err := svc.List(ListQuery{}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected list error, got %v", err)
@@ -357,11 +217,11 @@ func TestPull(t *testing.T) {
 	}
 
 	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
-	api.accessErr = errors.New("access boom")
+	api.AccessErr = errors.New("access boom")
 	if result := svc.PullBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "out", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "access") {
 		t.Fatalf("expected access error, got %v", result.Summary.ErrorOrNil())
 	}
-	api.accessErr = nil
+	api.AccessErr = nil
 
 	api.AddEnabledVersion(sec.ID, []byte("not-json"))
 	if result := svc.PullBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "dotenv.env", Path: "/", Format: "dotenv", Mode: mapping.ModePull}}}, true); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "format dotenv") {
@@ -516,17 +376,17 @@ func TestPushHelpersAndPush(t *testing.T) {
 		t.Fatalf("expected missing type error, got %v", err)
 	}
 
-	api.listErr = errors.New("boom")
+	api.ListErr = errors.New("boom")
 	if _, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected list error passthrough, got %v", err)
 	}
-	api.listErr = nil
+	api.ListErr = nil
 
-	api.createSecretErr = errors.New("create secret boom")
+	api.CreateSecretErr = errors.New("create secret boom")
 	if _, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "create secret") {
 		t.Fatalf("expected create secret error, got %v", err)
 	}
-	api.createSecretErr = nil
+	api.CreateSecretErr = nil
 
 	created, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"})
 	if err != nil {
@@ -561,11 +421,11 @@ func TestPushHelpersAndPush(t *testing.T) {
 	if result := svc.PushBatch([]mapping.Target{{Name: "never-created-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{}); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPushBatchError(result).Error(), "resolve never-created-dev") {
 		t.Fatalf("expected push resolve error, got %v", result.Summary.ErrorOrNil())
 	}
-	api.createVerErr = errors.New("version boom")
+	api.CreateVerErr = errors.New("version boom")
 	if result := svc.PushBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{}); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPushBatchError(result).Error(), "create version") {
 		t.Fatalf("expected create version error, got %v", result.Summary.ErrorOrNil())
 	}
-	api.createVerErr = nil
+	api.CreateVerErr = nil
 
 	result := svc.PushBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{DisablePrevious: true})
 	if err := result.Summary.ErrorOrNil(); err != nil {
