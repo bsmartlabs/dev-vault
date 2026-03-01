@@ -12,7 +12,7 @@ func runPush(ctx commandContext, argv []string) int {
 	var description string
 	var createMissing bool
 
-	parsed, parseErr := parseCommand(ctx, argv, commandSpec{
+	return runParsedCommand(ctx, argv, commandSpec{
 		name:  "push",
 		usage: printPushUsage,
 		localFlagSpecs: map[string]bool{
@@ -29,35 +29,32 @@ func runPush(ctx commandContext, argv []string) int {
 			fs.StringVar(&description, "description", "", "Description for the new version (optional)")
 			fs.BoolVar(&createMissing, "create-missing", false, "Create missing secrets (requires mapping.type)")
 		},
-	})
-	if code, terminal := parseCommandExitCode(parseErr); terminal {
-		return code
-	}
-
-	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
-		mode: "push",
-		all:  all,
-		preflight: func(targets []mappingTarget) error {
-			if len(targets) > 1 && !yes {
-				return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
-			}
-			return nil
-		},
-		execute: func(service commandService, targets []mappingTarget) error {
-			results, err := service.push(targets, pushOptions{
-				Description:     description,
-				DisablePrevious: disablePrevious,
-				CreateMissing:   createMissing,
-			})
-			if err != nil {
-				return err
-			}
-			for _, item := range results {
-				if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
-					return outputError(err)
+	}, func(parsed *parsedCommand) int {
+		return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
+			mode: "push",
+			all:  all,
+			preflight: func(targets []mappingTarget) error {
+				if len(targets) > 1 && !yes {
+					return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
 				}
-			}
-			return nil
-		},
+				return nil
+			},
+			execute: func(service commandService, targets []mappingTarget) error {
+				results, err := service.push(targets, pushOptions{
+					Description:     description,
+					DisablePrevious: disablePrevious,
+					CreateMissing:   createMissing,
+				})
+				if err != nil {
+					return err
+				}
+				for _, item := range results {
+					if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
+						return outputError(err)
+					}
+				}
+				return nil
+			},
+		})
 	})
 }

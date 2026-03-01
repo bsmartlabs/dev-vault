@@ -73,3 +73,11 @@ func parseCommand(ctx commandContext, argv []string, spec commandSpec) (*parsedC
 		profileOverride: profileOverride,
 	}, nil
 }
+
+func runParsedCommand(ctx commandContext, argv []string, spec commandSpec, run func(parsed *parsedCommand) int) int {
+	parsed, parseErr := parseCommand(ctx, argv, spec)
+	if code, terminal := parseCommandExitCode(parseErr); terminal {
+		return code
+	}
+	return run(parsed)
+}
