@@ -14,6 +14,12 @@ type parsedCommand struct {
 	listOptions     listOptions
 }
 
+type parsedFlagValues struct {
+	boolValues   map[string]*bool
+	stringValues map[string]*string
+	sliceValues  map[string]*stringSliceFlag
+}
+
 func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCommand, error) {
 	if hasHelpFlag(argv) {
 		if err := printCommandUsage(ctx.stdout, def); err != nil {
@@ -65,28 +71,12 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 		profileOverride: profileOverride,
 		configPolicy:    def.Config,
 	}
-	switch def.Name {
-	case pullCommandDef.Name:
-		parsed.pullOptions = pullOptions{
-			all:       boolFlagValue(boolHolders, pullFlagAll),
-			overwrite: boolFlagValue(boolHolders, pullFlagOverwrite),
-		}
-	case pushCommandDef.Name:
-		parsed.pushOptions = pushOptions{
-			all:             boolFlagValue(boolHolders, pushFlagAll),
-			yes:             boolFlagValue(boolHolders, pushFlagYes),
-			disablePrevious: boolFlagValue(boolHolders, pushFlagDisablePrevious),
-			description:     stringFlagValue(stringHolders, pushFlagDescription),
-			createMissing:   boolFlagValue(boolHolders, pushFlagCreateMissing),
-		}
-	case listCommandDef.Name:
-		parsed.listOptions = listOptions{
-			json:         boolFlagValue(boolHolders, listFlagJSON),
-			nameContains: sliceFlagValue(sliceHolders, listFlagNameContains),
-			nameRegex:    stringFlagValue(stringHolders, listFlagNameRegex),
-			path:         stringFlagValue(stringHolders, listFlagPath),
-			secretType:   stringFlagValue(stringHolders, listFlagType),
-		}
+	if def.DecodeParsed != nil {
+		def.DecodeParsed(parsed, parsedFlagValues{
+			boolValues:   boolHolders,
+			stringValues: stringHolders,
+			sliceValues:  sliceHolders,
+		})
 	}
 	return parsed, nil
 }
@@ -117,21 +107,21 @@ func runCommand(ctx commandContext, argv []string, def commandDef) int {
 	})
 }
 
-func boolFlagValue(values map[string]*bool, name string) bool {
-	value, ok := values[name]
+func boolFlagValue(values parsedFlagValues, name string) bool {
+	value, ok := values.boolValues[name]
 	return ok && value != nil && *value
 }
 
-func stringFlagValue(values map[string]*string, name string) string {
-	value, ok := values[name]
+func stringFlagValue(values parsedFlagValues, name string) string {
+	value, ok := values.stringValues[name]
 	if !ok || value == nil {
 		return ""
 	}
 	return *value
 }
 
-func sliceFlagValue(values map[string]*stringSliceFlag, name string) []string {
-	value, ok := values[name]
+func sliceFlagValue(values parsedFlagValues, name string) []string {
+	value, ok := values.sliceValues[name]
 	if !ok || value == nil || len(*value) == 0 {
 		return nil
 	}

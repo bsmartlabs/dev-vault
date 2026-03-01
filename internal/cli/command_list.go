@@ -45,8 +45,9 @@ var listCommandDef = commandDef{
 			"dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value",
 		},
 	},
-	Config:    commandConfigProjectOnly,
-	RunParsed: runListParsed,
+	Config:       commandConfigProjectOnly,
+	DecodeParsed: decodeListParsed,
+	RunParsed:    runListParsed,
 }
 
 type listOptions struct {
@@ -55,6 +56,16 @@ type listOptions struct {
 	nameRegex    string
 	path         string
 	secretType   string
+}
+
+func decodeListParsed(parsed *parsedCommand, values parsedFlagValues) {
+	parsed.listOptions = listOptions{
+		json:         boolFlagValue(values, listFlagJSON),
+		nameContains: sliceFlagValue(values, listFlagNameContains),
+		nameRegex:    stringFlagValue(values, listFlagNameRegex),
+		path:         stringFlagValue(values, listFlagPath),
+		secretType:   stringFlagValue(values, listFlagType),
+	}
 }
 
 func parseListOptions(parsed *parsedCommand) listOptions {

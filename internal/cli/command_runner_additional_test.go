@@ -68,10 +68,12 @@ func TestFlagValueHelpers(t *testing.T) {
 	t.Run("BoolFlagValue", func(t *testing.T) {
 		trueValue := true
 		falseValue := false
-		values := map[string]*bool{
-			"true":  &trueValue,
-			"false": &falseValue,
-			"nil":   nil,
+		values := parsedFlagValues{
+			boolValues: map[string]*bool{
+				"true":  &trueValue,
+				"false": &falseValue,
+				"nil":   nil,
+			},
 		}
 		if !boolFlagValue(values, "true") {
 			t.Fatal("expected true flag value")
@@ -89,9 +91,11 @@ func TestFlagValueHelpers(t *testing.T) {
 
 	t.Run("StringFlagValue", func(t *testing.T) {
 		text := "value"
-		values := map[string]*string{
-			"set": &text,
-			"nil": nil,
+		values := parsedFlagValues{
+			stringValues: map[string]*string{
+				"set": &text,
+				"nil": nil,
+			},
 		}
 		if got := stringFlagValue(values, "set"); got != "value" {
 			t.Fatalf("unexpected string flag value: %q", got)
@@ -107,10 +111,12 @@ func TestFlagValueHelpers(t *testing.T) {
 	t.Run("SliceFlagValue", func(t *testing.T) {
 		value := stringSliceFlag{"a", "b"}
 		empty := stringSliceFlag{}
-		values := map[string]*stringSliceFlag{
-			"set":   &value,
-			"empty": &empty,
-			"nil":   nil,
+		values := parsedFlagValues{
+			sliceValues: map[string]*stringSliceFlag{
+				"set":   &value,
+				"empty": &empty,
+				"nil":   nil,
+			},
 		}
 		got := sliceFlagValue(values, "set")
 		if len(got) != 2 || got[0] != "a" || got[1] != "b" {

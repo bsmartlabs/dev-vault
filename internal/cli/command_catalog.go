@@ -32,12 +32,13 @@ const (
 )
 
 type commandDef struct {
-	Name      string
-	Summary   string
-	Flags     []commandFlagDef
-	Doc       commandDoc
-	Config    commandConfigPolicy
-	RunParsed func(commandContext, *parsedCommand) int
+	Name         string
+	Summary      string
+	Flags        []commandFlagDef
+	Doc          commandDoc
+	Config       commandConfigPolicy
+	DecodeParsed func(*parsedCommand, parsedFlagValues)
+	RunParsed    func(commandContext, *parsedCommand) int
 }
 
 var registeredCommandDefs = []commandDef{

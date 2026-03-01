@@ -48,8 +48,9 @@ var pushCommandDef = commandDef{
 			"dev-vault push --config .scw.json --all --yes --disable-previous",
 		},
 	},
-	Config:    commandConfigValidated,
-	RunParsed: runPushParsed,
+	Config:       commandConfigValidated,
+	DecodeParsed: decodePushParsed,
+	RunParsed:    runPushParsed,
 }
 
 type pushOptions struct {
@@ -58,6 +59,16 @@ type pushOptions struct {
 	disablePrevious bool
 	description     string
 	createMissing   bool
+}
+
+func decodePushParsed(parsed *parsedCommand, values parsedFlagValues) {
+	parsed.pushOptions = pushOptions{
+		all:             boolFlagValue(values, pushFlagAll),
+		yes:             boolFlagValue(values, pushFlagYes),
+		disablePrevious: boolFlagValue(values, pushFlagDisablePrevious),
+		description:     stringFlagValue(values, pushFlagDescription),
+		createMissing:   boolFlagValue(values, pushFlagCreateMissing),
+	}
 }
 
 func (o pushOptions) pushOptions() secretsync.PushOptions {

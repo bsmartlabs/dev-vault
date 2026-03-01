@@ -39,13 +39,21 @@ var pullCommandDef = commandDef{
 			"dev-vault pull bweb-env-bsmart-dev --config .scw.json --overwrite",
 		},
 	},
-	Config:    commandConfigValidated,
-	RunParsed: runPullParsed,
+	Config:       commandConfigValidated,
+	DecodeParsed: decodePullParsed,
+	RunParsed:    runPullParsed,
 }
 
 type pullOptions struct {
 	all       bool
 	overwrite bool
+}
+
+func decodePullParsed(parsed *parsedCommand, values parsedFlagValues) {
+	parsed.pullOptions = pullOptions{
+		all:       boolFlagValue(values, pullFlagAll),
+		overwrite: boolFlagValue(values, pullFlagOverwrite),
+	}
 }
 
 func parsePullOptions(parsed *parsedCommand) pullOptions {
