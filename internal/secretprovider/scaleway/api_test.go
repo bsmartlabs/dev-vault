@@ -293,6 +293,16 @@ func TestScalewaySecretAPI_CreateSecretVersion(t *testing.T) {
 	})
 }
 
+func TestAPI_ResolveRegion(t *testing.T) {
+	api := &API{defaultRegion: "fr-par"}
+	if got := api.resolveRegion(""); got != "fr-par" {
+		t.Fatalf("expected default region, got %q", got)
+	}
+	if got := api.resolveRegion("nl-ams"); got != "nl-ams" {
+		t.Fatalf("expected explicit region, got %q", got)
+	}
+}
+
 func TestToScalewaySecretType(t *testing.T) {
 	if _, err := toScalewaySecretType("opaque"); err != nil {
 		t.Fatalf("opaque should be supported: %v", err)

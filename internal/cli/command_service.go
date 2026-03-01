@@ -15,10 +15,8 @@ type commandService struct {
 }
 
 type commandServiceConfig struct {
-	Root      string
-	Region    string
-	ProjectID string
-	Mapping   map[string]config.MappingEntry
+	Root    string
+	Mapping map[string]config.MappingEntry
 }
 
 type pullResult struct {
@@ -41,17 +39,15 @@ type pushResult struct {
 
 func newCommandService(loaded *config.Loaded, api secretprovider.SecretAPI, deps Dependencies) commandService {
 	return newCommandServiceWithConfig(commandServiceConfig{
-		Root:      loaded.Root,
-		Region:    loaded.Cfg.Region,
-		ProjectID: loaded.Cfg.ProjectID,
-		Mapping:   loaded.Cfg.Mapping,
+		Root:    loaded.Root,
+		Mapping: loaded.Cfg.Mapping,
 	}, api, deps)
 }
 
 func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.SecretAPI, deps Dependencies) commandService {
 	return commandService{
 		cfg:      cfg,
-		api:      secretprovider.BindScope(api, cfg.Region, cfg.ProjectID),
+		api:      api,
 		now:      deps.Now,
 		hostname: deps.Hostname,
 	}
