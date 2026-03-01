@@ -1,11 +1,23 @@
-package cli
+package secretprovider
+
+type SecretType string
+
+const (
+	SecretTypeOpaque      SecretType = "opaque"
+	SecretTypeCertificate SecretType = "certificate"
+	SecretTypeKeyValue    SecretType = "key_value"
+)
+
+type SecretRevision string
+
+const SecretRevisionLatestEnabled SecretRevision = "latest_enabled"
 
 type SecretRecord struct {
 	ID        string
 	ProjectID string
 	Name      string
 	Path      string
-	Type      string
+	Type      SecretType
 }
 
 type ListSecretsInput struct {
@@ -13,20 +25,20 @@ type ListSecretsInput struct {
 	ProjectID string
 	Name      string
 	Path      string
-	Type      string
+	Type      SecretType
 }
 
 type AccessSecretVersionInput struct {
 	Region   string
 	SecretID string
-	Revision string
+	Revision SecretRevision
 }
 
 type SecretVersionRecord struct {
 	SecretID string
 	Revision uint32
 	Data     []byte
-	Type     string
+	Type     SecretType
 	Status   string
 }
 
@@ -35,7 +47,7 @@ type CreateSecretInput struct {
 	ProjectID string
 	Name      string
 	Path      string
-	Type      string
+	Type      SecretType
 }
 
 type CreateSecretVersionInput struct {
@@ -47,7 +59,7 @@ type CreateSecretVersionInput struct {
 }
 
 type SecretLister interface {
-	ListSecrets(req ListSecretsInput) ([]*SecretRecord, error)
+	ListSecrets(req ListSecretsInput) ([]SecretRecord, error)
 }
 
 type SecretVersionAccessor interface {

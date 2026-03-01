@@ -38,6 +38,7 @@ jobs:
             echo "coverage is $total, expected 100.0%"
             exit 1
           fi
+          go test ./internal/secretprovider/scaleway -run 'Test(Open_ProfileResolution|ScalewaySecretAPI_|ToScalewaySecretType)'
           go build ./cmd/dev-vault
 
       - name: Create and push tag

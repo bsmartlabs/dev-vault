@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
@@ -64,9 +65,29 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 	return out, nil
 }
 
-func parseSecretType(s string) (string, error) {
+type mappingTarget struct {
+	Name  string
+	Entry config.MappingEntry
+}
+
+func selectMappingCommandTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]mappingTarget, error) {
+	names, err := selectMappingTargets(mapping, all, positional, mode)
+	if err != nil {
+		return nil, err
+	}
+	targets := make([]mappingTarget, 0, len(names))
+	for _, name := range names {
+		targets = append(targets, mappingTarget{
+			Name:  name,
+			Entry: mapping[name],
+		})
+	}
+	return targets, nil
+}
+
+func parseSecretType(s string) (secretprovider.SecretType, error) {
 	if !secrettype.IsValid(s) {
 		return "", fmt.Errorf("unknown secret type %q", s)
 	}
-	return s, nil
+	return secretprovider.SecretType(s), nil
 }

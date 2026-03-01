@@ -5,11 +5,17 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
-func supportedSecretTypes() []string {
-	return secrettype.Names()
+func supportedSecretTypes() []secretprovider.SecretType {
+	names := secrettype.Names()
+	out := make([]secretprovider.SecretType, 0, len(names))
+	for _, name := range names {
+		out = append(out, secretprovider.SecretType(name))
+	}
+	return out
 }
 
 type notFoundError struct {
@@ -26,8 +32,8 @@ type secretProjectScope struct {
 	ProjectID string
 }
 
-func resolveSecretByNameAndPath(api SecretLister, scope secretProjectScope, name, path string) (*SecretRecord, error) {
-	respSecrets, err := listSecretsByTypes(api, ListSecretsInput{
+func resolveSecretByNameAndPath(api secretprovider.SecretLister, scope secretProjectScope, name, path string) (*secretprovider.SecretRecord, error) {
+	respSecrets, err := listSecretsByTypes(api, secretprovider.ListSecretsInput{
 		Region:    scope.Region,
 		ProjectID: scope.ProjectID,
 		Name:      name,
@@ -37,9 +43,9 @@ func resolveSecretByNameAndPath(api SecretLister, scope secretProjectScope, name
 		return nil, err
 	}
 
-	matches := make([]*SecretRecord, 0, len(respSecrets))
+	matches := make([]secretprovider.SecretRecord, 0, len(respSecrets))
 	for _, s := range respSecrets {
-		if s != nil && s.Name == name && s.Path == path {
+		if s.Name == name && s.Path == path {
 			matches = append(matches, s)
 		}
 	}
@@ -54,11 +60,11 @@ func resolveSecretByNameAndPath(api SecretLister, scope secretProjectScope, name
 		sort.Strings(ids)
 		return nil, fmt.Errorf("multiple secrets match name=%s path=%s: %s", name, path, strings.Join(ids, ","))
 	}
-	return matches[0], nil
+	return &matches[0], nil
 }
 
-func listSecretsByTypes(api SecretLister, base ListSecretsInput, types []string) ([]*SecretRecord, error) {
-	var out []*SecretRecord
+func listSecretsByTypes(api secretprovider.SecretLister, base secretprovider.ListSecretsInput, types []secretprovider.SecretType) ([]secretprovider.SecretRecord, error) {
+	var out []secretprovider.SecretRecord
 	for _, t := range types {
 		req := base
 		req.Type = t

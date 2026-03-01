@@ -30,7 +30,7 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 	secrets, err := listSecretsByTypes(fake, ListSecretsInput{
 		ProjectID: s.ProjectID,
 		Path:      s.Path,
-	}, []string{string(secret.SecretTypeOpaque)})
+	}, []SecretType{SecretTypeOpaque})
 	if err != nil {
 		t.Fatalf("listSecretsByTypes: %v", err)
 	}

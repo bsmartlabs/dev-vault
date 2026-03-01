@@ -82,7 +82,7 @@ Unit tests are fully mocked (no Scaleway network calls).
 
 Provider compatibility gate:
 
-- Secret API contract tests (`internal/cli/scaleway_secret_api_test.go`) validate DTO translation and request shaping without network access.
+- Secret API contract tests (`internal/secretprovider/scaleway/api_test.go` and `internal/secretprovider/scaleway/open_profile_test.go`) validate DTO translation, profile resolution, and request shaping without network access.
 - Optional live integration gate (read-only list call through the Secret API):
 
 ```bash

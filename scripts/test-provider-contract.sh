@@ -3,4 +3,4 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-go test ./internal/cli -tags=integration -run TestScalewaySecretAPI_IntegrationListOpaque "$@"
+go test ./internal/secretprovider/scaleway -tags=integration -run TestScalewaySecretAPI_IntegrationListOpaque "$@"

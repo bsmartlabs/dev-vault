@@ -10,13 +10,21 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/fsx"
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
 type commandService struct {
-	loaded   *config.Loaded
-	api      SecretAPI
+	cfg      commandServiceConfig
+	api      secretprovider.SecretAPI
 	now      func() time.Time
 	hostname func() (string, error)
+}
+
+type commandServiceConfig struct {
+	Root      string
+	Region    string
+	ProjectID string
+	Mapping   map[string]config.MappingEntry
 }
 
 type pullResult struct {
@@ -37,9 +45,18 @@ type pushResult struct {
 	Revision uint32
 }
 
-func newCommandService(loaded *config.Loaded, api SecretAPI, deps Dependencies) commandService {
+func newCommandService(loaded *config.Loaded, api secretprovider.SecretAPI, deps Dependencies) commandService {
+	return newCommandServiceWithConfig(commandServiceConfig{
+		Root:      loaded.Root,
+		Region:    loaded.Cfg.Region,
+		ProjectID: loaded.Cfg.ProjectID,
+		Mapping:   loaded.Cfg.Mapping,
+	}, api, deps)
+}
+
+func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.SecretAPI, deps Dependencies) commandService {
 	return commandService{
-		loaded:   loaded,
+		cfg:      cfg,
 		api:      api,
 		now:      deps.Now,
 		hostname: deps.Hostname,
@@ -48,15 +65,15 @@ func newCommandService(loaded *config.Loaded, api SecretAPI, deps Dependencies) 
 
 func (s commandService) projectScope() secretProjectScope {
 	return secretProjectScope{
-		Region:    s.loaded.Cfg.Region,
-		ProjectID: s.loaded.Cfg.ProjectID,
+		Region:    s.cfg.Region,
+		ProjectID: s.cfg.ProjectID,
 	}
 }
 
 func (s commandService) list(query listQuery) ([]listRecord, error) {
-	req := ListSecretsInput{
-		Region:    s.loaded.Cfg.Region,
-		ProjectID: s.loaded.Cfg.ProjectID,
+	req := secretprovider.ListSecretsInput{
+		Region:    s.cfg.Region,
+		ProjectID: s.cfg.ProjectID,
 	}
 	if query.Path != "" {
 		req.Path = query.Path
@@ -68,7 +85,7 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 		if err != nil {
 			return nil, usageError(fmt.Errorf("invalid --type: %w", err))
 		}
-		secretTypes = []string{st}
+		secretTypes = []secretprovider.SecretType{st}
 	}
 
 	respSecrets, err := listSecretsByTypes(s.api, req, secretTypes)
@@ -78,9 +95,6 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 
 	filtered := make([]listRecord, 0, len(respSecrets))
 	for _, secretRecord := range respSecrets {
-		if secretRecord == nil {
-			continue
-		}
 		if !strings.HasSuffix(secretRecord.Name, "-dev") {
 			continue
 		}
@@ -106,7 +120,7 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 			ID:   secretRecord.ID,
 			Name: secretRecord.Name,
 			Path: secretRecord.Path,
-			Type: secretRecord.Type,
+			Type: string(secretRecord.Type),
 		})
 	}
 
@@ -114,69 +128,67 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 	return filtered, nil
 }
 
-func (s commandService) pull(targets []string, overwrite bool) ([]pullResult, error) {
+func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullResult, error) {
 	results := make([]pullResult, 0, len(targets))
-	for _, name := range targets {
-		entry := s.loaded.Cfg.Mapping[name]
-		outPath, err := config.ResolveFile(s.loaded.Root, entry.File)
+	for _, target := range targets {
+		outPath, err := config.ResolveFile(s.cfg.Root, target.Entry.File)
 		if err != nil {
-			return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
+			return nil, fmt.Errorf("mapping %s: resolve file: %w", target.Name, err)
 		}
 
-		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), name, entry.Path)
+		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), target.Name, target.Entry.Path)
 		if err != nil {
-			return nil, fmt.Errorf("resolve %s: %w", name, err)
+			return nil, fmt.Errorf("resolve %s: %w", target.Name, err)
 		}
-		if entry.Type != "" && resolvedSecret.Type != entry.Type {
-			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
+		if target.Entry.Type != "" && resolvedSecret.Type != secretprovider.SecretType(target.Entry.Type) {
+			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", target.Name, target.Entry.Type, resolvedSecret.Type)
 		}
 
-		access, err := s.api.AccessSecretVersion(AccessSecretVersionInput{
-			Region:   s.loaded.Cfg.Region,
+		access, err := s.api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{
+			Region:   s.cfg.Region,
 			SecretID: resolvedSecret.ID,
-			Revision: "latest_enabled",
+			Revision: secretprovider.SecretRevisionLatestEnabled,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("access %s: %w", name, err)
+			return nil, fmt.Errorf("access %s: %w", target.Name, err)
 		}
 
 		payload := access.Data
-		if entry.Format == "dotenv" {
+		if target.Entry.Format == "dotenv" {
 			converted, err := jsonToDotenv(payload)
 			if err != nil {
-				return nil, fmt.Errorf("format dotenv %s: %w", name, err)
+				return nil, fmt.Errorf("format dotenv %s: %w", target.Name, err)
 			}
 			payload = converted
 		}
 
 		if err := fsx.AtomicWriteFile(outPath, payload, 0o600, overwrite); err != nil {
 			if errors.Is(err, fsx.ErrExists) {
-				return nil, fmt.Errorf("pull %s: file exists (use --overwrite): %s", name, outPath)
+				return nil, fmt.Errorf("pull %s: file exists (use --overwrite): %s", target.Name, outPath)
 			}
-			return nil, fmt.Errorf("pull %s: write %s: %w", name, outPath, err)
+			return nil, fmt.Errorf("pull %s: write %s: %w", target.Name, outPath, err)
 		}
 
 		results = append(results, pullResult{
-			Name:     name,
-			File:     entry.File,
+			Name:     target.Name,
+			File:     target.Entry.File,
 			Revision: access.Revision,
-			Type:     access.Type,
+			Type:     string(access.Type),
 		})
 	}
 	return results, nil
 }
 
-func (s commandService) push(targets []string, opts pushOptions) ([]pushResult, error) {
+func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushResult, error) {
 	desc := s.pushDescription(opts.Description)
 
 	results := make([]pushResult, 0, len(targets))
-	for _, name := range targets {
-		entry := s.loaded.Cfg.Mapping[name]
-		payload, err := s.readPushPayload(name, entry)
+	for _, target := range targets {
+		payload, err := s.readPushPayload(target.Name, target.Entry)
 		if err != nil {
 			return nil, err
 		}
-		resolvedSecret, err := s.resolvePushSecret(name, entry, opts.CreateMissing)
+		resolvedSecret, err := s.resolvePushSecret(target.Name, target.Entry, opts.CreateMissing)
 		if err != nil {
 			return nil, err
 		}
@@ -188,18 +200,18 @@ func (s commandService) push(targets []string, opts pushOptions) ([]pushResult, 
 		}
 		descPtr := &desc
 
-		version, err := s.api.CreateSecretVersion(CreateSecretVersionInput{
-			Region:          s.loaded.Cfg.Region,
+		version, err := s.api.CreateSecretVersion(secretprovider.CreateSecretVersionInput{
+			Region:          s.cfg.Region,
 			SecretID:        resolvedSecret.ID,
 			Data:            payload,
 			Description:     descPtr,
 			DisablePrevious: disablePrevPtr,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("push %s: create version: %w", name, err)
+			return nil, fmt.Errorf("push %s: create version: %w", target.Name, err)
 		}
 
-		results = append(results, pushResult{Name: name, Revision: version.Revision})
+		results = append(results, pushResult{Name: target.Name, Revision: version.Revision})
 	}
 
 	return results, nil
@@ -217,7 +229,7 @@ func (s commandService) pushDescription(explicit string) string {
 }
 
 func (s commandService) readPushPayload(name string, entry config.MappingEntry) ([]byte, error) {
-	inPath, err := config.ResolveFile(s.loaded.Root, entry.File)
+	inPath, err := config.ResolveFile(s.cfg.Root, entry.File)
 	if err != nil {
 		return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
 	}
@@ -235,10 +247,10 @@ func (s commandService) readPushPayload(name string, entry config.MappingEntry) 
 	return raw, nil
 }
 
-func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool) (*SecretRecord, error) {
+func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
 	resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), name, entry.Path)
 	if err == nil {
-		if entry.Type != "" && resolvedSecret.Type != entry.Type {
+		if entry.Type != "" && resolvedSecret.Type != secretprovider.SecretType(entry.Type) {
 			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
 		}
 		return resolvedSecret, nil
@@ -256,9 +268,9 @@ func (s commandService) resolvePushSecret(name string, entry config.MappingEntry
 	if err != nil {
 		return nil, fmt.Errorf("push %s: invalid mapping.type %q: %w", name, entry.Type, err)
 	}
-	createdSecret, err := s.api.CreateSecret(CreateSecretInput{
-		Region:    s.loaded.Cfg.Region,
-		ProjectID: s.loaded.Cfg.ProjectID,
+	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
+		Region:    s.cfg.Region,
+		ProjectID: s.cfg.ProjectID,
 		Name:      name,
 		Type:      secretType,
 		Path:      entry.Path,

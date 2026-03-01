@@ -1,12 +1,13 @@
 //go:build integration
 
-package cli
+package scaleway
 
 import (
 	"os"
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
 func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
@@ -20,7 +21,7 @@ func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
 		t.Skip("set DEV_VAULT_TEST_PROJECT_ID and DEV_VAULT_TEST_ORGANIZATION_ID to run integration secret API gate")
 	}
 
-	api, err := OpenScalewaySecretAPI(config.Config{
+	api, err := Open(config.Config{
 		OrganizationID: orgID,
 		ProjectID:      projectID,
 		Region:         region,
@@ -29,11 +30,11 @@ func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
 		t.Fatalf("open scaleway api: %v", err)
 	}
 
-	_, err = api.ListSecrets(ListSecretsInput{
+	_, err = api.ListSecrets(secretprovider.ListSecretsInput{
 		Region:    region,
 		ProjectID: projectID,
 		Path:      "/",
-		Type:      "opaque",
+		Type:      secretprovider.SecretTypeOpaque,
 	})
 	if err != nil {
 		t.Fatalf("list secrets via secret api: %v", err)

@@ -1,10 +1,11 @@
-package cli
+package scaleway
 
 import (
 	"errors"
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
@@ -32,8 +33,8 @@ func (f *fakeScalewaySDK) CreateSecretVersion(req *secret.CreateSecretVersionReq
 	return f.createVersionFn(req, opts...)
 }
 
-func TestOpenScalewaySecretAPI_InvalidRegionSmoke(t *testing.T) {
-	_, err := OpenScalewaySecretAPI(config.Config{
+func TestOpen_InvalidRegionSmoke(t *testing.T) {
+	_, err := Open(config.Config{
 		OrganizationID: "00000000-0000-0000-0000-000000000000",
 		ProjectID:      "00000000-0000-0000-0000-000000000000",
 		Region:         "invalid-region",
@@ -45,35 +46,35 @@ func TestOpenScalewaySecretAPI_InvalidRegionSmoke(t *testing.T) {
 
 func TestScalewaySecretAPI_ListSecrets(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
-		_, err := api.ListSecrets(ListSecretsInput{Region: "bad", ProjectID: "p", Type: "opaque"})
+		api := &API{api: &fakeScalewaySDK{}}
+		_, err := api.ListSecrets(secretprovider.ListSecretsInput{Region: "bad", ProjectID: "p", Type: secretprovider.SecretTypeOpaque})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("InvalidType", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
-		_, err := api.ListSecrets(ListSecretsInput{Region: "fr-par", ProjectID: "p", Type: "bad"})
+		api := &API{api: &fakeScalewaySDK{}}
+		_, err := api.ListSecrets(secretprovider.ListSecretsInput{Region: "fr-par", ProjectID: "p", Type: secretprovider.SecretType("bad")})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("APIError", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			listFn: func(*secret.ListSecretsRequest, ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
 				return nil, errors.New("boom")
 			},
 		}}
-		_, err := api.ListSecrets(ListSecretsInput{Region: "fr-par", ProjectID: "p", Type: "opaque"})
+		_, err := api.ListSecrets(secretprovider.ListSecretsInput{Region: "fr-par", ProjectID: "p", Type: secretprovider.SecretTypeOpaque})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			listFn: func(req *secret.ListSecretsRequest, _ ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
 				if req.ProjectID == nil || *req.ProjectID != "p" {
 					t.Fatalf("unexpected project id: %#v", req.ProjectID)
@@ -90,17 +91,17 @@ func TestScalewaySecretAPI_ListSecrets(t *testing.T) {
 				}}, nil
 			},
 		}}
-		out, err := api.ListSecrets(ListSecretsInput{
+		out, err := api.ListSecrets(secretprovider.ListSecretsInput{
 			Region:    "fr-par",
 			ProjectID: "p",
 			Name:      "name-dev",
 			Path:      "/",
-			Type:      "opaque",
+			Type:      secretprovider.SecretTypeOpaque,
 		})
 		if err != nil {
 			t.Fatalf("ListSecrets: %v", err)
 		}
-		if len(out) != 2 || out[1] == nil || out[1].Type != "opaque" {
+		if len(out) != 1 || out[0].Type != secretprovider.SecretTypeOpaque {
 			t.Fatalf("unexpected output: %#v", out)
 		}
 	})
@@ -108,29 +109,29 @@ func TestScalewaySecretAPI_ListSecrets(t *testing.T) {
 
 func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
-		_, err := api.AccessSecretVersion(AccessSecretVersionInput{Region: "bad"})
+		api := &API{api: &fakeScalewaySDK{}}
+		_, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "bad"})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("APIError", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			accessFn: func(*secret.AccessSecretVersionRequest, ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
 				return nil, errors.New("boom")
 			},
 		}}
-		_, err := api.AccessSecretVersion(AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: "latest_enabled"})
+		_, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: secretprovider.SecretRevisionLatestEnabled})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			accessFn: func(req *secret.AccessSecretVersionRequest, _ ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
-				if req.Revision != "latest_enabled" {
+				if req.Revision != string(secretprovider.SecretRevisionLatestEnabled) {
 					t.Fatalf("unexpected revision: %s", req.Revision)
 				}
 				return &secret.AccessSecretVersionResponse{
@@ -141,11 +142,11 @@ func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 				}, nil
 			},
 		}}
-		out, err := api.AccessSecretVersion(AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: "latest_enabled"})
+		out, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: secretprovider.SecretRevisionLatestEnabled})
 		if err != nil {
 			t.Fatalf("AccessSecretVersion: %v", err)
 		}
-		if out.Revision != 3 || out.Type != "opaque" {
+		if out.Revision != 3 || out.Type != secretprovider.SecretTypeOpaque {
 			t.Fatalf("unexpected output: %#v", out)
 		}
 	})
@@ -153,35 +154,35 @@ func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 
 func TestScalewaySecretAPI_CreateSecret(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
-		_, err := api.CreateSecret(CreateSecretInput{Region: "bad"})
+		api := &API{api: &fakeScalewaySDK{}}
+		_, err := api.CreateSecret(secretprovider.CreateSecretInput{Region: "bad"})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("InvalidType", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
-		_, err := api.CreateSecret(CreateSecretInput{Region: "fr-par", Type: "bad"})
+		api := &API{api: &fakeScalewaySDK{}}
+		_, err := api.CreateSecret(secretprovider.CreateSecretInput{Region: "fr-par", Type: secretprovider.SecretType("bad")})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("APIError", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			createSecretFn: func(*secret.CreateSecretRequest, ...scw.RequestOption) (*secret.Secret, error) {
 				return nil, errors.New("boom")
 			},
 		}}
-		_, err := api.CreateSecret(CreateSecretInput{Region: "fr-par", Type: "opaque"})
+		_, err := api.CreateSecret(secretprovider.CreateSecretInput{Region: "fr-par", Type: secretprovider.SecretTypeOpaque})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			createSecretFn: func(req *secret.CreateSecretRequest, _ ...scw.RequestOption) (*secret.Secret, error) {
 				if req.Path == nil || *req.Path != "/" {
 					t.Fatalf("expected default path '/'")
@@ -195,16 +196,16 @@ func TestScalewaySecretAPI_CreateSecret(t *testing.T) {
 				}, nil
 			},
 		}}
-		out, err := api.CreateSecret(CreateSecretInput{
+		out, err := api.CreateSecret(secretprovider.CreateSecretInput{
 			Region:    "fr-par",
 			ProjectID: "p",
 			Name:      "x-dev",
-			Type:      "opaque",
+			Type:      secretprovider.SecretTypeOpaque,
 		})
 		if err != nil {
 			t.Fatalf("CreateSecret: %v", err)
 		}
-		if out.ID != "s1" || out.Type != "opaque" {
+		if out.ID != "s1" || out.Type != secretprovider.SecretTypeOpaque {
 			t.Fatalf("unexpected output: %#v", out)
 		}
 	})
@@ -212,20 +213,20 @@ func TestScalewaySecretAPI_CreateSecret(t *testing.T) {
 
 func TestScalewaySecretAPI_CreateSecretVersion(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
-		_, err := api.CreateSecretVersion(CreateSecretVersionInput{Region: "bad"})
+		api := &API{api: &fakeScalewaySDK{}}
+		_, err := api.CreateSecretVersion(secretprovider.CreateSecretVersionInput{Region: "bad"})
 		if err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("APIError", func(t *testing.T) {
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			createVersionFn: func(*secret.CreateSecretVersionRequest, ...scw.RequestOption) (*secret.SecretVersion, error) {
 				return nil, errors.New("boom")
 			},
 		}}
-		_, err := api.CreateSecretVersion(CreateSecretVersionInput{Region: "fr-par"})
+		_, err := api.CreateSecretVersion(secretprovider.CreateSecretVersionInput{Region: "fr-par"})
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -234,7 +235,7 @@ func TestScalewaySecretAPI_CreateSecretVersion(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		desc := "d"
 		disable := true
-		api := &scwSecretAPI{api: &fakeScalewaySDK{
+		api := &API{api: &fakeScalewaySDK{
 			createVersionFn: func(req *secret.CreateSecretVersionRequest, _ ...scw.RequestOption) (*secret.SecretVersion, error) {
 				if req.Description == nil || *req.Description != desc {
 					t.Fatalf("unexpected description: %#v", req.Description)
@@ -249,7 +250,7 @@ func TestScalewaySecretAPI_CreateSecretVersion(t *testing.T) {
 				}, nil
 			},
 		}}
-		out, err := api.CreateSecretVersion(CreateSecretVersionInput{
+		out, err := api.CreateSecretVersion(secretprovider.CreateSecretVersionInput{
 			Region:          "fr-par",
 			SecretID:        "s1",
 			Data:            []byte("x"),

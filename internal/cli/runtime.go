@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
 type listQuery struct {
@@ -21,7 +22,7 @@ type listRecord struct {
 	Type string `json:"type"`
 }
 
-func loadAndOpenAPI(configPath, profileOverride string, deps Dependencies) (*config.Loaded, SecretAPI, error) {
+func loadAndOpenAPI(configPath, profileOverride string, deps Dependencies) (*config.Loaded, secretprovider.SecretAPI, error) {
 	wd, err := deps.Getwd()
 	if err != nil {
 		return nil, nil, fmt.Errorf("getwd: %w", err)

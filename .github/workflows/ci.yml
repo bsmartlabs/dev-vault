@@ -55,6 +55,10 @@ jobs:
             echo "coverage is $total, expected 100.0%"
             exit 1
           fi
+      - name: Provider contract gate
+        run: |
+          set -euo pipefail
+          go test ./internal/secretprovider/scaleway -run 'Test(Open_ProfileResolution|ScalewaySecretAPI_|ToScalewaySecretType)'
   build:
     needs: test
     runs-on: ubuntu-latest
