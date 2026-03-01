@@ -1,11 +1,13 @@
 package secretsync
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"time"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
@@ -23,47 +25,21 @@ type ListRecord struct {
 	Type string `json:"type"`
 }
 
-type MappingFormat string
-
-const (
-	MappingFormatRaw    MappingFormat = "raw"
-	MappingFormatDotenv MappingFormat = "dotenv"
-)
-
-type MappingEntry struct {
-	File   string
-	Format MappingFormat
-	Path   string
-	Type   string
-}
-
-func MappingEntryFromConfig(entry config.MappingEntry) MappingEntry {
-	return MappingEntry{
-		File:   entry.File,
-		Format: MappingFormat(entry.Format),
-		Path:   entry.Path,
-		Type:   entry.Type,
-	}
-}
-
-func mappingFromConfigEntries(entries map[string]config.MappingEntry) map[string]MappingEntry {
-	mapped := make(map[string]MappingEntry, len(entries))
-	for name, entry := range entries {
-		mapped[name] = MappingEntryFromConfig(entry)
-	}
-	return mapped
-}
-
 type MappingTarget struct {
 	Name  string
-	Entry MappingEntry
+	Entry mapping.Entry
 }
 
 type PullResult struct {
 	Name     string
 	File     string
 	Revision uint32
-	Type     string
+	Type     secretprovider.SecretType
+}
+
+type BatchFailure struct {
+	Name string
+	Err  error
 }
 
 type PushOptions struct {
@@ -77,9 +53,48 @@ type PushResult struct {
 	Revision uint32
 }
 
+type BatchSummary struct {
+	Operation string
+	Failed    int
+	Total     int
+}
+
+type BatchOperationError struct {
+	Operation string
+	Failed    int
+	Total     int
+}
+
+func (e *BatchOperationError) Error() string {
+	return fmt.Sprintf("%s completed with failures: %d/%d failed", e.Operation, e.Failed, e.Total)
+}
+
+func (s BatchSummary) ErrorOrNil() error {
+	if s.Failed == 0 {
+		return nil
+	}
+	return &BatchOperationError{
+		Operation: s.Operation,
+		Failed:    s.Failed,
+		Total:     s.Total,
+	}
+}
+
+type PullBatchResult struct {
+	Succeeded []PullResult
+	Failed    []BatchFailure
+	Summary   BatchSummary
+}
+
+type PushBatchResult struct {
+	Succeeded []PushResult
+	Failed    []BatchFailure
+	Summary   BatchSummary
+}
+
 type Config struct {
 	Root    string
-	Mapping map[string]MappingEntry
+	Mapping map[string]mapping.Entry
 }
 
 type PathResolver func(rootDir string, rel string) (string, error)
@@ -98,14 +113,10 @@ type Service struct {
 	resolvePath PathResolver
 }
 
-func NewFromLoaded(loaded *config.Loaded, api secretprovider.SecretAPI, deps Dependencies) Service {
-	return New(Config{
-		Root:    loaded.Root,
-		Mapping: mappingFromConfigEntries(loaded.Cfg.Mapping),
-	}, api, deps)
-}
-
-func New(cfg Config, api secretprovider.SecretAPI, deps Dependencies) Service {
+func New(cfg Config, api secretprovider.SecretAPI, deps Dependencies) (Service, error) {
+	if api == nil {
+		return Service{}, errors.New("secretsync: nil secret api")
+	}
 	now := deps.Now
 	if now == nil {
 		now = time.Now
@@ -116,7 +127,7 @@ func New(cfg Config, api secretprovider.SecretAPI, deps Dependencies) Service {
 	}
 	resolvePath := deps.ResolvePath
 	if resolvePath == nil {
-		resolvePath = config.ResolveFile
+		resolvePath = resolveFile
 	}
 	return Service{
 		cfg:         cfg,
@@ -124,5 +135,5 @@ func New(cfg Config, api secretprovider.SecretAPI, deps Dependencies) Service {
 		now:         now,
 		hostname:    hostname,
 		resolvePath: resolvePath,
-	}
+	}, nil
 }

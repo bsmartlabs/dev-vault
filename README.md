@@ -45,12 +45,13 @@ Example:
       "file": ".env.bsmart.rework",
       "format": "dotenv",
       "path": "/",
+      "mode": "pull",
       "type": "key_value"
     },
     "some-cert-dev": {
       "file": "certs/dev.pem",
       "format": "raw",
-      "mode": "pull"
+      "mode": "push"
     }
   }
 }
@@ -60,6 +61,7 @@ Notes:
 
 - `mapping` keys are Scaleway secret names and must end with `-dev` (hard enforced).
 - `file` paths are relative to the directory containing `.scw.json` and cannot escape the project root.
+- `mode` is required and must be either `pull` or `push`.
 - Secret payloads are never printed.
 
 ## Safety Constraints

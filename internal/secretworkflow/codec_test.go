@@ -6,13 +6,19 @@ import (
 )
 
 func TestJSONToDotenv(t *testing.T) {
-	dotenvPayload, err := JSONToDotenv([]byte(`{"A":"1","B":2}`))
+	dotenvPayload, err := JSONToDotenv([]byte(`{"A":"1","B":"2"}`))
 	if err != nil {
 		t.Fatalf("JSONToDotenv: %v", err)
 	}
 	rendered := string(dotenvPayload)
 	if !strings.Contains(rendered, `A="1"`) || !strings.Contains(rendered, `B="2"`) {
 		t.Fatalf("unexpected dotenv payload: %q", rendered)
+	}
+}
+
+func TestJSONToDotenv_RejectsNonStringValue(t *testing.T) {
+	if _, err := JSONToDotenv([]byte(`{"A":1}`)); err == nil {
+		t.Fatal("expected error for non-string JSON value")
 	}
 }
 

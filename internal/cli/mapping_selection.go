@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
@@ -27,7 +28,7 @@ func (m commandMode) String() string {
 	}
 }
 
-func (m commandMode) allows(entry config.MappingEntry) bool {
+func (m commandMode) allows(entry mapping.Entry) bool {
 	switch m {
 	case commandModePull:
 		return entry.Mode.AllowsPull()
@@ -38,7 +39,7 @@ func (m commandMode) allows(entry config.MappingEntry) bool {
 	}
 }
 
-func selectMappingTargetsForMode(mapping map[string]config.MappingEntry, all bool, positional []string, mode commandMode) ([]secretsync.MappingTarget, error) {
+func selectMappingTargetsForMode(mapping map[string]mapping.Entry, all bool, positional []string, mode commandMode) ([]secretsync.MappingTarget, error) {
 	if all && len(positional) > 0 {
 		return nil, usageError(errors.New("cannot use --all with explicit secret names"))
 	}
@@ -54,7 +55,7 @@ func selectMappingTargetsForMode(mapping map[string]config.MappingEntry, all boo
 		targets := make([]secretsync.MappingTarget, 0, len(mapping))
 		for name, entry := range mapping {
 			if mode.allows(entry) {
-				targets = append(targets, secretsync.MappingTarget{Name: name, Entry: secretsync.MappingEntryFromConfig(entry)})
+				targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
 			}
 		}
 		sort.Slice(targets, func(i, j int) bool {
@@ -74,7 +75,7 @@ func selectMappingTargetsForMode(mapping map[string]config.MappingEntry, all boo
 		}
 		seen[name] = struct{}{}
 
-		if !config.IsDevSecretName(name) {
+		if !secretcontract.IsDevSecretName(name) {
 			return nil, usageError(fmt.Errorf("refusing non-dev secret name: %s", name))
 		}
 
@@ -85,7 +86,7 @@ func selectMappingTargetsForMode(mapping map[string]config.MappingEntry, all boo
 		if !mode.allows(entry) {
 			return nil, usageError(fmt.Errorf("secret %s not allowed in %s mode (mapping.mode=%s)", name, mode.String(), entry.Mode))
 		}
-		targets = append(targets, secretsync.MappingTarget{Name: name, Entry: secretsync.MappingEntryFromConfig(entry)})
+		targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
 	}
 
 	return targets, nil

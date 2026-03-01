@@ -8,13 +8,6 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
-type mappingCommandSpec struct {
-	mode      commandMode
-	all       bool
-	preflight func(targets []secretsync.MappingTarget) error
-	execute   func(service secretsync.Service, targets []secretsync.MappingTarget) error
-}
-
 type commandRuntime struct {
 	ctx    commandContext
 	parsed *parsedCommand
@@ -28,38 +21,50 @@ func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsy
 	loaded, api, err := loadAndOpenAPI(r.parsed.configPath, r.parsed.profileOverride, r.ctx.deps)
 	if err != nil {
 		runErr := runtimeError(err)
-		_, _ = fmt.Fprintln(r.ctx.stderr, runErr.Error())
-		return exitCodeForError(runErr)
+		return r.writeStderrError(runErr)
 	}
 
-	if err := printConfigWarnings(r.ctx.stderr, loaded.Warnings); err != nil {
-		runErr := outputError(err)
-		_, _ = fmt.Fprintln(r.ctx.stderr, runErr.Error())
-		return exitCodeForError(runErr)
-	}
-	service := secretsync.NewFromLoaded(loaded, api, secretsync.Dependencies{
-		Now:      r.ctx.deps.Now,
-		Hostname: r.ctx.deps.Hostname,
+	service, err := secretsync.New(secretsync.Config{
+		Root:    loaded.Root,
+		Mapping: loaded.Cfg.Mapping,
+	}, api, secretsync.Dependencies{
+		Now:         r.ctx.deps.Now,
+		Hostname:    r.ctx.deps.Hostname,
+		ResolvePath: config.ResolveFile,
 	})
+	if err != nil {
+		return r.writeStderrError(runtimeError(fmt.Errorf("init secret sync service: %w", err)))
+	}
 	if err := run(loaded, service); err != nil {
-		_, _ = fmt.Fprintln(r.ctx.stderr, err.Error())
-		return exitCodeForError(err)
+		return r.writeStderrError(err)
 	}
 	return 0
 }
 
-func (r commandRuntime) executeMapping(spec mappingCommandSpec) int {
+func (r commandRuntime) writeStderrError(err error) int {
+	if _, writeErr := fmt.Fprintln(r.ctx.stderr, err.Error()); writeErr != nil {
+		return exitCodeForError(outputError(writeErr))
+	}
+	return exitCodeForError(err)
+}
+
+func (r commandRuntime) runMappingCommand(
+	mode commandMode,
+	all bool,
+	preflight func(targets []secretsync.MappingTarget) error,
+	execute func(service secretsync.Service, targets []secretsync.MappingTarget) error,
+) int {
 	return r.execute(func(loaded *config.Loaded, service secretsync.Service) error {
-		targets, err := selectMappingTargetsForMode(loaded.Cfg.Mapping, spec.all, r.parsed.fs.Args(), spec.mode)
+		targets, err := selectMappingTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
 		if err != nil {
 			return err
 		}
-		if spec.preflight != nil {
-			if err := spec.preflight(targets); err != nil {
+		if preflight != nil {
+			if err := preflight(targets); err != nil {
 				return err
 			}
 		}
-		return spec.execute(service, targets)
+		return execute(service, targets)
 	})
 }
 

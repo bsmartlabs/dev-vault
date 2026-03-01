@@ -39,7 +39,7 @@ func TestFindConfigPath(t *testing.T) {
 	t.Run("FindsUpwards", func(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := filepath.Join(root, DefaultConfigName)
-		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull"}}}`), 0o644); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
 		nested := filepath.Join(root, "a", "b", "c")
@@ -67,7 +67,7 @@ func TestLoad(t *testing.T) {
 	t.Run("ExplicitRelative", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, DefaultConfigName)
-		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull"}}}`), 0o644); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
 		loaded, err := Load(dir, DefaultConfigName)
@@ -154,8 +154,10 @@ func TestLoad(t *testing.T) {
 			{"AbsFile", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"/tmp/x"}}}`, "file must be relative"},
 			{"BadFormat", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","format":"nope"}}}`, "invalid format"},
 			{"BadPath", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","path":"nope"}}}`, "path must start"},
+			{"MissingMode", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`, "missing required field: mode"},
 			{"BadMode", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"nope"}}}`, "invalid mode"},
-			{"BadType", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","type":"nope"}}}`, "invalid type"},
+			{"BadType", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull","type":"nope"}}}`, "invalid type"},
+			{"BadTypeWhitespace", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull","type":"opaque "}}}`, "invalid type"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -178,7 +180,7 @@ func TestLoad(t *testing.T) {
 	t.Run("DefaultsApplied", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, DefaultConfigName)
-		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull"}}}`), 0o644); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
 		loaded, err := Load(dir, cfgPath)
@@ -186,34 +188,18 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("load: %v", err)
 		}
 		ent := loaded.Cfg.Mapping["a-dev"]
-		if ent.Format != MappingFormatRaw || ent.Path != "/" || ent.Mode != MappingModeBoth {
-			t.Fatalf("defaults not applied: %+v", ent)
+		if ent.Format != MappingFormatRaw || ent.Path != "/" || ent.Mode != MappingModePull {
+			t.Fatalf("normalization not applied: %+v", ent)
 		}
-	})
-
-	t.Run("LegacySyncAliasNormalizesToBoth", func(t *testing.T) {
-		dir := t.TempDir()
-		cfgPath := filepath.Join(dir, DefaultConfigName)
-		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"sync"}}}`), 0o644); err != nil {
-			t.Fatalf("write config: %v", err)
-		}
-		loaded, err := Load(dir, cfgPath)
-		if err != nil {
-			t.Fatalf("load: %v", err)
-		}
-		ent := loaded.Cfg.Mapping["a-dev"]
-		if ent.Mode != MappingModeBoth {
-			t.Fatalf("expected mode both, got: %+v", ent)
-		}
-		if len(loaded.Warnings) == 0 || !strings.Contains(loaded.Warnings[0], "mode=sync") {
-			t.Fatalf("expected legacy sync warning, got: %#v", loaded.Warnings)
+		if len(loaded.Warnings) != 0 {
+			t.Fatalf("expected no warnings, got: %#v", loaded.Warnings)
 		}
 	})
 
 	t.Run("DiscoverySuccess", func(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := filepath.Join(root, DefaultConfigName)
-		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull"}}}`), 0o644); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
 		nested := filepath.Join(root, "a", "b")
@@ -277,52 +263,6 @@ func TestResolveFile(t *testing.T) {
 		}
 	})
 
-	t.Run("AbsRootErrorViaMissingCwd", func(t *testing.T) {
-		deps := defaultConfigDeps
-		deps.abs = func(string) (string, error) { return "", errors.New("boom") }
-		_, err := resolveFileWithDeps(".", "x", deps)
-		if err == nil {
-			t.Fatalf("expected error")
-		}
-		if !strings.Contains(err.Error(), "abs rootDir") {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("AbsJoinedPathError", func(t *testing.T) {
-		oldAbs := defaultConfigDeps.abs
-		calls := 0
-		deps := defaultConfigDeps
-		deps.abs = func(s string) (string, error) {
-			calls++
-			if calls == 2 {
-				return "", errors.New("boom")
-			}
-			return oldAbs(s)
-		}
-
-		_, err := resolveFileWithDeps(t.TempDir(), "x", deps)
-		if err == nil {
-			t.Fatalf("expected error")
-		}
-		if !strings.Contains(err.Error(), "abs joined path") {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("RelPathError", func(t *testing.T) {
-		deps := defaultConfigDeps
-		deps.rel = func(string, string) (string, error) { return "", errors.New("boom") }
-
-		_, err := resolveFileWithDeps(t.TempDir(), "x", deps)
-		if err == nil {
-			t.Fatalf("expected error")
-		}
-		if !strings.Contains(err.Error(), "rel path") {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
 	t.Run("EscapesRoot", func(t *testing.T) {
 		root := t.TempDir()
 		_, err := ResolveFile(root, "../x")
@@ -350,8 +290,8 @@ func TestMappingMode_Allows(t *testing.T) {
 	}{
 		{mode: MappingModePull, pull: true, push: false},
 		{mode: MappingModePush, pull: false, push: true},
-		{mode: MappingModeBoth, pull: true, push: true},
-		{mode: MappingModeLegacy, pull: false, push: false},
+		{mode: MappingMode(""), pull: false, push: false},
+		{mode: MappingMode("nope"), pull: false, push: false},
 	}
 
 	for _, tc := range cases {
@@ -361,5 +301,20 @@ func TestMappingMode_Allows(t *testing.T) {
 		if tc.mode.AllowsPush() != tc.push {
 			t.Fatalf("AllowsPush mismatch for %q", tc.mode)
 		}
+	}
+}
+
+func TestDevSecretNameWrappers(t *testing.T) {
+	if !IsDevSecretName("x-dev") {
+		t.Fatal("expected x-dev to be accepted")
+	}
+	if IsDevSecretName("x-prod") {
+		t.Fatal("expected x-prod to be rejected")
+	}
+	if err := ValidateDevSecretName("x-dev"); err != nil {
+		t.Fatalf("expected validation success, got %v", err)
+	}
+	if err := ValidateDevSecretName("x-prod"); err == nil {
+		t.Fatal("expected validation error for non-dev name")
 	}
 }

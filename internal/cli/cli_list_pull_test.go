@@ -71,7 +71,7 @@ func TestRunList_MoreBranches(t *testing.T) {
 
 	t.Run("ValidRegexFilters", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 		api := newFakeSecretAPI()
 		api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
@@ -90,7 +90,7 @@ func TestRunList_MoreBranches(t *testing.T) {
 
 	t.Run("ValidTypeFilterUsesSingleType", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 		api := newFakeSecretAPI()
 		api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
@@ -110,7 +110,7 @@ func TestRunList_MoreBranches(t *testing.T) {
 
 	t.Run("NilSecretAndPathMismatchAreSkipped", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 		api := &stubSecretAPI{
 			listFn: func(req ListSecretsInput) ([]SecretRecord, error) {
@@ -151,7 +151,7 @@ func TestRunPull_RawAndErrors(t *testing.T) {
   "project_id":"proj",
   "region":"fr-par",
   "mapping":{
-    "foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"sync","type":"opaque"},
+    "foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
     "push-only-dev":{"file":"x","mode":"push","type":"opaque"}
   }
 }`
@@ -208,7 +208,7 @@ func TestRunPull_RawAndErrors(t *testing.T) {
 			t.Fatalf("seed: %v", err)
 		}
 		// Update mapping in-place by pointing to notadir/out.bin using a new config.
-		cfgPath2 := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"notadir/out.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath2 := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"notadir/out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath2, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)
 		if code != 1 {
@@ -249,7 +249,7 @@ func TestRunPull_SelectionErrorsAndLoadError(t *testing.T) {
 
 	t.Run("NoSecretsSpecified", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 		api := newFakeSecretAPI()
 		sec := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
 		api.AddEnabledVersion(sec.ID, []byte{1})
@@ -264,7 +264,7 @@ func TestRunPull_SelectionErrorsAndLoadError(t *testing.T) {
 
 	t.Run("AllAndPositional", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 		api := newFakeSecretAPI()
 		sec := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
 		api.AddEnabledVersion(sec.ID, []byte{1})
@@ -293,7 +293,7 @@ func TestRunPull_SelectionErrorsAndLoadError(t *testing.T) {
 
 func TestRunPull_DotenvAndTypeMismatch(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"sync","type":"key_value"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 
 	api := newFakeSecretAPI()
 	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeOpaque)
@@ -310,11 +310,11 @@ func TestRunPull_DotenvAndTypeMismatch(t *testing.T) {
 
 func TestRunPull_DotenvSuccess(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"sync","type":"key_value"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 
 	api := newFakeSecretAPI()
 	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeKeyValue)
-	api.AddEnabledVersion(sec.ID, []byte(`{"A":"x","B":1}`))
+	api.AddEnabledVersion(sec.ID, []byte(`{"A":"x","B":"1"}`))
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 

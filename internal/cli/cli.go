@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
@@ -49,7 +50,7 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		}
 		return 2
 	}
-	if len(args) > 1 && (args[1] == "-h" || args[1] == "--help") {
+	if hasPreCommandHelpFlag(args[1:]) {
 		if err := printMainUsage(stdout); err != nil {
 			return 1
 		}
@@ -123,4 +124,27 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		}
 		return runCommand(ctx, rest[1:], def)
 	}
+}
+
+func hasPreCommandHelpFlag(args []string) bool {
+	for i := 0; i < len(args); i++ {
+		token := args[i]
+		switch token {
+		case "-h", "--help":
+			return true
+		case "--":
+			return false
+		case "--config", "--profile":
+			i++
+			continue
+		}
+		if strings.HasPrefix(token, "--config=") || strings.HasPrefix(token, "--profile=") {
+			continue
+		}
+		if strings.HasPrefix(token, "-") {
+			continue
+		}
+		return false
+	}
+	return false
 }

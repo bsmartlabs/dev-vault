@@ -41,6 +41,11 @@ func TestRun_WriteFailureBranches(t *testing.T) {
 	})); code != 1 {
 		t.Fatalf("expected top-level help write failure to return 1, got %d", code)
 	}
+	if code := Run([]string{"dev-vault", "--config", ".scw.json", "-h"}, &failingWriter{}, &bytes.Buffer{}, baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
+		return newFakeSecretAPI(), nil
+	})); code != 1 {
+		t.Fatalf("expected pre-command help write failure to return 1, got %d", code)
+	}
 
 	deps = baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
 		return newFakeSecretAPI(), nil
@@ -81,6 +86,16 @@ func TestPrintConfigWarnings_WriteFailureStops(t *testing.T) {
 	}
 }
 
+func TestPrintConfigWarnings_Success(t *testing.T) {
+	var out bytes.Buffer
+	if err := printConfigWarnings(&out, []string{"one", "two"}); err != nil {
+		t.Fatalf("unexpected warning write error: %v", err)
+	}
+	if got := out.String(); got != "warning: one\nwarning: two\n" {
+		t.Fatalf("unexpected warnings output: %q", got)
+	}
+}
+
 func TestRunVersionParsed_WriteFailure(t *testing.T) {
 	code := runVersionParsed(commandContext{
 		stdout: &failingWriter{},
@@ -98,7 +113,7 @@ func TestRunVersionParsed_WriteFailure(t *testing.T) {
 
 func TestRunList_TableRowWriteFailure(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"sync"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -118,7 +133,7 @@ func TestRunList_TableRowWriteFailure(t *testing.T) {
 
 func TestRuntimeExecute_ErrorWriteFailureStillReturnsExitCode(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"both","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write input file: %v", err)
 	}
@@ -140,9 +155,9 @@ func TestRuntimeExecute_ErrorWriteFailureStillReturnsExitCode(t *testing.T) {
 	}
 }
 
-func TestRunList_ConfigWarningWriteFailure(t *testing.T) {
+func TestRunList_NoConfigWarningsAfterModeCleanup(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"sync"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -150,8 +165,8 @@ func TestRunList_ConfigWarningWriteFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadAndOpenAPI: %v", err)
 	}
-	if len(loaded.Warnings) == 0 {
-		t.Fatal("expected at least one config warning")
+	if len(loaded.Warnings) != 0 {
+		t.Fatalf("expected no config warnings, got: %#v", loaded.Warnings)
 	}
 
 	code := runList(commandContext{
@@ -160,15 +175,15 @@ func TestRunList_ConfigWarningWriteFailure(t *testing.T) {
 		configPath: cfgPath,
 		deps:       deps,
 	}, []string{})
-	if code != 1 {
-		t.Fatalf("expected warning write failure to return 1, got %d", code)
+	if code != 0 {
+		t.Fatalf("expected success with no warning writes, got %d", code)
 	}
 }
 
 func TestRunList_HelpUsageWriteFailure(t *testing.T) {
 	code := runList(commandContext{
-		stdout: &bytes.Buffer{},
-		stderr: &failingWriter{},
+		stdout: &failingWriter{},
+		stderr: &bytes.Buffer{},
 		deps: baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 			return newFakeSecretAPI(), nil
 		}),

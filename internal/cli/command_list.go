@@ -15,7 +15,7 @@ import (
 
 var listCommandDef = commandDef{
 	Name:    "list",
-	Summary: "List mapped -dev secrets metadata",
+	Summary: "List project -dev secrets metadata",
 	Flags: []commandFlagDef{
 		{Name: "json", Kind: commandFlagBool, Help: "Output JSON"},
 		{Name: "name-contains", Kind: commandFlagStringSlice, ValueName: "<substring>", Help: "Substring filter (repeatable, AND semantics)"},
@@ -28,6 +28,7 @@ var listCommandDef = commandDef{
 		Description: []string{
 			"Lists secrets in the configured Scaleway project/region.",
 			"This command always filters to secret names ending with '-dev'.",
+			"It is not limited to entries present in .scw.json mapping.",
 			"It never prints secret payloads, only metadata (name/type/path/id).",
 		},
 		Examples: []string{
@@ -40,27 +41,40 @@ var listCommandDef = commandDef{
 	RunParsed: runListParsed,
 }
 
-func runList(ctx commandContext, argv []string) int {
-	return runCommand(ctx, argv, listCommandDef)
+type listOptions struct {
+	json         bool
+	nameContains []string
+	nameRegex    string
+	path         string
+	secretType   string
+}
+
+func parseListOptions(parsed *parsedCommand) listOptions {
+	return listOptions{
+		json:         parsed.Bool("json"),
+		nameContains: parsed.Strings("name-contains"),
+		nameRegex:    parsed.String("name-regex"),
+		path:         parsed.String("path"),
+		secretType:   parsed.String("type"),
+	}
 }
 
 func runListParsed(ctx commandContext, parsed *parsedCommand) int {
+	opts := parseListOptions(parsed)
 	return newCommandRuntime(ctx, parsed).execute(func(_ *config.Loaded, service secretsync.Service) error {
 		var re *regexp.Regexp
 		var selectedType secretprovider.SecretType
 
-		nameRegex := parsed.String("name-regex")
-		if nameRegex != "" {
-			compiled, err := regexp.Compile(nameRegex)
+		if opts.nameRegex != "" {
+			compiled, err := regexp.Compile(opts.nameRegex)
 			if err != nil {
 				return usageError(fmt.Errorf("invalid --name-regex: %w", err))
 			}
 			re = compiled
 		}
 
-		typeFilter := parsed.String("type")
-		if typeFilter != "" {
-			parsedType, err := secretsync.ParseSecretType(typeFilter)
+		if opts.secretType != "" {
+			parsedType, err := secretsync.ParseSecretType(opts.secretType)
 			if err != nil {
 				return usageError(fmt.Errorf("invalid --type: %w", err))
 			}
@@ -68,16 +82,16 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 		}
 
 		filtered, err := service.List(secretsync.ListQuery{
-			NameContains: parsed.Strings("name-contains"),
+			NameContains: opts.nameContains,
 			NameRegex:    re,
-			Path:         parsed.String("path"),
+			Path:         opts.path,
 			Type:         selectedType,
 		})
 		if err != nil {
 			return err
 		}
 
-		if parsed.Bool("json") {
+		if opts.json {
 			enc := json.NewEncoder(ctx.stdout)
 			enc.SetIndent("", "  ")
 			if err := enc.Encode(filtered); err != nil {

@@ -1,43 +1,32 @@
 package secretsync
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s Service) Push(targets []MappingTarget, opts PushOptions) ([]PushResult, error) {
+func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) PushBatchResult {
 	desc := s.pushDescription(opts.Description)
-
-	results := make([]PushResult, 0, len(targets))
-	for _, target := range targets {
-		payload, err := s.readPushPayload(target.Name, target.Entry)
-		if err != nil {
-			return nil, err
-		}
-		resolvedSecret, err := s.ResolveMappedSecret(target.Name, target.Entry, opts.CreateMissing)
-		if err != nil {
-			return nil, err
-		}
-
-		version, err := s.api.CreateSecretVersion(createSecretVersionInput(
-			resolvedSecret.ID,
-			payload,
-			desc,
-			opts.DisablePrevious,
-		))
-		if err != nil {
-			return nil, fmt.Errorf("push %s: create version: %w", target.Name, err)
-		}
-
-		results = append(results, PushResult{Name: target.Name, Revision: version.Revision})
+	succeeded, failed, summary := runBatch[PushResult](
+		targets,
+		"push",
+		func(target MappingTarget) (PushResult, error) {
+			return s.pushOne(target, opts, desc)
+		},
+		func(target MappingTarget, err error) BatchFailure {
+			return BatchFailure{Name: target.Name, Err: err}
+		},
+	)
+	return PushBatchResult{
+		Succeeded: succeeded,
+		Failed:    failed,
+		Summary:   summary,
 	}
-
-	return results, nil
 }
 
 func (s Service) pushDescription(explicit string) string {
@@ -51,7 +40,7 @@ func (s Service) pushDescription(explicit string) string {
 	return fmt.Sprintf("dev-vault push %s %s", s.now().UTC().Format(time.RFC3339), host)
 }
 
-func (s Service) readPushPayload(name string, entry MappingEntry) ([]byte, error) {
+func (s Service) readPushPayload(name string, entry mapping.Entry) ([]byte, error) {
 	inPath, err := s.resolvePath(s.cfg.Root, entry.File)
 	if err != nil {
 		return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
@@ -60,7 +49,7 @@ func (s Service) readPushPayload(name string, entry MappingEntry) ([]byte, error
 	if err != nil {
 		return nil, fmt.Errorf("push %s: read %s: %w", name, inPath, err)
 	}
-	if entry.Format == MappingFormatDotenv {
+	if entry.Format == mapping.FormatDotenv {
 		converted, err := secretworkflow.DotenvToJSON(raw)
 		if err != nil {
 			return nil, fmt.Errorf("format dotenv %s: %w", name, err)
@@ -83,27 +72,40 @@ func createSecretVersionInput(secretID string, payload []byte, description strin
 	return req
 }
 
-func (s Service) ResolveMappedSecret(name string, entry MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
-	resolvedSecret, err := s.lookupMappedSecret(name, entry)
-	if err == nil {
+func (s Service) pushOne(target MappingTarget, opts PushOptions, desc string) (PushResult, error) {
+	payload, err := s.readPushPayload(target.Name, target.Entry)
+	if err != nil {
+		return PushResult{}, err
+	}
+	resolvedSecret, err := s.resolveMappedSecretForPush(target.Name, target.Entry, opts.CreateMissing)
+	if err != nil {
+		return PushResult{}, err
+	}
+
+	version, err := s.api.CreateSecretVersion(createSecretVersionInput(
+		resolvedSecret.ID,
+		payload,
+		desc,
+		opts.DisablePrevious,
+	))
+	if err != nil {
+		return PushResult{}, fmt.Errorf("push %s: create version: %w", target.Name, err)
+	}
+	return PushResult{Name: target.Name, Revision: version.Revision}, nil
+}
+
+func (s Service) resolveMappedSecretForPush(name string, entry mapping.Entry, createMissing bool) (*secretprovider.SecretRecord, error) {
+	if createMissing {
+		resolvedSecret, err := s.LookupOrCreateMappedSecret(name, entry)
+		if err != nil {
+			return nil, err
+		}
 		return resolvedSecret, nil
 	}
 
-	var notFound *SecretLookupMissError
-	if !errors.As(err, &notFound) || !createMissing {
+	resolvedSecret, err := s.LookupMappedSecret(name, entry)
+	if err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", name, err)
 	}
-	if entry.Type == "" {
-		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
-	}
-
-	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
-		Name: name,
-		Type: secretprovider.SecretType(entry.Type),
-		Path: entry.Path,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
-	}
-	return createdSecret, nil
+	return resolvedSecret, nil
 }

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
@@ -26,7 +26,7 @@ func (s Service) List(query ListQuery) ([]ListRecord, error) {
 
 	filtered := make([]ListRecord, 0, len(respSecrets))
 	for _, secretRecord := range respSecrets {
-		if !config.IsDevSecretName(secretRecord.Name) {
+		if !secretcontract.IsDevSecretName(secretRecord.Name) {
 			continue
 		}
 		if len(query.NameContains) > 0 {

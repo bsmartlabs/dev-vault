@@ -4,13 +4,14 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
 type commandServiceConfig struct {
 	Root    string
-	Mapping map[string]config.MappingEntry
+	Mapping map[string]mapping.Entry
 }
 
 type listQuery = secretsync.ListQuery
@@ -38,19 +39,19 @@ func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.Se
 		Hostname:    deps.Hostname,
 		ResolvePath: config.ResolveFile,
 	}
-	mapping := make(map[string]secretsync.MappingEntry, len(cfg.Mapping))
-	for name, entry := range cfg.Mapping {
-		mapping[name] = secretsync.MappingEntryFromConfig(entry)
+	inner, err := secretsync.New(secretsync.Config{
+		Root:    cfg.Root,
+		Mapping: cfg.Mapping,
+	}, api, syncDeps)
+	if err != nil {
+		panic(err)
 	}
 	return commandService{
 		cfg:      cfg,
 		api:      api,
 		now:      syncDeps.Now,
 		hostname: syncDeps.Hostname,
-		inner: secretsync.New(secretsync.Config{
-			Root:    cfg.Root,
-			Mapping: mapping,
-		}, api, syncDeps),
+		inner:    inner,
 	}
 }
 
@@ -59,11 +60,14 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 }
 
 func (s commandService) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
-	return s.inner.LookupMappedSecret(name, secretsync.MappingEntryFromConfig(entry))
+	return s.inner.LookupMappedSecret(name, entry)
 }
 
 func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
-	return s.inner.ResolveMappedSecret(name, secretsync.MappingEntryFromConfig(entry), createMissing)
+	if createMissing {
+		return s.inner.LookupOrCreateMappedSecret(name, entry)
+	}
+	return s.inner.LookupMappedSecret(name, entry)
 }
 
 func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {

@@ -22,9 +22,9 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
   "project_id":"proj",
   "region":"fr-par",
   "mapping":{
-    "foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"},
-    "bar-dev":{"file":"bar.env","format":"dotenv","path":"/","mode":"sync","type":"key_value"},
-    "new-dev":{"file":"new.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}
+    "foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"},
+    "bar-dev":{"file":"bar.env","format":"dotenv","path":"/","mode":"push","type":"key_value"},
+    "new-dev":{"file":"new.bin","format":"raw","path":"/","mode":"push","type":"opaque"}
   }
 }`
 	cfgPath := writeConfig(t, root, cfg)
@@ -114,7 +114,7 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
 	})
 
 	t.Run("CreateMissingRequiresType", func(t *testing.T) {
-		cfgPath2 := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"new.bin","mode":"sync"}}}`)
+		cfgPath2 := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"new.bin","mode":"push"}}}`)
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath2, "push", "x-dev", "--create-missing"}, &out, &errBuf, deps)
 		if code != 1 {
@@ -136,7 +136,7 @@ func TestRunPush_MoreBranches(t *testing.T) {
 
 	t.Run("NoSecretsSpecified", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 		if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("A"), 0o644); err != nil {
 			t.Fatalf("write in.bin: %v", err)
 		}
@@ -152,7 +152,7 @@ func TestRunPush_MoreBranches(t *testing.T) {
 
 	t.Run("AllAndPositional", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 		if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("A"), 0o644); err != nil {
 			t.Fatalf("write in.bin: %v", err)
 		}
@@ -168,7 +168,7 @@ func TestRunPush_MoreBranches(t *testing.T) {
 
 	t.Run("DefaultDescriptionUsesHostname", func(t *testing.T) {
 		root := t.TempDir()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 		if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("A"), 0o644); err != nil {
 			t.Fatalf("write in.bin: %v", err)
 		}
@@ -209,7 +209,7 @@ func TestHelpersAndBranches(t *testing.T) {
 
 	// selectMappingTargets default-mode and various errors.
 	mapping := map[string]config.MappingEntry{
-		"a-dev": {File: "a", Mode: "both"},
+		"a-dev": {File: "a", Mode: "push"},
 		"b-dev": {File: "b", Mode: "pull"},
 		"c-dev": {File: "c", Mode: "push"},
 	}
@@ -235,13 +235,9 @@ func TestHelpersAndBranches(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 
-	// jsonToDotenv marshals non-string values as JSON.
-	out, err := jsonToDotenvForTest([]byte(`{"A":"x","B":1}`))
-	if err != nil {
-		t.Fatalf("jsonToDotenv: %v", err)
-	}
-	if !strings.Contains(string(out), "A=") || !strings.Contains(string(out), "B=") {
-		t.Fatalf("unexpected dotenv output: %s", string(out))
+	// jsonToDotenv rejects non-string values.
+	if _, err := jsonToDotenvForTest([]byte(`{"A":"x","B":1}`)); err == nil {
+		t.Fatal("expected error")
 	}
 
 	// dotenvToJSON error.
@@ -278,6 +274,14 @@ func TestReorderFlags(t *testing.T) {
 	t.Run("DoubleDashStopsParsing", func(t *testing.T) {
 		got := reorderFlags([]string{"--description", "d", "--", "foo-dev", "--overwrite"}, map[string]bool{"description": true, "overwrite": false})
 		want := []string{"--description", "d", "foo-dev", "--overwrite"}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("want=%#v got=%#v", want, got)
+		}
+	})
+
+	t.Run("DoubleDashPreservedForDashPrefixedPositional", func(t *testing.T) {
+		got := reorderFlags([]string{"--", "--config-dev"}, map[string]bool{"overwrite": false})
+		want := []string{"--", "--config-dev"}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("want=%#v got=%#v", want, got)
 		}
@@ -334,7 +338,7 @@ func TestListSecretsByTypes_Error(t *testing.T) {
 
 func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
 	}
@@ -365,7 +369,7 @@ func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T)
 
 func TestRunPull_DotenvFormatError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"sync","type":"key_value"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 	api := newFakeSecretAPI()
 	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeKeyValue)
 	api.AddEnabledVersion(sec.ID, []byte("not-json"))
@@ -387,7 +391,7 @@ func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	t.Run("InvalidMappingType", func(t *testing.T) {
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"nope"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"nope"}}}`)
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev", "--create-missing"}, &out, &errBuf, deps)
 		if code != 1 {
@@ -398,7 +402,7 @@ func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.
 	t.Run("CreateSecretError", func(t *testing.T) {
 		api.createSecretErr = errors.New("boom")
 		defer func() { api.createSecretErr = nil }()
-		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev", "--create-missing"}, &out, &errBuf, deps)
 		if code != 1 {
@@ -409,7 +413,7 @@ func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.
 
 func TestRunPush_ResolveErrorNoCreateMissing(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
 	}
@@ -424,7 +428,7 @@ func TestRunPush_ResolveErrorNoCreateMissing(t *testing.T) {
 
 func TestRunPush_FileReadError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"missing.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"missing.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -437,7 +441,7 @@ func TestRunPush_FileReadError(t *testing.T) {
 
 func TestRunPull_MappingResolveError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -450,7 +454,7 @@ func TestRunPull_MappingResolveError(t *testing.T) {
 
 func TestRunPush_MappingResolveError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -463,7 +467,7 @@ func TestRunPush_MappingResolveError(t *testing.T) {
 
 func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "b-dev", "/", secret.SecretTypeKeyValue)
@@ -485,7 +489,7 @@ func TestRunList_LoadAndOpenViaDiscovery(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "nested"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	_ = cfgPath
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
@@ -506,7 +510,7 @@ func TestRunList_LoadAndOpenViaDiscovery(t *testing.T) {
 
 func TestRunPush_DisablePrevious(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("A"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
 	}
@@ -538,7 +542,7 @@ func TestRunPush_DisablePrevious(t *testing.T) {
 
 func TestRunPull_ResolveMultipleMatches(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"dup-dev":{"file":"out.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"dup-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
@@ -552,7 +556,7 @@ func TestRunPull_ResolveMultipleMatches(t *testing.T) {
 
 func TestRunPull_ListErrorViaResolve(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
 	api.listErr = errors.New("boom")
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -565,7 +569,7 @@ func TestRunPull_ListErrorViaResolve(t *testing.T) {
 
 func TestRunPush_ListErrorViaLookupIndex(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
 	}
@@ -581,7 +585,7 @@ func TestRunPush_ListErrorViaLookupIndex(t *testing.T) {
 
 func TestRunPush_DotenvParseError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.env","format":"dotenv","path":"/","mode":"sync","type":"key_value"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.env","format":"dotenv","path":"/","mode":"push","type":"key_value"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.env"), []byte("NOPE"), 0o644); err != nil {
 		t.Fatalf("write in.env: %v", err)
 	}
@@ -597,7 +601,7 @@ func TestRunPush_DotenvParseError(t *testing.T) {
 
 func TestRunPush_TypeMismatch(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"key_value"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"key_value"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
 	}
@@ -613,7 +617,7 @@ func TestRunPush_TypeMismatch(t *testing.T) {
 
 func TestRunPush_CreateMissing_ResolveStillFails(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
 	}

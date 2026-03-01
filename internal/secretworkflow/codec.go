@@ -15,11 +15,10 @@ func JSONToDotenv(payload []byte) ([]byte, error) {
 	env := make(map[string]string, len(m))
 	for key, raw := range m {
 		var asString string
-		if err := json.Unmarshal(raw, &asString); err == nil {
-			env[key] = asString
-			continue
+		if err := json.Unmarshal(raw, &asString); err != nil {
+			return nil, fmt.Errorf("key %q: expected string value", key)
 		}
-		env[key] = string(raw)
+		env[key] = asString
 	}
 	return dotenv.Render(env), nil
 }

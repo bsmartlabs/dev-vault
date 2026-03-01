@@ -35,7 +35,7 @@ func TestLoadAndOpenAPI_GetwdError(t *testing.T) {
 
 func TestLoadAndOpenAPI_Success(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"sync"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 	old, _ := os.Getwd()
 	defer func() { _ = os.Chdir(old) }()
@@ -62,7 +62,7 @@ func TestLoadAndOpenAPI_ConfigError(t *testing.T) {
 
 func TestLoadAndOpenAPI_OpenError(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	_, _, err := loadAndOpenAPI(cfgPath, "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, errors.New("boom")
 	}))
@@ -77,7 +77,7 @@ func TestRun_ProfileOverridePropagatesToOpenSecretAPI(t *testing.T) {
   "organization_id":"org",
   "project_id":"proj",
   "region":"fr-par",
-  "mapping":{"x-dev":{"file":"x","mode":"sync"}}
+  "mapping":{"x-dev":{"file":"x","mode":"pull"}}
 }`)
 
 	var gotProfile string
@@ -96,6 +96,28 @@ func TestRun_ProfileOverridePropagatesToOpenSecretAPI(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "NAME") || !strings.Contains(out.String(), "TYPE") {
 		t.Fatalf("unexpected list output: %s", out.String())
+	}
+}
+
+func TestRun_ReportsServiceInitErrorWhenAPIIsNil(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{
+  "organization_id":"org",
+  "project_id":"proj",
+  "region":"fr-par",
+  "mapping":{"x-dev":{"file":"x","mode":"pull"}}
+}`)
+	deps := baseDeps(func(cfg config.Config, profile string) (SecretAPI, error) {
+		return nil, nil
+	})
+
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--config", cfgPath, "list"}, &out, &errBuf, deps)
+	if code != 1 {
+		t.Fatalf("expected runtime exit code 1, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "init secret sync service") {
+		t.Fatalf("expected init service error, got %q", errBuf.String())
 	}
 }
 

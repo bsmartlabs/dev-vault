@@ -10,7 +10,7 @@ var pullCommandDef = commandDef{
 	Name:    "pull",
 	Summary: "Pull mapped -dev secrets to local files",
 	Flags: []commandFlagDef{
-		{Name: "all", Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull|both (mode defaults to both)"},
+		{Name: "all", Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull"},
 		{Name: "overwrite", Kind: commandFlagBool, Help: "Overwrite existing files"},
 	},
 	Doc: commandDoc{
@@ -36,25 +36,40 @@ var pullCommandDef = commandDef{
 	RunParsed: runPullParsed,
 }
 
-func runPull(ctx commandContext, argv []string) int {
-	return runCommand(ctx, argv, pullCommandDef)
+var pullBatchOperation = mappingBatchOperation[secretsync.PullResult]{
+	mode: commandModePull,
+	run: func(service secretsync.Service, parsed *parsedCommand, targets []secretsync.MappingTarget) (batchRunResult[secretsync.PullResult], error) {
+		opts := parsePullOptions(parsed)
+		result := service.PullBatch(targets, opts.overwrite)
+		return batchRunResult[secretsync.PullResult]{
+			successes: result.Succeeded,
+			failures:  result.Failed,
+			summary:   result.Summary,
+		}, nil
+	},
+	callbacks: batchReportCallbacks[secretsync.PullResult]{
+		SuccessLine: func(item secretsync.PullResult) string {
+			return fmt.Sprintf("pulled %s -> %s (rev=%d type=%s)", item.Name, item.File, item.Revision, item.Type)
+		},
+		FailureLine: func(failure secretsync.BatchFailure) string {
+			return fmt.Sprintf("failed pull %s: %v", failure.Name, failure.Err)
+		},
+	},
+}
+
+type pullOptions struct {
+	all       bool
+	overwrite bool
+}
+
+func parsePullOptions(parsed *parsedCommand) pullOptions {
+	return pullOptions{
+		all:       parsed.Bool("all"),
+		overwrite: parsed.Bool("overwrite"),
+	}
 }
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
-	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
-		mode: commandModePull,
-		all:  parsed.Bool("all"),
-		execute: func(service secretsync.Service, targets []secretsync.MappingTarget) error {
-			results, err := service.Pull(targets, parsed.Bool("overwrite"))
-			if err != nil {
-				return err
-			}
-			for _, item := range results {
-				if _, err := fmt.Fprintf(ctx.stdout, "pulled %s -> %s (rev=%d type=%s)\n", item.Name, item.File, item.Revision, item.Type); err != nil {
-					return outputError(err)
-				}
-			}
-			return nil
-		},
-	})
+	opts := parsePullOptions(parsed)
+	return runMappingBatchOperation(ctx, parsed, opts.all, pullBatchOperation)
 }

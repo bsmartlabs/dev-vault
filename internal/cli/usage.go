@@ -51,11 +51,10 @@ func printMainUsage(w io.Writer) error {
 	out.line("  - Pull writes files atomically and chmods them to 0600 (on Unix).")
 	out.line()
 	out.line("Batch behavior:")
-	out.line("  - mapping.mode defaults to both.")
-	out.line("  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
-	out.line("  - push --all includes mapping entries with mapping.mode in {push, both}.")
+	out.line("  - mapping.mode is required and must be pull or push.")
+	out.line("  - pull --all includes only mapping entries with mapping.mode=pull.")
+	out.line("  - push --all includes only mapping entries with mapping.mode=push.")
 	out.f("  - %s\n", explicitModePolicySentence)
-	out.line("  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
 	out.line()
 	out.line("Examples:")
 	out.line("  dev-vault list --json")
@@ -126,20 +125,4 @@ func formatFlagUsage(flagDef commandFlagDef) string {
 		out += "  " + flagDef.Help
 	}
 	return out
-}
-
-func printVersionUsage(w io.Writer) error {
-	return printCommandUsage(w, versionCommandDef)
-}
-
-func printListUsage(w io.Writer) error {
-	return printCommandUsage(w, listCommandDef)
-}
-
-func printPullUsage(w io.Writer) error {
-	return printCommandUsage(w, pullCommandDef)
-}
-
-func printPushUsage(w io.Writer) error {
-	return printCommandUsage(w, pushCommandDef)
 }

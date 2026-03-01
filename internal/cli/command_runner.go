@@ -60,6 +60,13 @@ func parseCommandExitCode(err error) (code int, terminal bool) {
 }
 
 func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCommand, error) {
+	if hasHelpFlag(argv) {
+		if err := printCommandUsage(ctx.stdout, def); err != nil {
+			return nil, &parseCommandError{code: 1, err: outputError(err)}
+		}
+		return nil, &parseCommandError{code: 0, err: flag.ErrHelp}
+	}
+
 	fs := flag.NewFlagSet(def.Name, flag.ContinueOnError)
 	fs.SetOutput(ctx.stderr)
 	var usageWriteErr error
@@ -130,6 +137,18 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 		stringValues:    stringValues,
 		sliceValues:     sliceValues,
 	}, nil
+}
+
+func hasHelpFlag(argv []string) bool {
+	for _, arg := range argv {
+		if arg == "--" {
+			return false
+		}
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
 }
 
 func runParsedCommand(ctx commandContext, argv []string, def commandDef, run func(parsed *parsedCommand) int) int {

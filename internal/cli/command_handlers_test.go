@@ -87,7 +87,7 @@ func TestRunHandlers_HelpAndParseErrors(t *testing.T) {
 
 func TestRunList_TableWriteFailure(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -106,14 +106,24 @@ func TestRunList_TableWriteFailure(t *testing.T) {
 
 func TestRunPull_And_RunPush_OutputWriteFailure(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"both","type":"opaque"}}}`)
+	cfgPath := writeConfig(t, root, `{
+		"organization_id":"org",
+		"project_id":"proj",
+		"region":"fr-par",
+		"mapping":{
+			"x-pull-dev":{"file":"in.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
+			"x-push-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}
+		}
+	}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write input file: %v", err)
 	}
 
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
-	api.AddEnabledVersion(sec.ID, []byte("DATA"))
+	pullSecret := api.AddSecret("proj", "x-pull-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(pullSecret.ID, []byte("DATA"))
+	pushSecret := api.AddSecret("proj", "x-push-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(pushSecret.ID, []byte("DATA"))
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	var pullErr bytes.Buffer
@@ -122,7 +132,7 @@ func TestRunPull_And_RunPush_OutputWriteFailure(t *testing.T) {
 		stderr:     &pullErr,
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"x-dev", "--overwrite"})
+	}, []string{"x-pull-dev", "--overwrite"})
 	if pullCode != 1 {
 		t.Fatalf("expected pull exit 1, got %d stderr=%s", pullCode, pullErr.String())
 	}
@@ -133,8 +143,200 @@ func TestRunPull_And_RunPush_OutputWriteFailure(t *testing.T) {
 		stderr:     &pushErr,
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"x-dev", "--description", "d"})
+	}, []string{"x-push-dev", "--description", "d"})
 	if pushCode != 1 {
 		t.Fatalf("expected push exit 1, got %d stderr=%s", pushCode, pushErr.String())
+	}
+}
+
+func TestRunPullAndPush_ReportPartialBatchFailures(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{
+		"organization_id":"org",
+		"project_id":"proj",
+		"region":"fr-par",
+		"mapping":{
+			"a-pull-dev":{"file":"a.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
+			"b-pull-dev":{"file":"b.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
+			"a-push-dev":{"file":"a.bin","format":"raw","path":"/","mode":"push","type":"opaque"},
+			"b-push-dev":{"file":"b.bin","format":"raw","path":"/","mode":"push","type":"opaque"}
+		}
+	}`)
+	if err := os.WriteFile(filepath.Join(root, "a.bin"), []byte("A"), 0o644); err != nil {
+		t.Fatalf("write a.bin: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "b.bin"), []byte("B"), 0o644); err != nil {
+		t.Fatalf("write b.bin: %v", err)
+	}
+
+	api := newFakeSecretAPI()
+	aPull := api.AddSecret("proj", "a-pull-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(aPull.ID, []byte("A"))
+	aPush := api.AddSecret("proj", "a-push-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(aPush.ID, []byte("A"))
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
+
+	var pullOut, pullErr bytes.Buffer
+	pullCode := runPull(commandContext{
+		stdout:     &pullOut,
+		stderr:     &pullErr,
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"--all", "--overwrite"})
+	if pullCode != 1 {
+		t.Fatalf("expected pull exit 1, got %d stderr=%s", pullCode, pullErr.String())
+	}
+	if got := pullOut.String(); !bytes.Contains([]byte(got), []byte("pulled a-pull-dev")) {
+		t.Fatalf("expected pull success line for a-pull-dev, got %q", got)
+	}
+	if got := pullErr.String(); !bytes.Contains([]byte(got), []byte("failed pull b-pull-dev")) || !bytes.Contains([]byte(got), []byte("pull completed with failures: 1/2 failed")) {
+		t.Fatalf("unexpected pull stderr: %q", got)
+	}
+
+	var pushOut, pushErr bytes.Buffer
+	pushCode := runPush(commandContext{
+		stdout:     &pushOut,
+		stderr:     &pushErr,
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"--all", "--yes"})
+	if pushCode != 1 {
+		t.Fatalf("expected push exit 1, got %d stderr=%s", pushCode, pushErr.String())
+	}
+	if got := pushOut.String(); !bytes.Contains([]byte(got), []byte("pushed a-push-dev")) {
+		t.Fatalf("expected push success line for a-push-dev, got %q", got)
+	}
+	if got := pushErr.String(); !bytes.Contains([]byte(got), []byte("failed push b-push-dev")) || !bytes.Contains([]byte(got), []byte("push completed with failures: 1/2 failed")) {
+		t.Fatalf("unexpected push stderr: %q", got)
+	}
+}
+
+func TestRunPullAndPush_SingleFailureUsesBatchErrorContract(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{
+		"organization_id":"org",
+		"project_id":"proj",
+		"region":"fr-par",
+		"mapping":{
+			"single-pull-dev":{"file":"single.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
+			"single-push-dev":{"file":"single.bin","format":"raw","path":"/","mode":"push","type":"opaque"}
+		}
+	}`)
+	if err := os.WriteFile(filepath.Join(root, "single.bin"), []byte("S"), 0o644); err != nil {
+		t.Fatalf("write single.bin: %v", err)
+	}
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return newFakeSecretAPI(), nil })
+
+	var pullOut, pullErr bytes.Buffer
+	pullCode := runPull(commandContext{
+		stdout:     &pullOut,
+		stderr:     &pullErr,
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"single-pull-dev", "--overwrite"})
+	if pullCode != 1 {
+		t.Fatalf("expected pull exit 1, got %d stderr=%s", pullCode, pullErr.String())
+	}
+	if got := pullErr.String(); !bytes.Contains([]byte(got), []byte("failed pull single-pull-dev")) {
+		t.Fatalf("unexpected pull stderr: %q", got)
+	}
+	if got := pullErr.String(); !bytes.Contains([]byte(got), []byte("pull completed with failures: 1/1 failed")) {
+		t.Fatalf("expected batch summary for single failure, got %q", got)
+	}
+
+	var pushOut, pushErr bytes.Buffer
+	pushCode := runPush(commandContext{
+		stdout:     &pushOut,
+		stderr:     &pushErr,
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"single-push-dev"})
+	if pushCode != 1 {
+		t.Fatalf("expected push exit 1, got %d stderr=%s", pushCode, pushErr.String())
+	}
+	if got := pushErr.String(); !bytes.Contains([]byte(got), []byte("failed push single-push-dev")) {
+		t.Fatalf("unexpected push stderr: %q", got)
+	}
+	if got := pushErr.String(); !bytes.Contains([]byte(got), []byte("push completed with failures: 1/1 failed")) {
+		t.Fatalf("expected batch summary for single failure, got %q", got)
+	}
+}
+
+func TestRunPullAndPush_PartialFailureStderrWriteError(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{
+		"organization_id":"org",
+		"project_id":"proj",
+		"region":"fr-par",
+		"mapping":{
+			"a-pull-dev":{"file":"a.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
+			"b-pull-dev":{"file":"b.bin","format":"raw","path":"/","mode":"pull","type":"opaque"},
+			"a-push-dev":{"file":"a.bin","format":"raw","path":"/","mode":"push","type":"opaque"},
+			"b-push-dev":{"file":"b.bin","format":"raw","path":"/","mode":"push","type":"opaque"}
+		}
+	}`)
+	if err := os.WriteFile(filepath.Join(root, "a.bin"), []byte("A"), 0o644); err != nil {
+		t.Fatalf("write a.bin: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "b.bin"), []byte("B"), 0o644); err != nil {
+		t.Fatalf("write b.bin: %v", err)
+	}
+
+	api := newFakeSecretAPI()
+	aPull := api.AddSecret("proj", "a-pull-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(aPull.ID, []byte("A"))
+	aPush := api.AddSecret("proj", "a-push-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(aPush.ID, []byte("A"))
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
+
+	pullCode := runPull(commandContext{
+		stdout:     &bytes.Buffer{},
+		stderr:     &failingWriter{},
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"--all", "--overwrite"})
+	if pullCode != 1 {
+		t.Fatalf("expected pull exit 1, got %d", pullCode)
+	}
+
+	pushCode := runPush(commandContext{
+		stdout:     &bytes.Buffer{},
+		stderr:     &failingWriter{},
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"--all", "--yes"})
+	if pushCode != 1 {
+		t.Fatalf("expected push exit 1, got %d", pushCode)
+	}
+}
+
+func TestRunPull_AllowsDashPrefixedPositionalAfterSentinel(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{
+		"organization_id":"org",
+		"project_id":"proj",
+		"region":"fr-par",
+		"mapping":{
+			"--config-dev":{"file":"dash.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}
+		}
+	}`)
+
+	api := newFakeSecretAPI()
+	sec := api.AddSecret("proj", "--config-dev", "/", secret.SecretTypeOpaque)
+	api.AddEnabledVersion(sec.ID, []byte("DASH"))
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
+
+	var out, errBuf bytes.Buffer
+	code := runPull(commandContext{
+		stdout:     &out,
+		stderr:     &errBuf,
+		configPath: cfgPath,
+		deps:       deps,
+	}, []string{"--overwrite", "--", "--config-dev"})
+	if code != 0 {
+		t.Fatalf("expected pull exit 0, got %d stderr=%s", code, errBuf.String())
+	}
+	if got := out.String(); !bytes.Contains([]byte(got), []byte("pulled --config-dev")) {
+		t.Fatalf("unexpected stdout: %q", got)
 	}
 }

@@ -38,7 +38,7 @@ func TestHelpersFile_BasicSmoke(t *testing.T) {
 
 	mapping := map[string]config.MappingEntry{
 		"a-dev": {Mode: "pull"},
-		"b-dev": {Mode: "both"},
+		"b-dev": {Mode: "pull"},
 	}
 	targets, err := selectMappingTargets(mapping, true, nil, "pull")
 	if err != nil {
@@ -55,7 +55,7 @@ func TestHelpersFile_BasicSmoke(t *testing.T) {
 		t.Fatal("expected parseSecretType to fail for unknown type")
 	}
 
-	dotenvPayload, err := jsonToDotenvForTest([]byte(`{"A":"1","B":2}`))
+	dotenvPayload, err := jsonToDotenvForTest([]byte(`{"A":"1","B":"2"}`))
 	if err != nil {
 		t.Fatalf("jsonToDotenv: %v", err)
 	}

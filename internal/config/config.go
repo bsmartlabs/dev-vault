@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
@@ -31,37 +34,21 @@ type configDeps struct {
 	readFile func(string) ([]byte, error)
 }
 
-type MappingFormat string
+type MappingFormat = mapping.Format
 
 const (
-	MappingFormatRaw    MappingFormat = "raw"
-	MappingFormatDotenv MappingFormat = "dotenv"
+	MappingFormatRaw    = mapping.FormatRaw
+	MappingFormatDotenv = mapping.FormatDotenv
 )
 
-type MappingMode string
+type MappingMode = mapping.Mode
 
 const (
-	MappingModePull   MappingMode = "pull"
-	MappingModePush   MappingMode = "push"
-	MappingModeBoth   MappingMode = "both"
-	MappingModeLegacy MappingMode = "sync"
+	MappingModePull = mapping.ModePull
+	MappingModePush = mapping.ModePush
 )
 
-func (m MappingMode) AllowsPull() bool {
-	return m == MappingModePull || m == MappingModeBoth
-}
-
-func (m MappingMode) AllowsPush() bool {
-	return m == MappingModePush || m == MappingModeBoth
-}
-
-type MappingEntry struct {
-	File   string        `json:"file"`
-	Format MappingFormat `json:"format,omitempty"` // raw|dotenv
-	Path   string        `json:"path,omitempty"`   // default "/"
-	Mode   MappingMode   `json:"mode,omitempty"`   // pull|push|both (default: both). "sync" is accepted as legacy alias for "both".
-	Type   string        `json:"type,omitempty"`   // expected secret type
-}
+type MappingEntry = mapping.Entry
 
 type Config struct {
 	OrganizationID string                  `json:"organization_id"`
@@ -79,14 +66,11 @@ type Loaded struct {
 }
 
 func IsDevSecretName(name string) bool {
-	return strings.HasSuffix(name, "-dev")
+	return secretcontract.IsDevSecretName(name)
 }
 
 func ValidateDevSecretName(name string) error {
-	if IsDevSecretName(name) {
-		return nil
-	}
-	return fmt.Errorf("mapping key %q must end with -dev", name)
+	return secretcontract.ValidateDevSecretName(name)
 }
 
 func FindConfigPath(startDir string) (string, error) {
@@ -226,22 +210,16 @@ func (c *Config) normalizeAndValidate() ([]string, error) {
 		}
 
 		if entry.Mode == "" {
-			entry.Mode = MappingModeBoth
-		}
-		if entry.Mode == MappingModeLegacy {
-			// Back-compat: older manifests used "sync" to mean "both".
-			warnings = append(warnings, fmt.Sprintf("mapping %q uses legacy mode=sync; use mode=both (sync will be removed in a future major release)", name))
-			entry.Mode = MappingModeBoth
+			return nil, fmt.Errorf("mapping %q: missing required field: mode (expected pull|push)", name)
 		}
 		switch entry.Mode {
-		case MappingModePull, MappingModePush, MappingModeBoth:
+		case MappingModePull, MappingModePush:
 		default:
 			return nil, fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}
 
-		entry.Type = strings.TrimSpace(entry.Type)
 		if entry.Type != "" {
-			if !secrettype.IsValid(entry.Type) {
+			if !secrettype.IsValid(string(entry.Type)) {
 				return nil, fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
 			}
 		}
@@ -253,38 +231,5 @@ func (c *Config) normalizeAndValidate() ([]string, error) {
 }
 
 func ResolveFile(rootDir string, rel string) (string, error) {
-	return resolveFileWithDeps(rootDir, rel, defaultConfigDeps)
-}
-
-func resolveFileWithDeps(rootDir string, rel string, deps configDeps) (string, error) {
-	if rootDir == "" {
-		return "", errors.New("rootDir is empty")
-	}
-	if rel == "" {
-		return "", errors.New("relative path is empty")
-	}
-	if filepath.IsAbs(rel) {
-		return "", fmt.Errorf("path must be relative: %q", rel)
-	}
-
-	absRoot, err := deps.abs(rootDir)
-	if err != nil {
-		return "", fmt.Errorf("abs rootDir: %w", err)
-	}
-
-	absPath, err := deps.abs(filepath.Join(absRoot, rel))
-	if err != nil {
-		return "", fmt.Errorf("abs joined path: %w", err)
-	}
-
-	relToRoot, err := deps.rel(absRoot, absPath)
-	if err != nil {
-		return "", fmt.Errorf("rel path: %w", err)
-	}
-
-	if relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path escapes project root: %q", rel)
-	}
-
-	return absPath, nil
+	return pathpolicy.ResolveProjectFile(rootDir, rel)
 }

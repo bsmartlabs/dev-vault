@@ -56,6 +56,19 @@ func TestRun_GlobalHelpViaFlagSetPath(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+}
+
+func TestRun_GlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--profile", "ci", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
 	if !strings.Contains(errBuf.String(), "Usage:") {
 		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
 	}
@@ -204,8 +217,8 @@ func TestRun_SubcommandHelpFlag(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
-	if !strings.Contains(errBuf.String(), "Usage:") {
-		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
 	}
 }
 
@@ -217,8 +230,8 @@ func TestRun_SubcommandHelpFlag_List(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
-	if !strings.Contains(errBuf.String(), "Usage:") {
-		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
 	}
 }
 
@@ -230,8 +243,8 @@ func TestRun_SubcommandHelpFlag_Push(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
-	if !strings.Contains(errBuf.String(), "Usage:") {
-		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
 	}
 }
 
@@ -246,7 +259,7 @@ func TestRun_SubcommandConfigFlag(t *testing.T) {
       "file": ".env.bsmart.rework",
       "format": "raw",
       "type": "opaque",
-      "mode": "sync"
+      "mode": "pull"
     }
   }
 }
@@ -271,14 +284,14 @@ func TestRun_SubcommandConfigFlag(t *testing.T) {
 	if !strings.Contains(out.String(), "bweb-env-bsmart-dev") {
 		t.Fatalf("unexpected list output: %s", out.String())
 	}
-	if !strings.Contains(errBuf.String(), "mode=sync") {
-		t.Fatalf("expected legacy sync warning, got stderr=%q", errBuf.String())
+	if errBuf.Len() != 0 {
+		t.Fatalf("expected no config warnings, got stderr=%q", errBuf.String())
 	}
 }
 
 func TestRunList_JSONAndTableAndErrors(t *testing.T) {
 	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)

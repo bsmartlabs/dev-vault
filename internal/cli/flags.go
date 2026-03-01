@@ -37,7 +37,15 @@ func reorderFlags(argv []string, takesValue map[string]bool) []string {
 	for i := 0; i < len(argv); i++ {
 		tok := argv[i]
 		if tok == "--" {
-			positional = append(positional, argv[i+1:]...)
+			rest := argv[i+1:]
+			keepSentinel := len(positional) == 0 &&
+				len(rest) > 0 &&
+				strings.HasPrefix(rest[0], "-") &&
+				rest[0] != "-"
+			if keepSentinel {
+				positional = append(positional, "--")
+			}
+			positional = append(positional, rest...)
 			break
 		}
 		if strings.HasPrefix(tok, "-") && tok != "-" {

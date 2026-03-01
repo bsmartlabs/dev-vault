@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
 func TestMappingModule_Smoke(t *testing.T) {
-	mapping := map[string]config.MappingEntry{"a-dev": {Mode: "both"}}
+	mapping := map[string]config.MappingEntry{"a-dev": {Mode: "pull"}}
 	targets, err := selectMappingTargets(mapping, true, nil, "pull")
 	if err != nil {
 		t.Fatalf("select all: %v", err)
@@ -29,8 +30,8 @@ func TestMappingModule_Smoke(t *testing.T) {
 
 func TestSelectMappingTargets_DedupesExplicitTargetsPreservingOrder(t *testing.T) {
 	mapping := map[string]config.MappingEntry{
-		"a-dev": {Mode: "both"},
-		"b-dev": {Mode: "both"},
+		"a-dev": {Mode: "pull"},
+		"b-dev": {Mode: "pull"},
 	}
 
 	got, err := selectMappingTargets(mapping, false, []string{"a-dev", "b-dev", "a-dev", "b-dev"}, "pull")
@@ -49,7 +50,8 @@ func TestSelectMappingTargets_DedupesExplicitTargetsPreservingOrder(t *testing.T
 }
 
 func TestCommandModeHelpers(t *testing.T) {
-	entry := config.MappingEntry{Mode: "both"}
+	pullEntry := mapping.Entry{Mode: mapping.ModePull}
+	pushEntry := mapping.Entry{Mode: mapping.ModePush}
 	if commandModePull.String() != "pull" {
 		t.Fatalf("unexpected pull mode string: %q", commandModePull.String())
 	}
@@ -59,13 +61,13 @@ func TestCommandModeHelpers(t *testing.T) {
 	if commandMode(0).String() != "unknown" {
 		t.Fatalf("unexpected unknown mode string: %q", commandMode(0).String())
 	}
-	if !commandModePull.allows(entry) {
-		t.Fatalf("pull mode should allow mapping mode both")
+	if !commandModePull.allows(pullEntry) {
+		t.Fatalf("pull mode should allow mapping mode pull")
 	}
-	if !commandModePush.allows(entry) {
-		t.Fatalf("push mode should allow mapping mode both")
+	if !commandModePush.allows(pushEntry) {
+		t.Fatalf("push mode should allow mapping mode push")
 	}
-	if commandMode(0).allows(entry) {
+	if commandMode(0).allows(pullEntry) {
 		t.Fatalf("unknown mode should not allow mapping entries")
 	}
 }

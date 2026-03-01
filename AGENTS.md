@@ -36,10 +36,9 @@ This file documents project conventions and hard constraints for contributors an
   - `raw`: secret bytes are written as-is.
   - `dotenv`: secret payload is expected to be a JSON object; it is rendered deterministically as a `.env` style file.
 - `mapping[*].mode`:
-  - `both` (default): eligible for both `pull --all` and `push --all`.
   - `pull`: only eligible for `pull --all`.
   - `push`: only eligible for `push --all`.
-  - Legacy: `sync` is accepted as an alias for `both`.
+  - Required: every mapping entry must set `mode`.
 
 ## CI Local Runs (GitHub Actions via `act`)
 - Test job: `act -W .github/workflows/ci.yml -j test`

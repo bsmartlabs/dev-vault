@@ -1,10 +1,12 @@
 package secretsync
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
@@ -17,18 +19,43 @@ func (e *SecretLookupMissError) Error() string {
 	return fmt.Sprintf("secret not found: name=%s path=%s", e.Name, e.Path)
 }
 
-func (s Service) LookupMappedSecret(name string, entry MappingEntry) (*secretprovider.SecretRecord, error) {
+func (s Service) LookupMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
 	return s.lookupMappedSecret(name, entry)
 }
 
-func (s Service) lookupMappedSecret(name string, entry MappingEntry) (*secretprovider.SecretRecord, error) {
+func (s Service) LookupOrCreateMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
+	resolvedSecret, err := s.lookupMappedSecret(name, entry)
+	if err == nil {
+		return resolvedSecret, nil
+	}
+
+	var notFound *SecretLookupMissError
+	if !errors.As(err, &notFound) {
+		return nil, fmt.Errorf("resolve %s: %w", name, err)
+	}
+	if entry.Type == "" {
+		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
+	}
+
+	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
+		Name: name,
+		Type: entry.Type,
+		Path: entry.Path,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
+	}
+	return createdSecret, nil
+}
+
+func (s Service) lookupMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
 	req := secretprovider.ListSecretsInput{
 		Name: name,
 		Path: entry.Path,
 	}
 
 	if entry.Type != "" {
-		req.Type = secretprovider.SecretType(entry.Type)
+		req.Type = entry.Type
 	}
 
 	respSecrets, err := s.api.ListSecrets(req)

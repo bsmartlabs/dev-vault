@@ -10,7 +10,7 @@ var pushCommandDef = commandDef{
 	Name:    "push",
 	Summary: "Push local files as new secret versions",
 	Flags: []commandFlagDef{
-		{Name: "all", Kind: commandFlagBool, Help: "Push all mapping entries with mode push|both (mode defaults to both)"},
+		{Name: "all", Kind: commandFlagBool, Help: "Push all mapping entries with mode push"},
 		{Name: "yes", Kind: commandFlagBool, Help: "Confirm batch push (required when pushing more than one secret)"},
 		{Name: "disable-previous", Kind: commandFlagBool, Help: "Disable previous enabled version when creating a new version"},
 		{Name: "description", Kind: commandFlagString, ValueName: "<text>", Help: "Description for the new version (optional)"},
@@ -42,35 +42,61 @@ var pushCommandDef = commandDef{
 	RunParsed: runPushParsed,
 }
 
-func runPush(ctx commandContext, argv []string) int {
-	return runCommand(ctx, argv, pushCommandDef)
+var pushBatchOperation = mappingBatchOperation[secretsync.PushResult]{
+	mode: commandModePush,
+	preflight: func(parsed *parsedCommand, targets []secretsync.MappingTarget) error {
+		opts := parsePushOptions(parsed)
+		if len(targets) > 1 && !opts.yes {
+			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
+		}
+		return nil
+	},
+	run: func(service secretsync.Service, parsed *parsedCommand, targets []secretsync.MappingTarget) (batchRunResult[secretsync.PushResult], error) {
+		opts := parsePushOptions(parsed)
+		result := service.PushBatch(targets, opts.pushOptions())
+		return batchRunResult[secretsync.PushResult]{
+			successes: result.Succeeded,
+			failures:  result.Failed,
+			summary:   result.Summary,
+		}, nil
+	},
+	callbacks: batchReportCallbacks[secretsync.PushResult]{
+		SuccessLine: func(item secretsync.PushResult) string {
+			return fmt.Sprintf("pushed %s (rev=%d)", item.Name, item.Revision)
+		},
+		FailureLine: func(failure secretsync.BatchFailure) string {
+			return fmt.Sprintf("failed push %s: %v", failure.Name, failure.Err)
+		},
+	},
+}
+
+type pushOptions struct {
+	all             bool
+	yes             bool
+	disablePrevious bool
+	description     string
+	createMissing   bool
+}
+
+func (o pushOptions) pushOptions() secretsync.PushOptions {
+	return secretsync.PushOptions{
+		Description:     o.description,
+		DisablePrevious: o.disablePrevious,
+		CreateMissing:   o.createMissing,
+	}
+}
+
+func parsePushOptions(parsed *parsedCommand) pushOptions {
+	return pushOptions{
+		all:             parsed.Bool("all"),
+		yes:             parsed.Bool("yes"),
+		disablePrevious: parsed.Bool("disable-previous"),
+		description:     parsed.String("description"),
+		createMissing:   parsed.Bool("create-missing"),
+	}
 }
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
-	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
-		mode: commandModePush,
-		all:  parsed.Bool("all"),
-		preflight: func(targets []secretsync.MappingTarget) error {
-			if len(targets) > 1 && !parsed.Bool("yes") {
-				return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
-			}
-			return nil
-		},
-		execute: func(service secretsync.Service, targets []secretsync.MappingTarget) error {
-			results, err := service.Push(targets, secretsync.PushOptions{
-				Description:     parsed.String("description"),
-				DisablePrevious: parsed.Bool("disable-previous"),
-				CreateMissing:   parsed.Bool("create-missing"),
-			})
-			if err != nil {
-				return err
-			}
-			for _, item := range results {
-				if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
-					return outputError(err)
-				}
-			}
-			return nil
-		},
-	})
+	opts := parsePushOptions(parsed)
+	return runMappingBatchOperation(ctx, parsed, opts.all, pushBatchOperation)
 }
