@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
 func TestDefaultDependencies(t *testing.T) {
@@ -292,10 +290,12 @@ func TestCommandRuntime_InvalidConfigPolicy(t *testing.T) {
 	}
 	runtime := newCommandRuntime(ctx, parsed)
 
-	code := runtime.executeWithConfigPolicy(parsed.configPolicy, func(_ *config.Loaded, _ secretsync.Service) error {
-		t.Fatal("run callback should not execute for invalid policy")
-		return nil
-	})
+	_, err := runtime.prepareResources(parsed.configPolicy)
+	if err == nil {
+		t.Fatal("expected prepareResources to fail for invalid policy")
+	}
+
+	code := runtime.writeStderrError(err)
 	if code != 1 {
 		t.Fatalf("expected runtime exit code 1, got %d", code)
 	}
@@ -303,18 +303,5 @@ func TestCommandRuntime_InvalidConfigPolicy(t *testing.T) {
 	errText := ctx.stderr.(*bytes.Buffer).String()
 	if !strings.Contains(errText, "unsupported command config policy") {
 		t.Fatalf("expected unsupported policy error, got %q", errText)
-	}
-
-	code = runtime.runMappingCommand(
-		"pull",
-		false,
-		nil,
-		func(_ secretsync.Service, _ []mapping.Target) error {
-			t.Fatal("execute callback should not run for invalid policy")
-			return nil
-		},
-	)
-	if code != 1 {
-		t.Fatalf("expected runtime exit code 1 from runMappingCommand, got %d", code)
 	}
 }

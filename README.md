@@ -84,8 +84,8 @@ Unit tests are fully mocked (no Scaleway network calls).
 
 Provider compatibility gate:
 
-- Secret API contract tests (`internal/secretprovider/scaleway/api_test.go` and `internal/secretprovider/scaleway/open_profile_test.go`) validate DTO translation, profile resolution, and request shaping without network access.
-- Optional live integration gate (read-only list call through the Secret API):
+- Contract policy and test layout are documented in [docs/contracts/provider-compatibility.md](docs/contracts/provider-compatibility.md).
+- Optional live integration gate (read-only provider conformance checks):
 
 ```bash
 DEV_VAULT_TEST_PROJECT_ID=<project-id> \
@@ -93,6 +93,14 @@ DEV_VAULT_TEST_ORGANIZATION_ID=<org-id> \
 DEV_VAULT_TEST_REGION=fr-par \
 scripts/test-provider-contract.sh
 ```
+
+Default quality-gate order:
+
+1. `go test ./... -coverprofile=coverage.out`
+2. `go tool cover -func=coverage.out | tail -n 1` (must be `100.0%`)
+3. `make test-contracts` (or `scripts/test-provider-contract.sh`)
+
+The provider contract gate requires live credentials. To skip it explicitly in contributor/local flows, set `ALLOW_CONTRACT_SKIP=1`.
 
 Tests require 100% statement coverage:
 

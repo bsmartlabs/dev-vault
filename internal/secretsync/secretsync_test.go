@@ -14,31 +14,31 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-type fakeSecretAPI struct {
+type deterministicFakeSecretAPI struct {
 	listErr         error
 	accessErr       error
 	createSecretErr error
 	createVerErr    error
 
 	secrets  []secretprovider.SecretRecord
-	versions map[string][]fakeVersion
+	versions map[string][]deterministicFakeVersion
 }
 
-type fakeVersion struct {
+type deterministicFakeVersion struct {
 	revision    uint32
 	enabled     bool
 	data        []byte
 	description *string
 }
 
-func newFakeSecretAPI() *fakeSecretAPI {
-	return &fakeSecretAPI{
+func newDeterministicFakeSecretAPI() *deterministicFakeSecretAPI {
+	return &deterministicFakeSecretAPI{
 		secrets:  []secretprovider.SecretRecord{},
-		versions: make(map[string][]fakeVersion),
+		versions: make(map[string][]deterministicFakeVersion),
 	}
 }
 
-func (f *fakeSecretAPI) AddSecret(projectID, name, path string, typ secret.SecretType) *secretprovider.SecretRecord {
+func (f *deterministicFakeSecretAPI) AddSecret(projectID, name, path string, typ secret.SecretType) *secretprovider.SecretRecord {
 	id := "sec-" + name + "-" + projectID
 	s := secretprovider.SecretRecord{
 		ID:        id,
@@ -51,9 +51,9 @@ func (f *fakeSecretAPI) AddSecret(projectID, name, path string, typ secret.Secre
 	return &f.secrets[len(f.secrets)-1]
 }
 
-func (f *fakeSecretAPI) AddEnabledVersion(secretID string, data []byte) uint32 {
+func (f *deterministicFakeSecretAPI) AddEnabledVersion(secretID string, data []byte) uint32 {
 	rev := uint32(len(f.versions[secretID]) + 1)
-	f.versions[secretID] = append(f.versions[secretID], fakeVersion{
+	f.versions[secretID] = append(f.versions[secretID], deterministicFakeVersion{
 		revision: rev,
 		enabled:  true,
 		data:     data,
@@ -61,7 +61,7 @@ func (f *fakeSecretAPI) AddEnabledVersion(secretID string, data []byte) uint32 {
 	return rev
 }
 
-func (f *fakeSecretAPI) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider.SecretRecord, error) {
+func (f *deterministicFakeSecretAPI) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider.SecretRecord, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
@@ -81,7 +81,7 @@ func (f *fakeSecretAPI) ListSecrets(req secretprovider.ListSecretsInput) ([]secr
 	return out, nil
 }
 
-func (f *fakeSecretAPI) AccessSecretVersion(req secretprovider.AccessSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
+func (f *deterministicFakeSecretAPI) AccessSecretVersion(req secretprovider.AccessSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
 	if f.accessErr != nil {
 		return nil, f.accessErr
 	}
@@ -90,7 +90,7 @@ func (f *fakeSecretAPI) AccessSecretVersion(req secretprovider.AccessSecretVersi
 		return nil, errors.New("unknown secret")
 	}
 	versions := f.versions[req.SecretID]
-	var chosen *fakeVersion
+	var chosen *deterministicFakeVersion
 	switch req.Revision {
 	case secretprovider.RevisionLatestEnabled:
 		for i := range versions {
@@ -115,7 +115,7 @@ func (f *fakeSecretAPI) AccessSecretVersion(req secretprovider.AccessSecretVersi
 	}, nil
 }
 
-func (f *fakeSecretAPI) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovider.SecretRecord, error) {
+func (f *deterministicFakeSecretAPI) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovider.SecretRecord, error) {
 	if f.createSecretErr != nil {
 		return nil, f.createSecretErr
 	}
@@ -126,7 +126,7 @@ func (f *fakeSecretAPI) CreateSecret(req secretprovider.CreateSecretInput) (*sec
 	return f.AddSecret("proj", req.Name, path, secret.SecretType(req.Type)), nil
 }
 
-func (f *fakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
+func (f *deterministicFakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
 	if f.createVerErr != nil {
 		return nil, f.createVerErr
 	}
@@ -143,7 +143,7 @@ func (f *fakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersi
 			}
 		}
 	}
-	f.versions[req.SecretID] = append(f.versions[req.SecretID], fakeVersion{
+	f.versions[req.SecretID] = append(f.versions[req.SecretID], deterministicFakeVersion{
 		revision:    rev,
 		enabled:     true,
 		data:        append([]byte(nil), req.Data...),
@@ -152,7 +152,7 @@ func (f *fakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersi
 	return &secretprovider.SecretVersionRecord{Revision: rev, SecretID: req.SecretID, Status: "enabled"}, nil
 }
 
-func (f *fakeSecretAPI) findSecret(id string) *secretprovider.SecretRecord {
+func (f *deterministicFakeSecretAPI) findSecret(id string) *secretprovider.SecretRecord {
 	for i := range f.secrets {
 		if f.secrets[i].ID == id {
 			return &f.secrets[i]
@@ -173,7 +173,7 @@ func baseService(root string, _ map[string]mapping.Entry, api secretprovider.Sec
 }
 
 func TestNew_DefaultsAndInjectedDeps(t *testing.T) {
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	svc, err := New(Config{Root: "/tmp"}, api, Dependencies{})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -250,7 +250,7 @@ func firstPushBatchError(result PushBatchResult) error {
 }
 
 func TestLookupMappedSecret(t *testing.T) {
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	svc := baseService(t.TempDir(), nil, api)
 
 	api.listErr = errors.New("boom")
@@ -269,7 +269,7 @@ func TestLookupMappedSecret(t *testing.T) {
 		t.Fatalf("expected multiple match error, got %v", err)
 	}
 
-	api = newFakeSecretAPI()
+	api = newDeterministicFakeSecretAPI()
 	api.AddSecret("proj", "typed-dev", "/", secret.SecretTypeOpaque)
 	svc = baseService(t.TempDir(), nil, api)
 	got, err := svc.lookupMappedSecret("typed-dev", mapping.Entry{Path: "/", Type: "opaque"})
@@ -287,14 +287,14 @@ func TestLookupMappedSecret(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	api.listErr = errors.New("boom")
 	svc := baseService(t.TempDir(), nil, api)
 	if _, err := svc.List(ListQuery{}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected list error, got %v", err)
 	}
 
-	api = newFakeSecretAPI()
+	api = newDeterministicFakeSecretAPI()
 	api.AddSecret("proj", "zzz-dev", "/a", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "aaa-dev", "/a", secret.SecretTypeKeyValue)
 	api.AddSecret("proj", "plain-prod", "/a", secret.SecretTypeOpaque)
@@ -345,7 +345,7 @@ func TestList(t *testing.T) {
 
 func TestPull(t *testing.T) {
 	root := t.TempDir()
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	svc := baseService(root, nil, api)
 
 	if result := svc.PullBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); result.Summary.ErrorOrNil() == nil || firstPullBatchError(result) == nil {
@@ -368,7 +368,7 @@ func TestPull(t *testing.T) {
 		t.Fatalf("expected dotenv conversion error, got %v", result.Summary.ErrorOrNil())
 	}
 
-	api = newFakeSecretAPI()
+	api = newDeterministicFakeSecretAPI()
 	sec = api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte(`{"A":"1"}`))
 	svc = baseService(root, nil, api)
@@ -376,7 +376,7 @@ func TestPull(t *testing.T) {
 		t.Fatalf("expected dotenv conversion success, got %v (%#v)", result.Summary.ErrorOrNil(), result)
 	}
 
-	api = newFakeSecretAPI()
+	api = newDeterministicFakeSecretAPI()
 	sec = api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	svc = baseService(root, nil, api)
@@ -408,7 +408,7 @@ func TestPull(t *testing.T) {
 
 func TestPullBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 	root := t.TempDir()
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	svc := baseService(root, nil, api)
@@ -441,7 +441,7 @@ func TestPullBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 
 func TestPullBatch_AllSuccess(t *testing.T) {
 	root := t.TempDir()
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	svc := baseService(root, nil, api)
@@ -459,7 +459,7 @@ func TestPullBatch_AllSuccess(t *testing.T) {
 
 func TestPushHelpersAndPush(t *testing.T) {
 	root := t.TempDir()
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	svc := baseService(root, nil, api)
 
 	if got := svc.pushDescription("explicit"); got != "explicit" {
@@ -589,7 +589,7 @@ func TestPushHelpersAndPush(t *testing.T) {
 
 func TestPushBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 	root := t.TempDir()
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	svc := baseService(root, nil, api)
 
@@ -625,7 +625,7 @@ func TestPushBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 
 func TestPushBatch_AllSuccess(t *testing.T) {
 	root := t.TempDir()
-	api := newFakeSecretAPI()
+	api := newDeterministicFakeSecretAPI()
 	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	svc := baseService(root, nil, api)
 

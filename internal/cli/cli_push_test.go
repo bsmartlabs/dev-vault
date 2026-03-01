@@ -371,21 +371,6 @@ func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T)
 	}
 }
 
-func TestRunPull_DotenvFormatError(t *testing.T) {
-	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
-	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeKeyValue)
-	api.AddEnabledVersion(sec.ID, []byte("not-json"))
-
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev", "--overwrite"}, &out, &errBuf, deps)
-	if code != 1 {
-		t.Fatalf("expected 1, got %d", code)
-	}
-}
-
 func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
@@ -443,19 +428,6 @@ func TestRunPush_FileReadError(t *testing.T) {
 	}
 }
 
-func TestRunPull_MappingResolveError(t *testing.T) {
-	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
-	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "x-dev", "--overwrite"}, &out, &errBuf, deps)
-	if code != 1 {
-		t.Fatalf("expected 1, got %d", code)
-	}
-}
-
 func TestRunPush_MappingResolveError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
@@ -466,49 +438,6 @@ func TestRunPush_MappingResolveError(t *testing.T) {
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev", "--description", "desc"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
-	}
-}
-
-func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
-	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
-	api := newFakeSecretAPI()
-	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "b-dev", "/", secret.SecretTypeKeyValue)
-
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "list", "--json"}, &out, &errBuf, deps)
-	if code != 0 {
-		t.Fatalf("expected 0, got %d", code)
-	}
-	// List command should use a single filtered API query for untyped lists.
-	if api.listCalls != 1 {
-		t.Fatalf("expected 1 list call, got %d", api.listCalls)
-	}
-}
-
-func TestRunList_LoadAndOpenViaDiscovery(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "nested"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
-	_ = cfgPath
-	api := newFakeSecretAPI()
-	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-
-	old, _ := os.Getwd()
-	defer func() { _ = os.Chdir(old) }()
-	if err := os.Chdir(filepath.Join(root, "nested")); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "list"}, &out, &errBuf, deps)
-	if code != 0 {
-		t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 	}
 }
 
@@ -541,33 +470,6 @@ func TestRunPush_DisablePrevious(t *testing.T) {
 	}
 	if vers[0].enabled {
 		t.Fatalf("expected rev1 disabled")
-	}
-}
-
-func TestRunPull_ResolveMultipleMatches(t *testing.T) {
-	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"dup-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
-	api := newFakeSecretAPI()
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "dup-dev", "--overwrite"}, &out, &errBuf, deps)
-	if code != 1 {
-		t.Fatalf("expected 1, got %d", code)
-	}
-}
-
-func TestRunPull_ListErrorViaResolve(t *testing.T) {
-	root := t.TempDir()
-	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
-	api := newFakeSecretAPI()
-	api.listErr = errors.New("boom")
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)
-	if code != 1 {
-		t.Fatalf("expected 1, got %d", code)
 	}
 }
 

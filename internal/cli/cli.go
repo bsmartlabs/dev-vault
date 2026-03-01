@@ -122,22 +122,13 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 			}
 			return 2
 		}
-		if commandNeedsRuntimeDeps(def.Name) && runtimeDepsMissing(deps) {
+		if def.NeedsRuntimeDeps && runtimeDepsMissing(deps) {
 			if _, err := fmt.Fprintln(stderr, "internal error: missing dependencies"); err != nil {
 				return 1
 			}
 			return 1
 		}
 		return runCommand(ctx, rest[1:], def)
-	}
-}
-
-func commandNeedsRuntimeDeps(name string) bool {
-	switch name {
-	case "list", "pull", "push":
-		return true
-	default:
-		return false
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
@@ -45,9 +44,10 @@ var listCommandDef = commandDef{
 			"dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value",
 		},
 	},
-	Config:       commandConfigProjectOnly,
-	DecodeParsed: decodeListParsed,
-	RunParsed:    runListParsed,
+	Config:           commandConfigProjectOnly,
+	NeedsRuntimeDeps: true,
+	DecodeParsed:     decodeListParsed,
+	RunParsed:        runListParsed,
 }
 
 type listOptions struct {
@@ -66,10 +66,6 @@ func decodeListParsed(parsed *parsedCommand, values parsedFlagValues) {
 		path:         stringFlagValue(values, listFlagPath),
 		secretType:   stringFlagValue(values, listFlagType),
 	}
-}
-
-func parseListOptions(parsed *parsedCommand) listOptions {
-	return parsed.listOptions
 }
 
 func buildListQuery(opts listOptions) (secretsync.ListQuery, error) {
@@ -122,7 +118,7 @@ func renderListOutput(ctx commandContext, asJSON bool, filtered []secretsync.Lis
 }
 
 func runListParsed(ctx commandContext, parsed *parsedCommand) int {
-	opts := parseListOptions(parsed)
+	opts := parsed.listOptions
 	runtime := newCommandRuntime(ctx, parsed)
 	if err := rejectUnexpectedArgs(parsed, "list"); err != nil {
 		return runtime.writeStderrError(err)
@@ -132,12 +128,18 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 		return runtime.writeStderrError(err)
 	}
 
-	return runtime.executeWithConfigPolicy(parsed.configPolicy, func(_ *config.Loaded, service secretsync.Service) error {
-		filtered, err := service.List(query)
-		if err != nil {
-			return err
-		}
+	resources, err := runtime.prepareResources(parsed.configPolicy)
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
 
-		return renderListOutput(ctx, opts.json, filtered)
-	})
+	filtered, err := resources.service.List(query)
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
+
+	if err := renderListOutput(ctx, opts.json, filtered); err != nil {
+		return runtime.writeStderrError(err)
+	}
+	return 0
 }

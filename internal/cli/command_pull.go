@@ -39,9 +39,10 @@ var pullCommandDef = commandDef{
 			"dev-vault pull bweb-env-bsmart-dev --config .scw.json --overwrite",
 		},
 	},
-	Config:       commandConfigValidated,
-	DecodeParsed: decodePullParsed,
-	RunParsed:    runPullParsed,
+	Config:           commandConfigValidated,
+	NeedsRuntimeDeps: true,
+	DecodeParsed:     decodePullParsed,
+	RunParsed:        runPullParsed,
 }
 
 type pullOptions struct {
@@ -56,37 +57,43 @@ func decodePullParsed(parsed *parsedCommand, values parsedFlagValues) {
 	}
 }
 
-func parsePullOptions(parsed *parsedCommand) pullOptions {
-	return parsed.pullOptions
-}
-
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
-	opts := parsePullOptions(parsed)
-	return runPullBatch(ctx, parsed, opts)
+	return runPullBatch(ctx, parsed, parsed.pullOptions)
 }
 
 func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResult) error {
-	for _, item := range result.Succeeded {
-		if _, err := fmt.Fprintf(ctx.stdout, "pulled %s -> %s (rev=%d type=%s)\n", item.Name, item.File, item.Revision, item.Type); err != nil {
-			return outputError(err)
-		}
-	}
-	for _, failure := range result.Failed {
-		if _, err := fmt.Fprintf(ctx.stderr, "failed pull %s: %v\n", failure.Name, failure.Err); err != nil {
-			return outputError(err)
-		}
-	}
-	return result.Summary.ErrorOrNil()
+	return reportBatchResults(
+		ctx,
+		result.Succeeded,
+		result.Failed,
+		result.Summary,
+		"pull",
+		func(item secretsync.PullResult) string {
+			return fmt.Sprintf("pulled %s -> %s (rev=%d type=%s)", item.Name, item.File, item.Revision, item.Type)
+		},
+	)
 }
 
 func runPullBatch(ctx commandContext, parsed *parsedCommand, opts pullOptions) int {
-	return newCommandRuntime(ctx, parsed).runMappingCommand(
-		mapping.ModePull,
-		opts.all,
-		nil,
-		func(service secretsync.Service, targets []mapping.Target) error {
-			result := service.PullBatch(targets, opts.overwrite)
-			return reportPullBatchResults(ctx, result)
-		},
-	)
+	runtime := newCommandRuntime(ctx, parsed)
+	loaded, err := runtime.loadWithPolicy(parsed.configPolicy)
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
+
+	targets, err := runtime.selectMappingTargets(loaded, mapping.ModePull, opts.all, nil, parsed.fs.Args())
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
+
+	service, err := runtime.newService(loaded)
+	if err != nil {
+		return runtime.writeStderrError(runtimeError(err))
+	}
+
+	result := service.PullBatch(targets, opts.overwrite)
+	if err := reportPullBatchResults(ctx, result); err != nil {
+		return runtime.writeStderrError(err)
+	}
+	return 0
 }

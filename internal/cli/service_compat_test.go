@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bsmartlabs/dev-vault/internal/cli/selection"
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
@@ -129,7 +130,7 @@ func selectMappingTargets(entries map[string]mapping.Entry, all bool, positional
 	default:
 		typedMode = mapping.Mode("")
 	}
-	targets, err := mapping.SelectTargetsForMode(entries, all, positional, typedMode)
+	targets, err := selection.SelectTargetsForMode(entries, all, positional, typedMode)
 	if err != nil {
 		return nil, err
 	}

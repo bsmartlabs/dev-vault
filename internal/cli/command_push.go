@@ -48,9 +48,10 @@ var pushCommandDef = commandDef{
 			"dev-vault push --config .scw.json --all --yes --disable-previous",
 		},
 	},
-	Config:       commandConfigValidated,
-	DecodeParsed: decodePushParsed,
-	RunParsed:    runPushParsed,
+	Config:           commandConfigValidated,
+	NeedsRuntimeDeps: true,
+	DecodeParsed:     decodePushParsed,
+	RunParsed:        runPushParsed,
 }
 
 type pushOptions struct {
@@ -71,7 +72,7 @@ func decodePushParsed(parsed *parsedCommand, values parsedFlagValues) {
 	}
 }
 
-func (o pushOptions) pushOptions() secretsync.PushOptions {
+func (o pushOptions) toServicePushOptions() secretsync.PushOptions {
 	return secretsync.PushOptions{
 		Description:     o.description,
 		DisablePrevious: o.disablePrevious,
@@ -79,27 +80,21 @@ func (o pushOptions) pushOptions() secretsync.PushOptions {
 	}
 }
 
-func parsePushOptions(parsed *parsedCommand) pushOptions {
-	return parsed.pushOptions
-}
-
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
-	opts := parsePushOptions(parsed)
-	return runPushBatch(ctx, parsed, opts)
+	return runPushBatch(ctx, parsed, parsed.pushOptions)
 }
 
 func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResult) error {
-	for _, item := range result.Succeeded {
-		if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
-			return outputError(err)
-		}
-	}
-	for _, failure := range result.Failed {
-		if _, err := fmt.Fprintf(ctx.stderr, "failed push %s: %v\n", failure.Name, failure.Err); err != nil {
-			return outputError(err)
-		}
-	}
-	return result.Summary.ErrorOrNil()
+	return reportBatchResults(
+		ctx,
+		result.Succeeded,
+		result.Failed,
+		result.Summary,
+		"push",
+		func(item secretsync.PushResult) string {
+			return fmt.Sprintf("pushed %s (rev=%d)", item.Name, item.Revision)
+		},
+	)
 }
 
 func runPushBatch(ctx commandContext, parsed *parsedCommand, opts pushOptions) int {
@@ -110,13 +105,25 @@ func runPushBatch(ctx commandContext, parsed *parsedCommand, opts pushOptions) i
 		return nil
 	}
 
-	return newCommandRuntime(ctx, parsed).runMappingCommand(
-		mapping.ModePush,
-		opts.all,
-		preflight,
-		func(service secretsync.Service, targets []mapping.Target) error {
-			result := service.PushBatch(targets, opts.pushOptions())
-			return reportPushBatchResults(ctx, result)
-		},
-	)
+	runtime := newCommandRuntime(ctx, parsed)
+	loaded, err := runtime.loadWithPolicy(parsed.configPolicy)
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
+
+	targets, err := runtime.selectMappingTargets(loaded, mapping.ModePush, opts.all, preflight, parsed.fs.Args())
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
+
+	service, err := runtime.newService(loaded)
+	if err != nil {
+		return runtime.writeStderrError(runtimeError(err))
+	}
+
+	result := service.PushBatch(targets, opts.toServicePushOptions())
+	if err := reportPushBatchResults(ctx, result); err != nil {
+		return runtime.writeStderrError(err)
+	}
+	return 0
 }

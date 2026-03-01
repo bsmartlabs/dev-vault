@@ -1,12 +1,19 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/bsmartlabs/dev-vault/internal/cli/selection"
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
+)
+
+var (
+	errRuntimeOpenSecretAPI       = errors.New("open secret api")
+	errRuntimeInitSecretSyncError = errors.New("init secret sync service")
 )
 
 type commandRuntime struct {
@@ -17,33 +24,25 @@ type commandRuntime struct {
 type configLoader func(configPath string, deps Dependencies) (*config.Loaded, error)
 type projectConfigLoader func(startDir, explicitPath string) (*config.Loaded, error)
 
+type runtimeResources struct {
+	loaded  *config.Loaded
+	service secretsync.Service
+}
+
 func newCommandRuntime(ctx commandContext, parsed *parsedCommand) commandRuntime {
 	return commandRuntime{ctx: ctx, parsed: parsed}
 }
 
-func (r commandRuntime) executeWithConfigPolicy(policy commandConfigPolicy, run func(loaded *config.Loaded, service secretsync.Service) error) int {
+func (r commandRuntime) loadWithPolicy(policy commandConfigPolicy) (*config.Loaded, error) {
 	loader, err := configLoaderForPolicy(policy)
 	if err != nil {
-		return r.writeStderrError(runtimeError(err))
+		return nil, runtimeError(err)
 	}
-	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
-		service, err := r.newService(loaded)
-		if err != nil {
-			return runtimeError(err)
-		}
-		return run(loaded, service)
-	})
-}
-
-func (r commandRuntime) runWithLoaded(loader configLoader, run func(loaded *config.Loaded) error) int {
 	loaded, err := loader(r.parsed.configPath, r.ctx.deps)
 	if err != nil {
-		return r.writeStderrError(runtimeError(err))
+		return nil, runtimeError(err)
 	}
-	if err := run(loaded); err != nil {
-		return r.writeStderrError(err)
-	}
-	return 0
+	return loaded, nil
 }
 
 func (r commandRuntime) newService(loaded *config.Loaded) (secretsync.Service, error) {
@@ -59,9 +58,24 @@ func (r commandRuntime) newService(loaded *config.Loaded) (secretsync.Service, e
 		ResolvePath: r.ctx.deps.ResolveProjectPath,
 	})
 	if err != nil {
-		return secretsync.Service{}, fmt.Errorf("init secret sync service: %w", err)
+		return secretsync.Service{}, fmt.Errorf("%w: %w", errRuntimeInitSecretSyncError, err)
 	}
 	return service, nil
+}
+
+func (r commandRuntime) prepareResources(policy commandConfigPolicy) (*runtimeResources, error) {
+	loaded, err := r.loadWithPolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+	service, err := r.newService(loaded)
+	if err != nil {
+		return nil, runtimeError(err)
+	}
+	return &runtimeResources{
+		loaded:  loaded,
+		service: service,
+	}, nil
 }
 
 func (r commandRuntime) writeStderrError(err error) int {
@@ -71,32 +85,23 @@ func (r commandRuntime) writeStderrError(err error) int {
 	return exitCodeForError(err)
 }
 
-func (r commandRuntime) runMappingCommand(
+func (r commandRuntime) selectMappingTargets(
+	loaded *config.Loaded,
 	mode mapping.Mode,
 	all bool,
 	preflight func(targets []mapping.Target) error,
-	execute func(service secretsync.Service, targets []mapping.Target) error,
-) int {
-	loader, err := configLoaderForPolicy(r.parsed.configPolicy)
+	argv []string,
+) ([]mapping.Target, error) {
+	targets, err := selection.SelectTargetsForMode(loaded.Cfg.Mapping, all, argv, mode)
 	if err != nil {
-		return r.writeStderrError(runtimeError(err))
+		return nil, usageError(err)
 	}
-	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
-		targets, err := mapping.SelectTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
-		if err != nil {
-			return usageError(err)
+	if preflight != nil {
+		if err := preflight(targets); err != nil {
+			return nil, err
 		}
-		if preflight != nil {
-			if err := preflight(targets); err != nil {
-				return err
-			}
-		}
-		service, err := r.newService(loaded)
-		if err != nil {
-			return runtimeError(err)
-		}
-		return execute(service, targets)
-	})
+	}
+	return targets, nil
 }
 
 func configLoaderForPolicy(policy commandConfigPolicy) (configLoader, error) {
@@ -129,7 +134,7 @@ func loadConfigWithLoader(configPath string, deps Dependencies, loader projectCo
 func openAPIForLoaded(loaded *config.Loaded, profileOverride string, deps Dependencies) (secretprovider.SecretAPI, error) {
 	api, err := deps.OpenSecretAPI(loaded.Cfg, profileOverride)
 	if err != nil {
-		return nil, fmt.Errorf("open secret api: %w", err)
+		return nil, fmt.Errorf("%w: %w", errRuntimeOpenSecretAPI, err)
 	}
 	return api, nil
 }

@@ -3,9 +3,10 @@ package cli
 import "fmt"
 
 var versionCommandDef = commandDef{
-	Name:    "version",
-	Summary: "Print build version information",
-	Config:  commandConfigValidated,
+	Name:             "version",
+	Summary:          "Print build version information",
+	Config:           commandConfigValidated,
+	NeedsRuntimeDeps: false,
 	Doc: commandDoc{
 		Synopsis: "dev-vault version",
 		Description: []string{
