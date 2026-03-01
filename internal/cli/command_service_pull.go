@@ -22,12 +22,9 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 			return nil, fmt.Errorf("mapping %s: resolve file: %w", target.Name, err)
 		}
 
-		resolvedSecret, err := resolveSecretFromIndex(lookupIndex, target.Name, target.Entry.Path)
+		resolvedSecret, err := s.resolveMappedSecret(target.Name, target.Entry, false, lookupIndex)
 		if err != nil {
-			return nil, fmt.Errorf("resolve %s: %w", target.Name, err)
-		}
-		if target.Entry.Type != "" && resolvedSecret.Type != secretprovider.SecretType(target.Entry.Type) {
-			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", target.Name, target.Entry.Type, resolvedSecret.Type)
+			return nil, err
 		}
 
 		access, err := s.api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{

@@ -40,7 +40,7 @@ func TestCommandService_ResolvePushSecret_InvalidMappingType(t *testing.T) {
 		Hostname: func() (string, error) { return "host", nil },
 	})
 
-	_, err := svc.resolvePushSecret("x-dev", config.MappingEntry{
+	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{
 		Path: "/",
 		Type: "not-a-valid-type",
 	}, true, nil)

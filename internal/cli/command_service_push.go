@@ -23,7 +23,7 @@ func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushR
 		if err != nil {
 			return nil, err
 		}
-		resolvedSecret, err := s.resolvePushSecret(target.Name, target.Entry, opts.CreateMissing, lookupIndex)
+		resolvedSecret, err := s.resolveMappedSecret(target.Name, target.Entry, opts.CreateMissing, lookupIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func createSecretVersionInput(region, secretID string, payload []byte, descripti
 	return req
 }
 
-func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool, lookupIndex map[string][]secretprovider.SecretRecord) (*secretprovider.SecretRecord, error) {
+func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool, lookupIndex map[string][]secretprovider.SecretRecord) (*secretprovider.SecretRecord, error) {
 	resolvedSecret, err := resolveSecretFromIndex(lookupIndex, name, entry.Path)
 	if err == nil {
 		if entry.Type != "" && resolvedSecret.Type != secretprovider.SecretType(entry.Type) {
