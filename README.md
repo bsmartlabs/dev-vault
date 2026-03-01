@@ -80,6 +80,18 @@ dev-vault push (--all | <secret-dev> ...) [--yes] [--disable-previous] [--descri
 
 Unit tests are fully mocked (no Scaleway network calls).
 
+Provider compatibility gate:
+
+- Adapter contract tests (`internal/cli/scwclient_test.go`) validate DTO translation and request shaping without network access.
+- Optional live integration gate (read-only list call through the adapter):
+
+```bash
+DEV_VAULT_TEST_PROJECT_ID=<project-id> \
+DEV_VAULT_TEST_ORGANIZATION_ID=<org-id> \
+DEV_VAULT_TEST_REGION=fr-par \
+go test ./internal/cli -tags=integration -run TestScwClientAdapter_IntegrationListOpaque
+```
+
 Tests require 100% statement coverage:
 
 ```bash

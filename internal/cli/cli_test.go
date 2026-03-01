@@ -15,7 +15,6 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
-	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
 type fakeSecretAPI struct {
@@ -26,13 +25,13 @@ type fakeSecretAPI struct {
 
 	listCalls int
 
-	secrets  []*secret.Secret
+	secrets  []*SecretRecord
 	versions map[string][]fakeVersion // secretID -> versions (1-based)
 }
 
 type fakeVersion struct {
 	revision     uint32
-	status       secret.SecretVersionStatus
+	enabled      bool
 	data         []byte
 	description  *string
 	disablePrev  bool
@@ -41,20 +40,19 @@ type fakeVersion struct {
 
 func newFakeSecretAPI() *fakeSecretAPI {
 	return &fakeSecretAPI{
-		secrets:  []*secret.Secret{},
+		secrets:  []*SecretRecord{},
 		versions: make(map[string][]fakeVersion),
 	}
 }
 
-func (f *fakeSecretAPI) AddSecret(projectID, name, path string, typ secret.SecretType) *secret.Secret {
+func (f *fakeSecretAPI) AddSecret(projectID, name, path string, typ secret.SecretType) *SecretRecord {
 	id := fmt.Sprintf("sec-%d", len(f.secrets)+1)
-	s := &secret.Secret{
+	s := &SecretRecord{
 		ID:        id,
 		ProjectID: projectID,
 		Name:      name,
 		Path:      path,
-		Type:      typ,
-		Region:    scw.Region("fr-par"),
+		Type:      string(typ),
 	}
 	f.secrets = append(f.secrets, s)
 	return s
@@ -64,37 +62,37 @@ func (f *fakeSecretAPI) AddEnabledVersion(secretID string, data []byte) uint32 {
 	rev := uint32(len(f.versions[secretID]) + 1)
 	f.versions[secretID] = append(f.versions[secretID], fakeVersion{
 		revision: rev,
-		status:   secret.SecretVersionStatusEnabled,
+		enabled:  true,
 		data:     data,
 	})
 	return rev
 }
 
-func (f *fakeSecretAPI) ListSecrets(req *secret.ListSecretsRequest, _ ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
+func (f *fakeSecretAPI) ListSecrets(req ListSecretsInput) ([]*SecretRecord, error) {
 	f.listCalls++
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
-	var out []*secret.Secret
+	var out []*SecretRecord
 	for _, s := range f.secrets {
-		if req.ProjectID != nil && s.ProjectID != *req.ProjectID {
+		if req.ProjectID != "" && s.ProjectID != req.ProjectID {
 			continue
 		}
-		if req.Name != nil && s.Name != *req.Name {
+		if req.Name != "" && s.Name != req.Name {
 			continue
 		}
-		if req.Path != nil && s.Path != *req.Path {
+		if req.Path != "" && s.Path != req.Path {
 			continue
 		}
-		if s.Type != req.Type {
+		if req.Type != "" && s.Type != req.Type {
 			continue
 		}
 		out = append(out, s)
 	}
-	return &secret.ListSecretsResponse{Secrets: out, TotalCount: uint64(len(out))}, nil
+	return out, nil
 }
 
-func (f *fakeSecretAPI) AccessSecretVersion(req *secret.AccessSecretVersionRequest, _ ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
+func (f *fakeSecretAPI) AccessSecretVersion(req AccessSecretVersionInput) (*SecretVersionRecord, error) {
 	if f.accessErr != nil {
 		return nil, f.accessErr
 	}
@@ -108,7 +106,7 @@ func (f *fakeSecretAPI) AccessSecretVersion(req *secret.AccessSecretVersionReque
 	case "latest_enabled":
 		for i := range versions {
 			v := versions[i]
-			if v.status == secret.SecretVersionStatusEnabled {
+			if v.enabled {
 				if chosen == nil || v.revision > chosen.revision {
 					chosen = &v
 				}
@@ -120,7 +118,7 @@ func (f *fakeSecretAPI) AccessSecretVersion(req *secret.AccessSecretVersionReque
 	if chosen == nil {
 		return nil, errors.New("no enabled version")
 	}
-	return &secret.AccessSecretVersionResponse{
+	return &SecretVersionRecord{
 		SecretID: req.SecretID,
 		Revision: chosen.revision,
 		Data:     chosen.data,
@@ -128,19 +126,19 @@ func (f *fakeSecretAPI) AccessSecretVersion(req *secret.AccessSecretVersionReque
 	}, nil
 }
 
-func (f *fakeSecretAPI) CreateSecret(req *secret.CreateSecretRequest, _ ...scw.RequestOption) (*secret.Secret, error) {
+func (f *fakeSecretAPI) CreateSecret(req CreateSecretInput) (*SecretRecord, error) {
 	if f.createSecretErr != nil {
 		return nil, f.createSecretErr
 	}
 	path := "/"
-	if req.Path != nil {
-		path = *req.Path
+	if req.Path != "" {
+		path = req.Path
 	}
-	s := f.AddSecret(req.ProjectID, req.Name, path, req.Type)
+	s := f.AddSecret(req.ProjectID, req.Name, path, secret.SecretType(req.Type))
 	return s, nil
 }
 
-func (f *fakeSecretAPI) CreateSecretVersion(req *secret.CreateSecretVersionRequest, _ ...scw.RequestOption) (*secret.SecretVersion, error) {
+func (f *fakeSecretAPI) CreateSecretVersion(req CreateSecretVersionInput) (*SecretVersionRecord, error) {
 	if f.createVerErr != nil {
 		return nil, f.createVerErr
 	}
@@ -152,27 +150,26 @@ func (f *fakeSecretAPI) CreateSecretVersion(req *secret.CreateSecretVersionReque
 	if req.DisablePrevious != nil && *req.DisablePrevious {
 		// Disable the latest enabled version if any.
 		for i := len(f.versions[req.SecretID]) - 1; i >= 0; i-- {
-			if f.versions[req.SecretID][i].status == secret.SecretVersionStatusEnabled {
-				f.versions[req.SecretID][i].status = secret.SecretVersionStatusDisabled
+			if f.versions[req.SecretID][i].enabled {
+				f.versions[req.SecretID][i].enabled = false
 				break
 			}
 		}
 	}
 	f.versions[req.SecretID] = append(f.versions[req.SecretID], fakeVersion{
 		revision:    rev,
-		status:      secret.SecretVersionStatusEnabled,
+		enabled:     true,
 		data:        append([]byte(nil), req.Data...),
 		description: req.Description,
 	})
-	return &secret.SecretVersion{
+	return &SecretVersionRecord{
 		Revision: rev,
 		SecretID: req.SecretID,
-		Status:   secret.SecretVersionStatusEnabled,
-		Region:   scw.Region(req.Region),
+		Status:   "enabled",
 	}, nil
 }
 
-func (f *fakeSecretAPI) findSecret(id string) *secret.Secret {
+func (f *fakeSecretAPI) findSecret(id string) *SecretRecord {
 	for _, s := range f.secrets {
 		if s.ID == id {
 			return s
@@ -422,6 +419,9 @@ func TestRun_SubcommandConfigFlag(t *testing.T) {
 	if !strings.Contains(out.String(), "bweb-env-bsmart-dev") {
 		t.Fatalf("unexpected list output: %s", out.String())
 	}
+	if !strings.Contains(errBuf.String(), "mode=sync") {
+		t.Fatalf("expected legacy sync warning, got stderr=%q", errBuf.String())
+	}
 }
 
 func TestRunList_JSONAndTableAndErrors(t *testing.T) {
@@ -496,7 +496,12 @@ func TestRunList_JSONAndTableAndErrors(t *testing.T) {
 		api.listCalls = 0
 		failWriter := &failingWriter{}
 		var errBuf bytes.Buffer
-		code := runList([]string{"--json"}, failWriter, &errBuf, cfgPath, "", deps)
+		code := runList(commandContext{
+			stdout:     failWriter,
+			stderr:     &errBuf,
+			configPath: cfgPath,
+			deps:       deps,
+		}, []string{"--json"})
 		if code != 1 {
 			t.Fatalf("expected 1, got %d", code)
 		}
@@ -508,34 +513,38 @@ type failingWriter struct{}
 func (*failingWriter) Write(p []byte) (int, error) { return 0, errors.New("nope") }
 
 type stubSecretAPI struct {
-	listFn        func(req *secret.ListSecretsRequest, opts ...scw.RequestOption) (*secret.ListSecretsResponse, error)
-	accessFn      func(req *secret.AccessSecretVersionRequest, opts ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error)
-	createSecret  func(req *secret.CreateSecretRequest, opts ...scw.RequestOption) (*secret.Secret, error)
-	createVersion func(req *secret.CreateSecretVersionRequest, opts ...scw.RequestOption) (*secret.SecretVersion, error)
+	listFn        func(req ListSecretsInput) ([]*SecretRecord, error)
+	accessFn      func(req AccessSecretVersionInput) (*SecretVersionRecord, error)
+	createSecret  func(req CreateSecretInput) (*SecretRecord, error)
+	createVersion func(req CreateSecretVersionInput) (*SecretVersionRecord, error)
 }
 
-func (s *stubSecretAPI) ListSecrets(req *secret.ListSecretsRequest, opts ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
-	return s.listFn(req, opts...)
+func (s *stubSecretAPI) ListSecrets(req ListSecretsInput) ([]*SecretRecord, error) {
+	return s.listFn(req)
 }
 
-func (s *stubSecretAPI) AccessSecretVersion(req *secret.AccessSecretVersionRequest, opts ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
-	return s.accessFn(req, opts...)
+func (s *stubSecretAPI) AccessSecretVersion(req AccessSecretVersionInput) (*SecretVersionRecord, error) {
+	return s.accessFn(req)
 }
 
-func (s *stubSecretAPI) CreateSecret(req *secret.CreateSecretRequest, opts ...scw.RequestOption) (*secret.Secret, error) {
-	return s.createSecret(req, opts...)
+func (s *stubSecretAPI) CreateSecret(req CreateSecretInput) (*SecretRecord, error) {
+	return s.createSecret(req)
 }
 
-func (s *stubSecretAPI) CreateSecretVersion(req *secret.CreateSecretVersionRequest, opts ...scw.RequestOption) (*secret.SecretVersion, error) {
-	return s.createVersion(req, opts...)
+func (s *stubSecretAPI) CreateSecretVersion(req CreateSecretVersionInput) (*SecretVersionRecord, error) {
+	return s.createVersion(req)
 }
 
 func TestRunList_MoreBranches(t *testing.T) {
 	t.Run("ParseError", func(t *testing.T) {
 		var out, errBuf bytes.Buffer
-		code := runList([]string{"--nope"}, &out, &errBuf, "", "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		}))
+		code := runList(commandContext{
+			stdout: &out,
+			stderr: &errBuf,
+			deps: baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+				return nil, nil
+			}),
+		}, []string{"--nope"})
 		if code != 2 {
 			t.Fatalf("expected 2, got %d", code)
 		}
@@ -543,9 +552,14 @@ func TestRunList_MoreBranches(t *testing.T) {
 
 	t.Run("LoadAndOpenError", func(t *testing.T) {
 		var out, errBuf bytes.Buffer
-		code := runList([]string{}, &out, &errBuf, "/nope.json", "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		}))
+		code := runList(commandContext{
+			stdout:     &out,
+			stderr:     &errBuf,
+			configPath: "/nope.json",
+			deps: baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+				return nil, nil
+			}),
+		}, []string{})
 		if code != 1 {
 			t.Fatalf("expected 1, got %d", code)
 		}
@@ -595,22 +609,22 @@ func TestRunList_MoreBranches(t *testing.T) {
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
 
 		api := &stubSecretAPI{
-			listFn: func(req *secret.ListSecretsRequest, _ ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
-				if req.Type != secret.SecretTypeOpaque {
-					return &secret.ListSecretsResponse{Secrets: nil}, nil
+			listFn: func(req ListSecretsInput) ([]*SecretRecord, error) {
+				if req.Type != string(secret.SecretTypeOpaque) {
+					return nil, nil
 				}
-				return &secret.ListSecretsResponse{Secrets: []*secret.Secret{
+				return []*SecretRecord{
 					nil,
-					{ID: "s1", ProjectID: "proj", Name: "a-dev", Path: "/other", Type: secret.SecretTypeOpaque},
-				}}, nil
+					{ID: "s1", ProjectID: "proj", Name: "a-dev", Path: "/other", Type: string(secret.SecretTypeOpaque)},
+				}, nil
 			},
-			accessFn: func(*secret.AccessSecretVersionRequest, ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
+			accessFn: func(AccessSecretVersionInput) (*SecretVersionRecord, error) {
 				return nil, errors.New("not used")
 			},
-			createSecret: func(*secret.CreateSecretRequest, ...scw.RequestOption) (*secret.Secret, error) {
+			createSecret: func(CreateSecretInput) (*SecretRecord, error) {
 				return nil, errors.New("not used")
 			},
-			createVersion: func(*secret.CreateSecretVersionRequest, ...scw.RequestOption) (*secret.SecretVersion, error) {
+			createVersion: func(CreateSecretVersionInput) (*SecretVersionRecord, error) {
 				return nil, errors.New("not used")
 			},
 		}
@@ -903,7 +917,7 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
 			t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 		}
 		// new secret should now exist.
-		var created *secret.Secret
+		var created *SecretRecord
 		for _, s := range api.secrets {
 			if s.Name == "new-dev" {
 				created = s
@@ -1036,7 +1050,7 @@ func TestHelpersAndBranches(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 
-	// jsonToDotenv uses mustJSONMarshal on non-string values.
+	// jsonToDotenv marshals non-string values as JSON.
 	out, err := jsonToDotenv([]byte(`{"A":"x","B":1}`))
 	if err != nil {
 		t.Fatalf("jsonToDotenv: %v", err)
@@ -1328,7 +1342,7 @@ func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 func TestListSecretsByTypes_Error(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.listErr = errors.New("boom")
-	_, err := listSecretsByTypes(api, &secret.ListSecretsRequest{ProjectID: scw.StringPtr("p")}, []secret.SecretType{secret.SecretTypeOpaque})
+	_, err := listSecretsByTypes(api, ListSecretsInput{ProjectID: "p"}, []string{string(secret.SecretTypeOpaque)})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -1533,8 +1547,8 @@ func TestRunPush_DisablePrevious(t *testing.T) {
 	if len(vers) != 2 {
 		t.Fatalf("expected 2 versions, got %d", len(vers))
 	}
-	if vers[0].status != secret.SecretVersionStatusDisabled {
-		t.Fatalf("expected rev1 disabled, got %s", vers[0].status)
+	if vers[0].enabled {
+		t.Fatalf("expected rev1 disabled")
 	}
 }
 
@@ -1623,21 +1637,21 @@ func TestRunPush_CreateMissing_ResolveStillFails(t *testing.T) {
 
 type createSecretNoPersist struct{ inner *fakeSecretAPI }
 
-func (c *createSecretNoPersist) ListSecrets(req *secret.ListSecretsRequest, opts ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
-	return c.inner.ListSecrets(req, opts...)
+func (c *createSecretNoPersist) ListSecrets(req ListSecretsInput) ([]*SecretRecord, error) {
+	return c.inner.ListSecrets(req)
 }
-func (c *createSecretNoPersist) AccessSecretVersion(req *secret.AccessSecretVersionRequest, opts ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
-	return c.inner.AccessSecretVersion(req, opts...)
+func (c *createSecretNoPersist) AccessSecretVersion(req AccessSecretVersionInput) (*SecretVersionRecord, error) {
+	return c.inner.AccessSecretVersion(req)
 }
-func (c *createSecretNoPersist) CreateSecret(req *secret.CreateSecretRequest, opts ...scw.RequestOption) (*secret.Secret, error) {
+func (c *createSecretNoPersist) CreateSecret(req CreateSecretInput) (*SecretRecord, error) {
 	// Do not persist.
 	if c.inner.createSecretErr != nil {
 		return nil, c.inner.createSecretErr
 	}
-	return &secret.Secret{ID: "tmp", ProjectID: req.ProjectID, Name: req.Name, Path: "/", Type: req.Type}, nil
+	return &SecretRecord{ID: "tmp", ProjectID: req.ProjectID, Name: req.Name, Path: "/", Type: req.Type}, nil
 }
-func (c *createSecretNoPersist) CreateSecretVersion(req *secret.CreateSecretVersionRequest, opts ...scw.RequestOption) (*secret.SecretVersion, error) {
-	return c.inner.CreateSecretVersion(req, opts...)
+func (c *createSecretNoPersist) CreateSecretVersion(req CreateSecretVersionInput) (*SecretVersionRecord, error) {
+	return c.inner.CreateSecretVersion(req)
 }
 
 func TestPrintUsage_Coverage(t *testing.T) {

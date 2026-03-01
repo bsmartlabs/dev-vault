@@ -8,13 +8,14 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/fsx"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
-	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
 type commandService struct {
 	loaded   *config.Loaded
-	api      SecretAPI
+	lister   SecretLister
+	accessor SecretVersionAccessor
+	creator  SecretCreator
+	version  SecretVersionCreator
 	now      func() time.Time
 	hostname func() (string, error)
 }
@@ -23,7 +24,7 @@ type pullResult struct {
 	Name     string
 	File     string
 	Revision uint32
-	Type     secret.SecretType
+	Type     string
 }
 
 type pushOptions struct {
@@ -40,7 +41,10 @@ type pushResult struct {
 func newCommandService(loaded *config.Loaded, api SecretAPI, deps Dependencies) commandService {
 	return commandService{
 		loaded:   loaded,
-		api:      api,
+		lister:   api,
+		accessor: api,
+		creator:  api,
+		version:  api,
 		now:      deps.Now,
 		hostname: deps.Hostname,
 	}
@@ -55,16 +59,16 @@ func (s commandService) pull(targets []string, overwrite bool) ([]pullResult, er
 			return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
 		}
 
-		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.loaded.Cfg, name, entry.Path)
+		resolvedSecret, err := resolveSecretByNameAndPath(s.lister, s.loaded.Cfg, name, entry.Path)
 		if err != nil {
 			return nil, fmt.Errorf("resolve %s: %w", name, err)
 		}
-		if entry.Type != "" && string(resolvedSecret.Type) != entry.Type {
+		if entry.Type != "" && resolvedSecret.Type != entry.Type {
 			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
 		}
 
-		access, err := s.api.AccessSecretVersion(&secret.AccessSecretVersionRequest{
-			Region:   scw.Region(s.loaded.Cfg.Region),
+		access, err := s.accessor.AccessSecretVersion(AccessSecretVersionInput{
+			Region:   s.loaded.Cfg.Region,
 			SecretID: resolvedSecret.ID,
 			Revision: "latest_enabled",
 		})
@@ -99,79 +103,29 @@ func (s commandService) pull(targets []string, overwrite bool) ([]pullResult, er
 }
 
 func (s commandService) push(targets []string, opts pushOptions) ([]pushResult, error) {
-	desc := opts.Description
-	if desc == "" {
-		host := "unknown-host"
-		if h, err := s.hostname(); err == nil && h != "" {
-			host = h
-		}
-		desc = fmt.Sprintf("dev-vault push %s %s", s.now().UTC().Format(time.RFC3339), host)
-	}
+	desc := s.pushDescription(opts.Description)
 
 	results := make([]pushResult, 0, len(targets))
 	for _, name := range targets {
 		entry := s.loaded.Cfg.Mapping[name]
-		inPath, err := config.ResolveFile(s.loaded.Root, entry.File)
+		payload, err := s.readPushPayload(name, entry)
 		if err != nil {
-			return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
+			return nil, err
 		}
-		raw, err := os.ReadFile(inPath)
+		resolvedSecret, err := s.resolvePushSecret(name, entry, opts.CreateMissing)
 		if err != nil {
-			return nil, fmt.Errorf("push %s: read %s: %w", name, inPath, err)
-		}
-
-		payload := raw
-		if entry.Format == "dotenv" {
-			converted, err := dotenvToJSON(payload)
-			if err != nil {
-				return nil, fmt.Errorf("format dotenv %s: %w", name, err)
-			}
-			payload = converted
-		}
-
-		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.loaded.Cfg, name, entry.Path)
-		if err != nil {
-			var notFound *notFoundError
-			if errors.As(err, &notFound) && opts.CreateMissing {
-				if entry.Type == "" {
-					return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
-				}
-				secretType := mustParseSecretType(entry.Type)
-				_, err = s.api.CreateSecret(&secret.CreateSecretRequest{
-					Region:      scw.Region(s.loaded.Cfg.Region),
-					ProjectID:   s.loaded.Cfg.ProjectID,
-					Name:        name,
-					Tags:        []string{},
-					Description: nil,
-					Type:        secretType,
-					Path:        scw.StringPtr(entry.Path),
-					Protected:   false,
-					KeyID:       nil,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("push %s: create secret: %w", name, err)
-				}
-				resolvedSecret, err = resolveSecretByNameAndPath(s.api, s.loaded.Cfg, name, entry.Path)
-				if err != nil {
-					return nil, fmt.Errorf("push %s: after create, resolve failed: %w", name, err)
-				}
-			} else {
-				return nil, fmt.Errorf("resolve %s: %w", name, err)
-			}
-		}
-
-		if entry.Type != "" && string(resolvedSecret.Type) != entry.Type {
-			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
+			return nil, err
 		}
 
 		disablePrevPtr := (*bool)(nil)
 		if opts.DisablePrevious {
-			disablePrevPtr = scw.BoolPtr(true)
+			disablePrevPtr = new(bool)
+			*disablePrevPtr = true
 		}
-		descPtr := scw.StringPtr(desc)
+		descPtr := &desc
 
-		version, err := s.api.CreateSecretVersion(&secret.CreateSecretVersionRequest{
-			Region:          scw.Region(s.loaded.Cfg.Region),
+		version, err := s.version.CreateSecretVersion(CreateSecretVersionInput{
+			Region:          s.loaded.Cfg.Region,
 			SecretID:        resolvedSecret.ID,
 			Data:            payload,
 			Description:     descPtr,
@@ -185,4 +139,68 @@ func (s commandService) push(targets []string, opts pushOptions) ([]pushResult, 
 	}
 
 	return results, nil
+}
+
+func (s commandService) pushDescription(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	host := "unknown-host"
+	if h, err := s.hostname(); err == nil && h != "" {
+		host = h
+	}
+	return fmt.Sprintf("dev-vault push %s %s", s.now().UTC().Format(time.RFC3339), host)
+}
+
+func (s commandService) readPushPayload(name string, entry config.MappingEntry) ([]byte, error) {
+	inPath, err := config.ResolveFile(s.loaded.Root, entry.File)
+	if err != nil {
+		return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
+	}
+	raw, err := os.ReadFile(inPath)
+	if err != nil {
+		return nil, fmt.Errorf("push %s: read %s: %w", name, inPath, err)
+	}
+	if entry.Format == "dotenv" {
+		converted, err := dotenvToJSON(raw)
+		if err != nil {
+			return nil, fmt.Errorf("format dotenv %s: %w", name, err)
+		}
+		return converted, nil
+	}
+	return raw, nil
+}
+
+func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool) (*SecretRecord, error) {
+	resolvedSecret, err := resolveSecretByNameAndPath(s.lister, s.loaded.Cfg, name, entry.Path)
+	if err == nil {
+		if entry.Type != "" && resolvedSecret.Type != entry.Type {
+			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
+		}
+		return resolvedSecret, nil
+	}
+
+	var notFound *notFoundError
+	if !errors.As(err, &notFound) || !createMissing {
+		return nil, fmt.Errorf("resolve %s: %w", name, err)
+	}
+	if entry.Type == "" {
+		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
+	}
+
+	secretType, err := parseSecretType(entry.Type)
+	if err != nil {
+		return nil, fmt.Errorf("push %s: invalid mapping.type %q: %w", name, entry.Type, err)
+	}
+	createdSecret, err := s.creator.CreateSecret(CreateSecretInput{
+		Region:    s.loaded.Cfg.Region,
+		ProjectID: s.loaded.Cfg.ProjectID,
+		Name:      name,
+		Type:      secretType,
+		Path:      entry.Path,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
+	}
+	return createdSecret, nil
 }

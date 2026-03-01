@@ -9,16 +9,27 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
 const DefaultConfigName = ".scw.json"
 
 var (
-	absFn      = filepath.Abs
-	relFn      = filepath.Rel
-	statFileFn = os.Stat
-	readFileFn = os.ReadFile
+	defaultConfigDeps = configDeps{
+		abs:      filepath.Abs,
+		rel:      filepath.Rel,
+		statFile: os.Stat,
+		readFile: os.ReadFile,
+	}
 )
+
+type configDeps struct {
+	abs      func(string) (string, error)
+	rel      func(string, string) (string, error)
+	statFile func(string) (os.FileInfo, error)
+	readFile func(string) ([]byte, error)
+}
 
 type MappingEntry struct {
 	File   string `json:"file"`
@@ -37,33 +48,29 @@ type Config struct {
 }
 
 type Loaded struct {
-	Path string
-	Root string
-	Cfg  Config
-}
-
-var validMappingTypes = map[string]struct{}{
-	"opaque":               {},
-	"certificate":          {},
-	"key_value":            {},
-	"basic_credentials":    {},
-	"database_credentials": {},
-	"ssh_key":              {},
+	Path     string
+	Root     string
+	Cfg      Config
+	Warnings []string
 }
 
 func FindConfigPath(startDir string) (string, error) {
+	return findConfigPath(startDir, defaultConfigDeps)
+}
+
+func findConfigPath(startDir string, deps configDeps) (string, error) {
 	if startDir == "" {
 		return "", errors.New("startDir is empty")
 	}
 
-	dir, err := absFn(startDir)
+	dir, err := deps.abs(startDir)
 	if err != nil {
 		return "", fmt.Errorf("abs startDir: %w", err)
 	}
 
 	for {
 		candidate := filepath.Join(dir, DefaultConfigName)
-		if info, err := statFileFn(candidate); err == nil && !info.IsDir() {
+		if info, err := deps.statFile(candidate); err == nil && !info.IsDir() {
 			return candidate, nil
 		}
 
@@ -78,6 +85,10 @@ func FindConfigPath(startDir string) (string, error) {
 }
 
 func Load(startDir, explicitPath string) (*Loaded, error) {
+	return loadWithDeps(startDir, explicitPath, defaultConfigDeps)
+}
+
+func loadWithDeps(startDir, explicitPath string, deps configDeps) (*Loaded, error) {
 	if startDir == "" {
 		return nil, errors.New("startDir is empty")
 	}
@@ -90,19 +101,19 @@ func Load(startDir, explicitPath string) (*Loaded, error) {
 			path = filepath.Join(startDir, explicitPath)
 		}
 	} else {
-		found, err := FindConfigPath(startDir)
+		found, err := findConfigPath(startDir, deps)
 		if err != nil {
 			return nil, err
 		}
 		path = found
 	}
 
-	absPath, err := absFn(path)
+	absPath, err := deps.abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("abs config path: %w", err)
 	}
 
-	raw, err := readFileFn(absPath)
+	raw, err := deps.readFile(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
@@ -122,42 +133,45 @@ func Load(startDir, explicitPath string) (*Loaded, error) {
 		return nil, fmt.Errorf("decode config json: trailing data after top-level JSON object: %w", err)
 	}
 
-	if err := cfg.normalizeAndValidate(); err != nil {
+	warnings, err := cfg.normalizeAndValidate()
+	if err != nil {
 		return nil, err
 	}
 
 	root := filepath.Dir(absPath)
-	return &Loaded{Path: absPath, Root: root, Cfg: cfg}, nil
+	return &Loaded{Path: absPath, Root: root, Cfg: cfg, Warnings: warnings}, nil
 }
 
-func (c *Config) normalizeAndValidate() error {
+func (c *Config) normalizeAndValidate() ([]string, error) {
+	warnings := []string{}
+
 	if strings.TrimSpace(c.OrganizationID) == "" {
-		return errors.New("missing required field: organization_id")
+		return nil, errors.New("missing required field: organization_id")
 	}
 	if strings.TrimSpace(c.ProjectID) == "" {
-		return errors.New("missing required field: project_id")
+		return nil, errors.New("missing required field: project_id")
 	}
 	if strings.TrimSpace(c.Region) == "" {
-		return errors.New("missing required field: region")
+		return nil, errors.New("missing required field: region")
 	}
 	if c.Mapping == nil {
-		return errors.New("missing required field: mapping")
+		return nil, errors.New("missing required field: mapping")
 	}
 	if len(c.Mapping) == 0 {
-		return errors.New("mapping is empty")
+		return nil, errors.New("mapping is empty")
 	}
 
 	for name, entry := range c.Mapping {
 		if !strings.HasSuffix(name, "-dev") {
-			return fmt.Errorf("mapping key %q must end with -dev", name)
+			return nil, fmt.Errorf("mapping key %q must end with -dev", name)
 		}
 
 		entry.File = strings.TrimSpace(entry.File)
 		if entry.File == "" {
-			return fmt.Errorf("mapping %q: missing required field: file", name)
+			return nil, fmt.Errorf("mapping %q: missing required field: file", name)
 		}
 		if filepath.IsAbs(entry.File) {
-			return fmt.Errorf("mapping %q: file must be relative, got %q", name, entry.File)
+			return nil, fmt.Errorf("mapping %q: file must be relative, got %q", name, entry.File)
 		}
 
 		if entry.Format == "" {
@@ -166,14 +180,14 @@ func (c *Config) normalizeAndValidate() error {
 		switch entry.Format {
 		case "raw", "dotenv":
 		default:
-			return fmt.Errorf("mapping %q: invalid format %q", name, entry.Format)
+			return nil, fmt.Errorf("mapping %q: invalid format %q", name, entry.Format)
 		}
 
 		if entry.Path == "" {
 			entry.Path = "/"
 		}
 		if !strings.HasPrefix(entry.Path, "/") {
-			return fmt.Errorf("mapping %q: path must start with '/', got %q", name, entry.Path)
+			return nil, fmt.Errorf("mapping %q: path must start with '/', got %q", name, entry.Path)
 		}
 
 		if entry.Mode == "" {
@@ -181,28 +195,33 @@ func (c *Config) normalizeAndValidate() error {
 		}
 		if entry.Mode == "sync" {
 			// Back-compat: older manifests used "sync" to mean "both".
+			warnings = append(warnings, fmt.Sprintf("mapping %q uses legacy mode=sync; use mode=both (sync will be removed in a future major release)", name))
 			entry.Mode = "both"
 		}
 		switch entry.Mode {
 		case "pull", "push", "both":
 		default:
-			return fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
+			return nil, fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}
 
 		entry.Type = strings.TrimSpace(entry.Type)
 		if entry.Type != "" {
-			if _, ok := validMappingTypes[entry.Type]; !ok {
-				return fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
+			if !secrettype.IsValid(entry.Type) {
+				return nil, fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
 			}
 		}
 
 		c.Mapping[name] = entry
 	}
 
-	return nil
+	return warnings, nil
 }
 
 func ResolveFile(rootDir string, rel string) (string, error) {
+	return resolveFileWithDeps(rootDir, rel, defaultConfigDeps)
+}
+
+func resolveFileWithDeps(rootDir string, rel string, deps configDeps) (string, error) {
 	if rootDir == "" {
 		return "", errors.New("rootDir is empty")
 	}
@@ -213,17 +232,17 @@ func ResolveFile(rootDir string, rel string) (string, error) {
 		return "", fmt.Errorf("path must be relative: %q", rel)
 	}
 
-	absRoot, err := absFn(rootDir)
+	absRoot, err := deps.abs(rootDir)
 	if err != nil {
 		return "", fmt.Errorf("abs rootDir: %w", err)
 	}
 
-	absPath, err := absFn(filepath.Join(absRoot, rel))
+	absPath, err := deps.abs(filepath.Join(absRoot, rel))
 	if err != nil {
 		return "", fmt.Errorf("abs joined path: %w", err)
 	}
 
-	relToRoot, err := relFn(absRoot, absPath)
+	relToRoot, err := deps.rel(absRoot, absPath)
 	if err != nil {
 		return "", fmt.Errorf("rel path: %w", err)
 	}

@@ -28,11 +28,10 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 		t.Fatalf("resolved wrong secret id: got %q want %q", found.ID, s.ID)
 	}
 
-	secrets, err := listSecretsByTypes(fake, &secret.ListSecretsRequest{
-		ProjectID:            &s.ProjectID,
-		Path:                 &s.Path,
-		ScheduledForDeletion: false,
-	}, []secret.SecretType{secret.SecretTypeOpaque})
+	secrets, err := listSecretsByTypes(fake, ListSecretsInput{
+		ProjectID: s.ProjectID,
+		Path:      s.Path,
+	}, []string{string(secret.SecretTypeOpaque)})
 	if err != nil {
 		t.Fatalf("listSecretsByTypes: %v", err)
 	}

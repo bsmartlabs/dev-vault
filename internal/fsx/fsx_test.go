@@ -94,12 +94,10 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("StatError", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
+		deps := defaultFSDeps()
+		deps.stat = func(string) (os.FileInfo, error) { return nil, errors.New("boom") }
 
-		old := statFn
-		statFn = func(string) (os.FileInfo, error) { return nil, errors.New("boom") }
-		defer func() { statFn = old }()
-
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, false); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, false, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -107,12 +105,10 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("CreateTempError", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
+		deps := defaultFSDeps()
+		deps.createTemp = func(string, string) (*os.File, error) { return nil, errors.New("boom") }
 
-		old := createTempFn
-		createTempFn = func(string, string) (*os.File, error) { return nil, errors.New("boom") }
-		defer func() { createTempFn = old }()
-
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, true); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, true, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -120,12 +116,10 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("WriteTempError", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
+		deps := defaultFSDeps()
+		deps.write = func(*os.File, []byte) (int, error) { return 0, errors.New("boom") }
 
-		oldWrite := writeFn
-		writeFn = func(*os.File, []byte) (int, error) { return 0, errors.New("boom") }
-		defer func() { writeFn = oldWrite }()
-
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, true); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, true, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -133,15 +127,13 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("CloseTempError", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
-
-		oldClose := closeFn
-		closeFn = func(f *os.File) error {
+		deps := defaultFSDeps()
+		deps.close = func(f *os.File) error {
 			_ = f.Close()
 			return errors.New("boom")
 		}
-		defer func() { closeFn = oldClose }()
 
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, true); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, true, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -149,12 +141,10 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("ChmodTempError", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
+		deps := defaultFSDeps()
+		deps.chmod = func(string, os.FileMode) error { return errors.New("boom") }
 
-		old := chmodFn
-		chmodFn = func(string, os.FileMode) error { return errors.New("boom") }
-		defer func() { chmodFn = old }()
-
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, true); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, true, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -162,12 +152,10 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("RenameErrorOverwriteFalse", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
+		deps := defaultFSDeps()
+		deps.rename = func(string, string) error { return errors.New("boom") }
 
-		old := renameFn
-		renameFn = func(string, string) error { return errors.New("boom") }
-		defer func() { renameFn = old }()
-
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, false); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, false, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -175,12 +163,10 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("RenameErrorOverwriteTrue", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
+		deps := defaultFSDeps()
+		deps.rename = func(string, string) error { return errors.New("boom") }
 
-		old := renameFn
-		renameFn = func(string, string) error { return errors.New("boom") }
-		defer func() { renameFn = old }()
-
-		if err := AtomicWriteFile(dest, []byte("x"), 0o600, true); err == nil {
+		if err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, true, deps); err == nil {
 			t.Fatalf("expected error")
 		}
 	})
@@ -188,25 +174,19 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 	t.Run("RenameFallbackReturnsSecondRenameError", func(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "out.txt")
-
-		oldRename := renameFn
-		oldRemove := removeFn
-		defer func() {
-			renameFn = oldRename
-			removeFn = oldRemove
-		}()
+		deps := defaultFSDeps()
 
 		attempt := 0
-		renameFn = func(string, string) error {
+		deps.rename = func(string, string) error {
 			attempt++
 			if attempt == 1 {
 				return errors.New("first rename failed")
 			}
 			return errors.New("second rename failed")
 		}
-		removeFn = func(string) error { return nil }
+		deps.remove = func(string) error { return nil }
 
-		err := AtomicWriteFile(dest, []byte("x"), 0o600, true)
+		err := atomicWriteFileWithDeps(dest, []byte("x"), 0o600, true, deps)
 		if err == nil {
 			t.Fatalf("expected error")
 		}

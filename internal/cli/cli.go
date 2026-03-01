@@ -9,16 +9,7 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
-	"github.com/scaleway/scaleway-sdk-go/scw"
 )
-
-type SecretAPI interface {
-	ListSecrets(req *secret.ListSecretsRequest, opts ...scw.RequestOption) (*secret.ListSecretsResponse, error)
-	AccessSecretVersion(req *secret.AccessSecretVersionRequest, opts ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error)
-	CreateSecret(req *secret.CreateSecretRequest, opts ...scw.RequestOption) (*secret.Secret, error)
-	CreateSecretVersion(req *secret.CreateSecretVersionRequest, opts ...scw.RequestOption) (*secret.SecretVersion, error)
-}
 
 type Dependencies struct {
 	Version string
@@ -73,6 +64,13 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	}
 
 	cmd := rest[0]
+	ctx := commandContext{
+		stdout:          stdout,
+		stderr:          stderr,
+		configPath:      configPath,
+		profileOverride: profileOverride,
+		deps:            deps,
+	}
 	switch cmd {
 	case "help":
 		if len(rest) > 1 {
@@ -101,11 +99,11 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		fmt.Fprintf(stdout, "dev-vault %s (commit=%s date=%s)\n", deps.Version, deps.Commit, deps.Date)
 		return 0
 	case "list":
-		return runList(rest[1:], stdout, stderr, configPath, profileOverride, deps)
+		return runList(ctx, rest[1:])
 	case "pull":
-		return runPull(rest[1:], stdout, stderr, configPath, profileOverride, deps)
+		return runPull(ctx, rest[1:])
 	case "push":
-		return runPush(rest[1:], stdout, stderr, configPath, profileOverride, deps)
+		return runPush(ctx, rest[1:])
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
 		printMainUsage(stderr)

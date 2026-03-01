@@ -3,8 +3,10 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
 func printMainUsage(w io.Writer) {
@@ -69,7 +71,7 @@ func printListUsage(w io.Writer) {
 	fmt.Fprintln(w, "  --name-contains <s>     (repeatable) substring filter (AND semantics)")
 	fmt.Fprintln(w, "  --name-regex <re>       Go regexp to match names")
 	fmt.Fprintln(w, "  --path <p>              Exact Scaleway secret path to match (default: any)")
-	fmt.Fprintln(w, "  --type <t>              One of: opaque|key_value|basic_credentials|database_credentials|ssh_key|certificate")
+	fmt.Fprintf(w, "  --type <t>              One of: %s\n", strings.Join(secrettype.Names(), "|"))
 	fmt.Fprintln(w, "  --json                  Output JSON")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Examples:")

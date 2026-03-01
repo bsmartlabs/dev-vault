@@ -25,10 +25,9 @@ func TestFindConfigPath(t *testing.T) {
 	})
 
 	t.Run("AbsErrorViaMissingCwd", func(t *testing.T) {
-		oldAbs := absFn
-		absFn = func(string) (string, error) { return "", errors.New("boom") }
-		defer func() { absFn = oldAbs }()
-		_, err := FindConfigPath(".")
+		deps := defaultConfigDeps
+		deps.abs = func(string) (string, error) { return "", errors.New("boom") }
+		_, err := findConfigPath(".", deps)
 		if err == nil {
 			t.Fatalf("expected error")
 		}
@@ -206,6 +205,9 @@ func TestLoad(t *testing.T) {
 		if ent.Mode != "both" {
 			t.Fatalf("expected mode both, got: %+v", ent)
 		}
+		if len(loaded.Warnings) == 0 || !strings.Contains(loaded.Warnings[0], "mode=sync") {
+			t.Fatalf("expected legacy sync warning, got: %#v", loaded.Warnings)
+		}
 	})
 
 	t.Run("DiscoverySuccess", func(t *testing.T) {
@@ -250,10 +252,9 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("AbsConfigPathErrorViaMissingCwd", func(t *testing.T) {
-		oldAbs := absFn
-		absFn = func(string) (string, error) { return "", errors.New("boom") }
-		defer func() { absFn = oldAbs }()
-		_, err := Load(".", DefaultConfigName)
+		deps := defaultConfigDeps
+		deps.abs = func(string) (string, error) { return "", errors.New("boom") }
+		_, err := loadWithDeps(".", DefaultConfigName, deps)
 		if err == nil {
 			t.Fatalf("expected error")
 		}
@@ -277,10 +278,9 @@ func TestResolveFile(t *testing.T) {
 	})
 
 	t.Run("AbsRootErrorViaMissingCwd", func(t *testing.T) {
-		oldAbs := absFn
-		absFn = func(string) (string, error) { return "", errors.New("boom") }
-		defer func() { absFn = oldAbs }()
-		_, err := ResolveFile(".", "x")
+		deps := defaultConfigDeps
+		deps.abs = func(string) (string, error) { return "", errors.New("boom") }
+		_, err := resolveFileWithDeps(".", "x", deps)
 		if err == nil {
 			t.Fatalf("expected error")
 		}
@@ -290,18 +290,18 @@ func TestResolveFile(t *testing.T) {
 	})
 
 	t.Run("AbsJoinedPathError", func(t *testing.T) {
-		oldAbs := absFn
+		oldAbs := defaultConfigDeps.abs
 		calls := 0
-		absFn = func(s string) (string, error) {
+		deps := defaultConfigDeps
+		deps.abs = func(s string) (string, error) {
 			calls++
 			if calls == 2 {
 				return "", errors.New("boom")
 			}
 			return oldAbs(s)
 		}
-		defer func() { absFn = oldAbs }()
 
-		_, err := ResolveFile(t.TempDir(), "x")
+		_, err := resolveFileWithDeps(t.TempDir(), "x", deps)
 		if err == nil {
 			t.Fatalf("expected error")
 		}
@@ -311,11 +311,10 @@ func TestResolveFile(t *testing.T) {
 	})
 
 	t.Run("RelPathError", func(t *testing.T) {
-		oldRel := relFn
-		relFn = func(string, string) (string, error) { return "", errors.New("boom") }
-		defer func() { relFn = oldRel }()
+		deps := defaultConfigDeps
+		deps.rel = func(string, string) (string, error) { return "", errors.New("boom") }
 
-		_, err := ResolveFile(t.TempDir(), "x")
+		_, err := resolveFileWithDeps(t.TempDir(), "x", deps)
 		if err == nil {
 			t.Fatalf("expected error")
 		}

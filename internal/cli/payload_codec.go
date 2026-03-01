@@ -8,26 +8,20 @@ import (
 )
 
 func jsonToDotenv(payload []byte) ([]byte, error) {
-	var m map[string]any
+	var m map[string]json.RawMessage
 	if err := json.Unmarshal(payload, &m); err != nil {
 		return nil, fmt.Errorf("expected JSON object: %w", err)
 	}
 	env := make(map[string]string, len(m))
-	for k, v := range m {
-		switch vv := v.(type) {
-		case string:
-			env[k] = vv
-		default:
-			// Values come from json.Unmarshal into interface{}, so they are always JSON-marshalable.
-			env[k] = string(mustJSONMarshal(v))
+	for k, raw := range m {
+		var asString string
+		if err := json.Unmarshal(raw, &asString); err == nil {
+			env[k] = asString
+			continue
 		}
+		env[k] = string(raw)
 	}
 	return dotenv.Render(env), nil
-}
-
-func mustJSONMarshal(v any) []byte {
-	b, _ := json.Marshal(v)
-	return b
 }
 
 func dotenvToJSON(payload []byte) ([]byte, error) {
