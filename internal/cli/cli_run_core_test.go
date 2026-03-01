@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -479,6 +480,22 @@ func TestRunList_JSONAndTableAndErrors(t *testing.T) {
 		code := Run([]string{"dev-vault", "--config", cfgPath, "list"}, &out, &errBuf, deps)
 		if code != 1 {
 			t.Fatalf("expected 1, got %d", code)
+		}
+	})
+
+	t.Run("MissingMappingConfigStillLists", func(t *testing.T) {
+		projectOnlyCfg := filepath.Join(root, "project-only.json")
+		if err := os.WriteFile(projectOnlyCfg, []byte(`{"organization_id":"org","project_id":"proj","region":"fr-par"}`), 0o644); err != nil {
+			t.Fatalf("write project-only config: %v", err)
+		}
+
+		var out, errBuf bytes.Buffer
+		code := Run([]string{"dev-vault", "--config", projectOnlyCfg, "list", "--json"}, &out, &errBuf, deps)
+		if code != 0 {
+			t.Fatalf("expected 0, got %d stderr=%s", code, errBuf.String())
+		}
+		if !strings.Contains(out.String(), "a-dev") {
+			t.Fatalf("expected list output for project-only config, got %s", out.String())
 		}
 	})
 

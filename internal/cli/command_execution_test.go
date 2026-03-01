@@ -33,6 +33,66 @@ func TestLoadAndOpenAPI_GetwdError(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_AbsolutePathSkipsGetwd(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
+
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	})
+	deps.Getwd = func() (string, error) {
+		return "", errors.New("getwd should not be called for absolute config path")
+	}
+
+	loaded, err := loadConfig(cfgPath, deps)
+	if err != nil {
+		t.Fatalf("loadConfig absolute path: %v", err)
+	}
+	if loaded == nil || loaded.Path == "" {
+		t.Fatalf("expected loaded config, got %#v", loaded)
+	}
+}
+
+func TestLoadConfig_AbsolutePathLoadError(t *testing.T) {
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	})
+	_, err := loadConfig("/no/such/config.json", deps)
+	if err == nil {
+		t.Fatal("expected load error")
+	}
+}
+
+func TestLoadConfig_RelativePathBranches(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		root := t.TempDir()
+		writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			return nil, nil
+		})
+		deps.Getwd = func() (string, error) { return root, nil }
+
+		loaded, err := loadConfig(config.DefaultConfigName, deps)
+		if err != nil {
+			t.Fatalf("loadConfig relative success: %v", err)
+		}
+		if loaded == nil {
+			t.Fatal("expected loaded config")
+		}
+	})
+
+	t.Run("LoadError", func(t *testing.T) {
+		root := t.TempDir()
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			return nil, nil
+		})
+		deps.Getwd = func() (string, error) { return root, nil }
+		if _, err := loadConfig("missing.json", deps); err == nil {
+			t.Fatal("expected load error for missing relative config")
+		}
+	})
+}
+
 func TestLoadAndOpenAPI_Success(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
@@ -78,6 +138,57 @@ func TestLoadAndOpenAPI_OpenError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error")
 	}
+}
+
+func TestLoadProjectConfig_Branches(t *testing.T) {
+	t.Run("AbsolutePathSkipsGetwd", func(t *testing.T) {
+		root := t.TempDir()
+		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par"}`)
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			return nil, nil
+		})
+		deps.Getwd = func() (string, error) {
+			return "", errors.New("getwd should not be called for absolute config path")
+		}
+
+		loaded, err := loadProjectConfig(cfgPath, deps)
+		if err != nil {
+			t.Fatalf("loadProjectConfig absolute path: %v", err)
+		}
+		if loaded == nil || loaded.Path == "" {
+			t.Fatalf("expected loaded config, got %#v", loaded)
+		}
+	})
+
+	t.Run("GetwdError", func(t *testing.T) {
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			return nil, nil
+		})
+		deps.Getwd = func() (string, error) { return "", errors.New("boom") }
+		if _, err := loadProjectConfig("", deps); err == nil {
+			t.Fatal("expected getwd error")
+		}
+	})
+
+	t.Run("AbsolutePathLoadError", func(t *testing.T) {
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			return nil, nil
+		})
+		if _, err := loadProjectConfig("/no/such/project-config.json", deps); err == nil {
+			t.Fatal("expected load error")
+		}
+	})
+
+	t.Run("RelativePathLoadError", func(t *testing.T) {
+		root := t.TempDir()
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			return nil, nil
+		})
+		deps.Getwd = func() (string, error) { return root, nil }
+		if _, err := loadProjectConfig("missing.json", deps); err == nil {
+			t.Fatal("expected load error")
+		}
+	})
 }
 
 func TestRun_ProfileOverridePropagatesToOpenSecretAPI(t *testing.T) {

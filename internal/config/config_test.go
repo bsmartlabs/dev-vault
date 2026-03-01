@@ -250,6 +250,49 @@ func TestLoad(t *testing.T) {
 	})
 }
 
+func TestLoadProject(t *testing.T) {
+	t.Run("AllowsMissingMapping", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "project.json")
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par"}`), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+
+		loaded, err := LoadProject(dir, cfgPath)
+		if err != nil {
+			t.Fatalf("LoadProject: %v", err)
+		}
+		if loaded.Cfg.Mapping == nil || len(loaded.Cfg.Mapping) != 0 {
+			t.Fatalf("expected empty normalized mapping, got %#v", loaded.Cfg.Mapping)
+		}
+	})
+
+	t.Run("StillValidatesCoreFields", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			payload string
+			want    string
+		}{
+			{name: "MissingOrganization", payload: `{"project_id":"p","region":"fr-par"}`, want: "organization_id"},
+			{name: "MissingProject", payload: `{"organization_id":"o","region":"fr-par"}`, want: "project_id"},
+			{name: "MissingRegion", payload: `{"organization_id":"o","project_id":"p"}`, want: "region"},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				dir := t.TempDir()
+				cfgPath := filepath.Join(dir, "project.json")
+				if err := os.WriteFile(cfgPath, []byte(tc.payload), 0o644); err != nil {
+					t.Fatalf("write config: %v", err)
+				}
+				if _, err := LoadProject(dir, cfgPath); err == nil || !strings.Contains(err.Error(), tc.want) {
+					t.Fatalf("expected %s validation error, got %v", tc.want, err)
+				}
+			})
+		}
+	})
+}
+
 func TestMappingMode_Allows(t *testing.T) {
 	cases := []struct {
 		mode       mapping.Mode

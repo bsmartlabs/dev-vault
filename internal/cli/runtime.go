@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
@@ -15,12 +16,15 @@ type commandRuntime struct {
 	parsed *parsedCommand
 }
 
+type configLoader func(configPath string, deps Dependencies) (*config.Loaded, error)
+type projectConfigLoader func(startDir, explicitPath string) (*config.Loaded, error)
+
 func newCommandRuntime(ctx commandContext, parsed *parsedCommand) commandRuntime {
 	return commandRuntime{ctx: ctx, parsed: parsed}
 }
 
-func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsync.Service) error) int {
-	return r.runWithLoaded(func(loaded *config.Loaded) error {
+func (r commandRuntime) executeWithConfigLoader(loader configLoader, run func(loaded *config.Loaded, service secretsync.Service) error) int {
+	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
 		service, err := r.newService(loaded)
 		if err != nil {
 			return runtimeError(err)
@@ -29,8 +33,8 @@ func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsy
 	})
 }
 
-func (r commandRuntime) runWithLoaded(run func(loaded *config.Loaded) error) int {
-	loaded, err := loadConfig(r.parsed.configPath, r.ctx.deps)
+func (r commandRuntime) runWithLoaded(loader configLoader, run func(loaded *config.Loaded) error) int {
+	loaded, err := loader(r.parsed.configPath, r.ctx.deps)
 	if err != nil {
 		return r.writeStderrError(runtimeError(err))
 	}
@@ -71,7 +75,7 @@ func (r commandRuntime) runMappingCommand(
 	preflight func(targets []secretsync.MappingTarget) error,
 	execute func(service secretsync.Service, targets []secretsync.MappingTarget) error,
 ) int {
-	return r.runWithLoaded(func(loaded *config.Loaded) error {
+	return r.runWithLoaded(loadConfig, func(loaded *config.Loaded) error {
 		targets, err := selectMappingTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
 		if err != nil {
 			return err
@@ -90,11 +94,26 @@ func (r commandRuntime) runMappingCommand(
 }
 
 func loadConfig(configPath string, deps Dependencies) (*config.Loaded, error) {
+	return loadConfigWithLoader(configPath, deps, config.Load)
+}
+
+func loadProjectConfig(configPath string, deps Dependencies) (*config.Loaded, error) {
+	return loadConfigWithLoader(configPath, deps, config.LoadProject)
+}
+
+func loadConfigWithLoader(configPath string, deps Dependencies, loader projectConfigLoader) (*config.Loaded, error) {
+	if configPath != "" && filepath.IsAbs(configPath) {
+		loaded, err := loader(string(filepath.Separator), configPath)
+		if err != nil {
+			return nil, fmt.Errorf("load config: %w", err)
+		}
+		return loaded, nil
+	}
 	wd, err := deps.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("getwd: %w", err)
 	}
-	loaded, err := config.Load(wd, configPath)
+	loaded, err := loader(wd, configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}

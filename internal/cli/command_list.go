@@ -118,7 +118,7 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 		return runtime.writeStderrError(err)
 	}
 
-	return runtime.execute(func(_ *config.Loaded, service secretsync.Service) error {
+	return runtime.executeWithConfigLoader(loadProjectConfig, func(_ *config.Loaded, service secretsync.Service) error {
 		filtered, err := service.List(query)
 		if err != nil {
 			return err

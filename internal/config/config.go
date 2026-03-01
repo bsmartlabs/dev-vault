@@ -33,6 +33,8 @@ type configDeps struct {
 	readFile func(string) ([]byte, error)
 }
 
+type configValidator func(*Config) error
+
 type Config struct {
 	OrganizationID string                   `json:"organization_id"`
 	ProjectID      string                   `json:"project_id"`
@@ -81,7 +83,15 @@ func Load(startDir, explicitPath string) (*Loaded, error) {
 	return loadWithDeps(startDir, explicitPath, defaultConfigDeps)
 }
 
+func LoadProject(startDir, explicitPath string) (*Loaded, error) {
+	return loadWithDepsAndValidator(startDir, explicitPath, defaultConfigDeps, (*Config).normalizeAndValidateProjectOnly)
+}
+
 func loadWithDeps(startDir, explicitPath string, deps configDeps) (*Loaded, error) {
+	return loadWithDepsAndValidator(startDir, explicitPath, deps, (*Config).normalizeAndValidate)
+}
+
+func loadWithDepsAndValidator(startDir, explicitPath string, deps configDeps, validator configValidator) (*Loaded, error) {
 	if startDir == "" {
 		return nil, errors.New("startDir is empty")
 	}
@@ -126,7 +136,7 @@ func loadWithDeps(startDir, explicitPath string, deps configDeps) (*Loaded, erro
 		return nil, fmt.Errorf("decode config json: trailing data after top-level JSON object: %w", err)
 	}
 
-	if err := cfg.normalizeAndValidate(); err != nil {
+	if err := validator(&cfg); err != nil {
 		return nil, err
 	}
 
@@ -198,5 +208,21 @@ func (c *Config) normalizeAndValidate() error {
 		c.Mapping[name] = entry
 	}
 
+	return nil
+}
+
+func (c *Config) normalizeAndValidateProjectOnly() error {
+	if strings.TrimSpace(c.OrganizationID) == "" {
+		return errors.New("missing required field: organization_id")
+	}
+	if strings.TrimSpace(c.ProjectID) == "" {
+		return errors.New("missing required field: project_id")
+	}
+	if strings.TrimSpace(c.Region) == "" {
+		return errors.New("missing required field: region")
+	}
+	if c.Mapping == nil {
+		c.Mapping = map[string]mapping.Entry{}
+	}
 	return nil
 }
