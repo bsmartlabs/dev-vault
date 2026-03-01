@@ -27,8 +27,7 @@ type commandDoc struct {
 type commandConfigPolicy int
 
 const (
-	commandConfigNone commandConfigPolicy = iota
-	commandConfigValidated
+	commandConfigValidated commandConfigPolicy = iota + 1
 	commandConfigProjectOnly
 )
 

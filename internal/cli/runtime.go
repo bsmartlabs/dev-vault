@@ -34,10 +34,7 @@ func (r commandRuntime) executeWithConfigLoader(loader configLoader, run func(lo
 }
 
 func (r commandRuntime) executeWithConfigPolicy(policy commandConfigPolicy, run func(loaded *config.Loaded, service secretsync.Service) error) int {
-	loader, err := configLoaderForPolicy(policy)
-	if err != nil {
-		return r.writeStderrError(runtimeError(err))
-	}
+	loader := configLoaderForPolicy(policy)
 	return r.executeWithConfigLoader(loader, run)
 }
 
@@ -84,10 +81,7 @@ func (r commandRuntime) runMappingCommand(
 	preflight func(targets []mapping.Target) error,
 	execute func(service secretsync.Service, targets []mapping.Target) error,
 ) int {
-	loader, err := configLoaderForPolicy(policy)
-	if err != nil {
-		return r.writeStderrError(runtimeError(err))
-	}
+	loader := configLoaderForPolicy(policy)
 	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
 		targets, err := mapping.SelectTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
 		if err != nil {
@@ -106,14 +100,12 @@ func (r commandRuntime) runMappingCommand(
 	})
 }
 
-func configLoaderForPolicy(policy commandConfigPolicy) (configLoader, error) {
+func configLoaderForPolicy(policy commandConfigPolicy) configLoader {
 	switch policy {
-	case commandConfigValidated:
-		return loadConfig, nil
 	case commandConfigProjectOnly:
-		return loadProjectConfig, nil
+		return loadProjectConfig
 	default:
-		return nil, fmt.Errorf("unsupported command config policy: %d", policy)
+		return loadConfig
 	}
 }
 
