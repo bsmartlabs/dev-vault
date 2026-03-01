@@ -8,88 +8,104 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 )
 
-func writeLine(w io.Writer, a ...any) {
-	_, _ = fmt.Fprintln(w, a...)
+type usageWriter struct {
+	w   io.Writer
+	err error
 }
 
-func writef(w io.Writer, format string, a ...any) {
-	_, _ = fmt.Fprintf(w, format, a...)
-}
-
-func printMainUsage(w io.Writer) {
-	writeLine(w, "dev-vault")
-	writeLine(w, "  Pull/push Scaleway Secret Manager secrets to disk for local development.")
-	writeLine(w)
-	writeLine(w, "Usage:")
-	writeLine(w, "  dev-vault [global options] <command> [command options] [args...]")
-	writeLine(w, "  dev-vault help [command]")
-	writeLine(w)
-	writeLine(w, "Global options:")
-	writef(w, "  --config <path>   Path to %s. If omitted: search upward from cwd.\n", config.DefaultConfigName)
-	writeLine(w, "  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
-	writeLine(w)
-	writeLine(w, "Commands:")
-	for _, def := range commandDefs {
-		writef(w, "  %-8s %s\n", def.Name, def.Summary)
+func (u *usageWriter) line(a ...any) {
+	if u.err != nil {
+		return
 	}
-	writeLine(w)
-	writeLine(w, "Hard safety constraints:")
-	writeLine(w, "  - Refuses to operate on secret names that do not end with '-dev'.")
-	writeLine(w, "  - Never prints secret payloads.")
-	writeLine(w, "  - Pull writes files atomically and chmods them to 0600 (on Unix).")
-	writeLine(w)
-	writeLine(w, "Batch behavior:")
-	writeLine(w, "  - mapping.mode defaults to both.")
-	writeLine(w, "  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
-	writeLine(w, "  - push --all includes mapping entries with mapping.mode in {push, both}.")
-	writef(w, "  - %s\n", explicitModePolicySentence)
-	writeLine(w, "  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
-	writeLine(w)
-	writeLine(w, "Examples:")
-	writeLine(w, "  dev-vault list --json")
-	writeLine(w, "  dev-vault pull bweb-env-bsmart-dev --overwrite")
-	writeLine(w, "  dev-vault push bweb-env-bsmart-dev")
-	writeLine(w, "  dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite")
-	writeLine(w)
-	writeLine(w, "Notes for automation/LLMs:")
-	writeLine(w, "  - Global options can be passed either before the command or as command options (e.g. 'pull --config ...').")
-	writeLine(w, "  - Exit codes: 0=success, 1=runtime error, 2=usage error.")
+	_, u.err = fmt.Fprintln(u.w, a...)
 }
 
-func printCommandUsage(w io.Writer, def commandDef) {
-	writeLine(w, "Usage:")
-	writef(w, "  %s\n", def.Doc.Synopsis)
+func (u *usageWriter) f(format string, a ...any) {
+	if u.err != nil {
+		return
+	}
+	_, u.err = fmt.Fprintf(u.w, format, a...)
+}
+
+func printMainUsage(w io.Writer) error {
+	out := usageWriter{w: w}
+	out.line("dev-vault")
+	out.line("  Pull/push Scaleway Secret Manager secrets to disk for local development.")
+	out.line()
+	out.line("Usage:")
+	out.line("  dev-vault [global options] <command> [command options] [args...]")
+	out.line("  dev-vault help [command]")
+	out.line()
+	out.line("Global options:")
+	out.f("  --config <path>   Path to %s. If omitted: search upward from cwd.\n", config.DefaultConfigName)
+	out.line("  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
+	out.line()
+	out.line("Commands:")
+	for _, def := range commandDefs {
+		out.f("  %-8s %s\n", def.Name, def.Summary)
+	}
+	out.line()
+	out.line("Hard safety constraints:")
+	out.line("  - Refuses to operate on secret names that do not end with '-dev'.")
+	out.line("  - Never prints secret payloads.")
+	out.line("  - Pull writes files atomically and chmods them to 0600 (on Unix).")
+	out.line()
+	out.line("Batch behavior:")
+	out.line("  - mapping.mode defaults to both.")
+	out.line("  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
+	out.line("  - push --all includes mapping entries with mapping.mode in {push, both}.")
+	out.f("  - %s\n", explicitModePolicySentence)
+	out.line("  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
+	out.line()
+	out.line("Examples:")
+	out.line("  dev-vault list --json")
+	out.line("  dev-vault pull bweb-env-bsmart-dev --overwrite")
+	out.line("  dev-vault push bweb-env-bsmart-dev")
+	out.line("  dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite")
+	out.line()
+	out.line("Notes for automation/LLMs:")
+	out.line("  - Global options can be passed either before the command or as command options (e.g. 'pull --config ...').")
+	out.line("  - Exit codes: 0=success, 1=runtime error, 2=usage error.")
+	return out.err
+}
+
+func printCommandUsage(w io.Writer, def commandDef) error {
+	out := usageWriter{w: w}
+	out.line("Usage:")
+	out.f("  %s\n", def.Doc.Synopsis)
 
 	if len(def.Doc.Description) > 0 {
-		writeLine(w)
+		out.line()
 		for _, line := range def.Doc.Description {
-			writeLine(w, line)
+			out.line(line)
 		}
 	}
 
 	if len(def.Flags) > 0 {
-		writeLine(w)
-		writeLine(w, "Options:")
+		out.line()
+		out.line("Options:")
 		for _, flagDef := range sortedFlagDefs(def.Flags) {
-			writef(w, "  --%s\n", formatFlagUsage(flagDef))
+			out.f("  --%s\n", formatFlagUsage(flagDef))
 		}
 	}
 
 	if len(def.Doc.Notes) > 0 {
-		writeLine(w)
-		writeLine(w, "Notes:")
+		out.line()
+		out.line("Notes:")
 		for _, note := range def.Doc.Notes {
-			writeLine(w, "  - "+note)
+			out.line("  - " + note)
 		}
 	}
 
 	if len(def.Doc.Examples) > 0 {
-		writeLine(w)
-		writeLine(w, "Examples:")
+		out.line()
+		out.line("Examples:")
 		for _, example := range def.Doc.Examples {
-			writef(w, "  %s\n", example)
+			out.f("  %s\n", example)
 		}
 	}
+
+	return out.err
 }
 
 func sortedFlagDefs(flags []commandFlagDef) []commandFlagDef {
@@ -112,18 +128,18 @@ func formatFlagUsage(flagDef commandFlagDef) string {
 	return out
 }
 
-func printVersionUsage(w io.Writer) {
-	printCommandUsage(w, versionCommandDef)
+func printVersionUsage(w io.Writer) error {
+	return printCommandUsage(w, versionCommandDef)
 }
 
-func printListUsage(w io.Writer) {
-	printCommandUsage(w, listCommandDef)
+func printListUsage(w io.Writer) error {
+	return printCommandUsage(w, listCommandDef)
 }
 
-func printPullUsage(w io.Writer) {
-	printCommandUsage(w, pullCommandDef)
+func printPullUsage(w io.Writer) error {
+	return printCommandUsage(w, pullCommandDef)
 }
 
-func printPushUsage(w io.Writer) {
-	printCommandUsage(w, pushCommandDef)
+func printPushUsage(w io.Writer) error {
+	return printCommandUsage(w, pushCommandDef)
 }

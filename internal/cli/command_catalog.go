@@ -48,13 +48,13 @@ func commandForName(name string) (commandDef, bool) {
 	return commandDef{}, false
 }
 
-func usageForCommand(name string) (func(io.Writer), bool) {
+func usageForCommand(name string) (func(io.Writer) error, bool) {
 	def, ok := commandForName(name)
 	if !ok {
 		return nil, false
 	}
-	return func(w io.Writer) {
-		printCommandUsage(w, def)
+	return func(w io.Writer) error {
+		return printCommandUsage(w, def)
 	}, true
 }
 

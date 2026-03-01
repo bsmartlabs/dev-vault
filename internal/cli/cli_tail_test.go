@@ -30,7 +30,9 @@ func (c *createSecretNoPersist) CreateSecretVersion(req CreateSecretVersionInput
 
 func TestPrintUsage_Coverage(t *testing.T) {
 	var b bytes.Buffer
-	printMainUsage(&b)
+	if err := printMainUsage(&b); err != nil {
+		t.Fatalf("printMainUsage: %v", err)
+	}
 	if !strings.Contains(b.String(), config.DefaultConfigName) {
 		t.Fatalf("expected config name in usage")
 	}

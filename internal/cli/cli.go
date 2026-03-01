@@ -44,11 +44,15 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		return 1
 	}
 	if len(args) == 0 {
-		printMainUsage(stderr)
+		if err := printMainUsage(stderr); err != nil {
+			return 1
+		}
 		return 2
 	}
 	if len(args) > 1 && (args[1] == "-h" || args[1] == "--help") {
-		printMainUsage(stdout)
+		if err := printMainUsage(stdout); err != nil {
+			return 1
+		}
 		return 0
 	}
 
@@ -59,7 +63,7 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	bindGlobalOptionFlags(global, &configPath, &profileOverride)
 
 	global.Usage = func() {
-		printMainUsage(stderr)
+		_ = printMainUsage(stderr)
 	}
 
 	if err := global.Parse(args[1:]); err != nil {
@@ -70,7 +74,9 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	}
 	rest := global.Args()
 	if len(rest) == 0 {
-		printMainUsage(stderr)
+		if err := printMainUsage(stderr); err != nil {
+			return 1
+		}
 		return 2
 	}
 
@@ -90,13 +96,19 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 				if _, err := fmt.Fprintf(stderr, "unknown command for help: %s\n", rest[1]); err != nil {
 					return 1
 				}
-				printMainUsage(stderr)
+				if err := printMainUsage(stderr); err != nil {
+					return 1
+				}
 				return 2
 			}
-			usagePrinter(stdout)
+			if err := usagePrinter(stdout); err != nil {
+				return 1
+			}
 			return 0
 		}
-		printMainUsage(stdout)
+		if err := printMainUsage(stdout); err != nil {
+			return 1
+		}
 		return 0
 	default:
 		def, ok := commandForName(cmd)
@@ -104,7 +116,9 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 			if _, err := fmt.Fprintf(stderr, "unknown command: %s\n", cmd); err != nil {
 				return 1
 			}
-			printMainUsage(stderr)
+			if err := printMainUsage(stderr); err != nil {
+				return 1
+			}
 			return 2
 		}
 		return runCommand(ctx, rest[1:], def)

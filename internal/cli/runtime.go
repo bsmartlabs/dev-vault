@@ -32,7 +32,11 @@ func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsy
 		return exitCodeForError(runErr)
 	}
 
-	printConfigWarnings(r.ctx.stderr, loaded.Warnings)
+	if err := printConfigWarnings(r.ctx.stderr, loaded.Warnings); err != nil {
+		runErr := outputError(err)
+		_, _ = fmt.Fprintln(r.ctx.stderr, runErr.Error())
+		return exitCodeForError(runErr)
+	}
 	service := secretsync.NewFromLoaded(loaded, api, secretsync.Dependencies{
 		Now:      r.ctx.deps.Now,
 		Hostname: r.ctx.deps.Hostname,

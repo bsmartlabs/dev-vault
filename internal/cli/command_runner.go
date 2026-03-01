@@ -62,7 +62,10 @@ func parseCommandExitCode(err error) (code int, terminal bool) {
 func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCommand, error) {
 	fs := flag.NewFlagSet(def.Name, flag.ContinueOnError)
 	fs.SetOutput(ctx.stderr)
-	fs.Usage = func() { printCommandUsage(ctx.stderr, def) }
+	var usageWriteErr error
+	fs.Usage = func() {
+		usageWriteErr = printCommandUsage(ctx.stderr, def)
+	}
 
 	configPath := ctx.configPath
 	profileOverride := ctx.profileOverride
@@ -93,6 +96,9 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 	reordered := reorderFlags(argv, withGlobalFlagSpecs(takesValueMap(def)))
 	if err := fs.Parse(reordered); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			if usageWriteErr != nil {
+				return nil, &parseCommandError{code: 1, err: outputError(usageWriteErr)}
+			}
 			return nil, &parseCommandError{code: 0, err: err}
 		}
 		return nil, &parseCommandError{code: 2, err: err}

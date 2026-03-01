@@ -13,10 +13,11 @@ type commandContext struct {
 	deps            Dependencies
 }
 
-func printConfigWarnings(w io.Writer, warnings []string) {
+func printConfigWarnings(w io.Writer, warnings []string) error {
 	for _, warning := range warnings {
 		if _, err := fmt.Fprintf(w, "warning: %s\n", warning); err != nil {
-			return
+			return err
 		}
 	}
+	return nil
 }

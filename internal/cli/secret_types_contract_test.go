@@ -55,7 +55,9 @@ func TestSecretTypesContract_CanonicalPolicy(t *testing.T) {
 
 func TestSecretTypesContract_ListUsageIncludesCanonicalTypes(t *testing.T) {
 	var buf bytes.Buffer
-	printListUsage(&buf)
+	if err := printListUsage(&buf); err != nil {
+		t.Fatalf("printListUsage: %v", err)
+	}
 	usage := buf.String()
 
 	for _, name := range secrettype.Names() {
