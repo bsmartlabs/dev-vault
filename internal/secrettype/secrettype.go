@@ -7,13 +7,22 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
+const (
+	NameOpaque              = "opaque"
+	NameCertificate         = "certificate"
+	NameKeyValue            = "key_value"
+	NameBasicCredentials    = "basic_credentials"
+	NameDatabaseCredentials = "database_credentials"
+	NameSSHKey              = "ssh_key"
+)
+
 var allowed = map[string]struct{}{
-	"opaque":               {},
-	"certificate":          {},
-	"key_value":            {},
-	"basic_credentials":    {},
-	"database_credentials": {},
-	"ssh_key":              {},
+	NameOpaque:              {},
+	NameCertificate:         {},
+	NameKeyValue:            {},
+	NameBasicCredentials:    {},
+	NameDatabaseCredentials: {},
+	NameSSHKey:              {},
 }
 
 func IsValid(name string) bool {
@@ -32,17 +41,17 @@ func Names() []string {
 
 func ToScaleway(name string) (secret.SecretType, error) {
 	switch name {
-	case "opaque":
+	case NameOpaque:
 		return secret.SecretTypeOpaque, nil
-	case "certificate":
+	case NameCertificate:
 		return secret.SecretTypeCertificate, nil
-	case "key_value":
+	case NameKeyValue:
 		return secret.SecretTypeKeyValue, nil
-	case "basic_credentials":
+	case NameBasicCredentials:
 		return secret.SecretTypeBasicCredentials, nil
-	case "database_credentials":
+	case NameDatabaseCredentials:
 		return secret.SecretTypeDatabaseCredentials, nil
-	case "ssh_key":
+	case NameSSHKey:
 		return secret.SecretTypeSSHKey, nil
 	default:
 		return "", fmt.Errorf("unsupported secret type mapping for %q", name)

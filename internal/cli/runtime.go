@@ -33,7 +33,7 @@ func loadAndOpenAPI(configPath, profileOverride string, deps Dependencies) (*con
 	}
 	api, err := deps.OpenSecretAPI(loaded.Cfg, profileOverride)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open scaleway api: %w", err)
+		return nil, nil, fmt.Errorf("open secret api: %w", err)
 	}
 	return loaded, api, nil
 }

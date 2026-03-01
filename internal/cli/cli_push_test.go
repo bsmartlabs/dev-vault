@@ -560,6 +560,22 @@ func TestRunPull_ListErrorViaResolve(t *testing.T) {
 	}
 }
 
+func TestRunPush_ListErrorViaLookupIndex(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"sync","type":"opaque"}}}`)
+	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
+		t.Fatalf("write in.bin: %v", err)
+	}
+	api := newFakeSecretAPI()
+	api.listErr = errors.New("boom")
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "foo-dev", "--description", "desc"}, &out, &errBuf, deps)
+	if code != 1 {
+		t.Fatalf("expected 1, got %d", code)
+	}
+}
+
 func TestRunPush_DotenvParseError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.env","format":"dotenv","path":"/","mode":"sync","type":"key_value"}}}`)

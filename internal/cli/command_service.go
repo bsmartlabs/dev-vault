@@ -129,6 +129,11 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 }
 
 func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullResult, error) {
+	lookupIndex, err := buildSecretLookupIndex(s.api, s.projectScope())
+	if err != nil {
+		return nil, fmt.Errorf("build secret lookup index: %w", err)
+	}
+
 	results := make([]pullResult, 0, len(targets))
 	for _, target := range targets {
 		outPath, err := config.ResolveFile(s.cfg.Root, target.Entry.File)
@@ -136,7 +141,7 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 			return nil, fmt.Errorf("mapping %s: resolve file: %w", target.Name, err)
 		}
 
-		resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), target.Name, target.Entry.Path)
+		resolvedSecret, err := resolveSecretFromIndex(lookupIndex, target.Name, target.Entry.Path)
 		if err != nil {
 			return nil, fmt.Errorf("resolve %s: %w", target.Name, err)
 		}
@@ -181,6 +186,10 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 
 func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushResult, error) {
 	desc := s.pushDescription(opts.Description)
+	lookupIndex, err := buildSecretLookupIndex(s.api, s.projectScope())
+	if err != nil {
+		return nil, fmt.Errorf("build secret lookup index: %w", err)
+	}
 
 	results := make([]pushResult, 0, len(targets))
 	for _, target := range targets {
@@ -188,7 +197,7 @@ func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushR
 		if err != nil {
 			return nil, err
 		}
-		resolvedSecret, err := s.resolvePushSecret(target.Name, target.Entry, opts.CreateMissing)
+		resolvedSecret, err := s.resolvePushSecret(target.Name, target.Entry, opts.CreateMissing, lookupIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -247,8 +256,8 @@ func (s commandService) readPushPayload(name string, entry config.MappingEntry) 
 	return raw, nil
 }
 
-func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
-	resolvedSecret, err := resolveSecretByNameAndPath(s.api, s.projectScope(), name, entry.Path)
+func (s commandService) resolvePushSecret(name string, entry config.MappingEntry, createMissing bool, lookupIndex map[string][]secretprovider.SecretRecord) (*secretprovider.SecretRecord, error) {
+	resolvedSecret, err := resolveSecretFromIndex(lookupIndex, name, entry.Path)
 	if err == nil {
 		if entry.Type != "" && resolvedSecret.Type != secretprovider.SecretType(entry.Type) {
 			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
@@ -278,5 +287,7 @@ func (s commandService) resolvePushSecret(name string, entry config.MappingEntry
 	if err != nil {
 		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
 	}
+	key := secretLookupKey(createdSecret.Name, createdSecret.Path)
+	lookupIndex[key] = append(lookupIndex[key], *createdSecret)
 	return createdSecret, nil
 }

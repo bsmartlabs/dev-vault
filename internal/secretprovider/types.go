@@ -1,11 +1,16 @@
 package secretprovider
 
+import "github.com/bsmartlabs/dev-vault/internal/secrettype"
+
 type SecretType string
 
 const (
-	SecretTypeOpaque      SecretType = "opaque"
-	SecretTypeCertificate SecretType = "certificate"
-	SecretTypeKeyValue    SecretType = "key_value"
+	SecretTypeOpaque              SecretType = secrettype.NameOpaque
+	SecretTypeCertificate         SecretType = secrettype.NameCertificate
+	SecretTypeKeyValue            SecretType = secrettype.NameKeyValue
+	SecretTypeBasicCredentials    SecretType = secrettype.NameBasicCredentials
+	SecretTypeDatabaseCredentials SecretType = secrettype.NameDatabaseCredentials
+	SecretTypeSSHKey              SecretType = secrettype.NameSSHKey
 )
 
 type SecretRevision string

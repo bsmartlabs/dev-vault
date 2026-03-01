@@ -32,23 +32,28 @@ type secretProjectScope struct {
 	ProjectID string
 }
 
-func resolveSecretByNameAndPath(api secretprovider.SecretLister, scope secretProjectScope, name, path string) (*secretprovider.SecretRecord, error) {
+func buildSecretLookupIndex(api secretprovider.SecretLister, scope secretProjectScope) (map[string][]secretprovider.SecretRecord, error) {
 	respSecrets, err := listSecretsByTypes(api, secretprovider.ListSecretsInput{
 		Region:    scope.Region,
 		ProjectID: scope.ProjectID,
-		Name:      name,
-		Path:      path,
 	}, supportedSecretTypes())
 	if err != nil {
 		return nil, err
 	}
-
-	matches := make([]secretprovider.SecretRecord, 0, len(respSecrets))
+	index := make(map[string][]secretprovider.SecretRecord, len(respSecrets))
 	for _, s := range respSecrets {
-		if s.Name == name && s.Path == path {
-			matches = append(matches, s)
-		}
+		key := secretLookupKey(s.Name, s.Path)
+		index[key] = append(index[key], s)
 	}
+	return index, nil
+}
+
+func secretLookupKey(name, path string) string {
+	return name + "\x00" + path
+}
+
+func resolveSecretFromIndex(index map[string][]secretprovider.SecretRecord, name, path string) (*secretprovider.SecretRecord, error) {
+	matches := index[secretLookupKey(name, path)]
 	if len(matches) == 0 {
 		return nil, &notFoundError{name: name, path: path}
 	}
@@ -61,6 +66,14 @@ func resolveSecretByNameAndPath(api secretprovider.SecretLister, scope secretPro
 		return nil, fmt.Errorf("multiple secrets match name=%s path=%s: %s", name, path, strings.Join(ids, ","))
 	}
 	return &matches[0], nil
+}
+
+func resolveSecretByNameAndPath(api secretprovider.SecretLister, scope secretProjectScope, name, path string) (*secretprovider.SecretRecord, error) {
+	index, err := buildSecretLookupIndex(api, scope)
+	if err != nil {
+		return nil, err
+	}
+	return resolveSecretFromIndex(index, name, path)
 }
 
 func listSecretsByTypes(api secretprovider.SecretLister, base secretprovider.ListSecretsInput, types []secretprovider.SecretType) ([]secretprovider.SecretRecord, error) {

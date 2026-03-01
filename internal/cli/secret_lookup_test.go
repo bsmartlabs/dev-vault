@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -36,5 +37,17 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 	}
 	if len(secrets) != 1 || secrets[0].ID != s.ID {
 		t.Fatalf("unexpected secrets list: %#v", secrets)
+	}
+}
+
+func TestResolveSecretByNameAndPath_ListError(t *testing.T) {
+	fake := newFakeSecretAPI()
+	fake.listErr = errors.New("boom")
+	_, err := resolveSecretByNameAndPath(fake, secretProjectScope{
+		Region:    "fr-par",
+		ProjectID: "project",
+	}, "x-dev", "/")
+	if err == nil {
+		t.Fatal("expected list error")
 	}
 }

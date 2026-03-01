@@ -25,6 +25,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Gitleaks
+        run: |
+          set -euo pipefail
+          tag="$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          version="${tag#v}"
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) arch="x64" ;;
+            aarch64|arm64) arch="arm64" ;;
+            i386|i686) arch="x32" ;;
+            *) echo "unsupported arch: $arch" >&2; exit 2 ;;
+          esac
+          tmp="$(mktemp -d)"
+          curl -fsSL -o "$tmp/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${version}_linux_${arch}.tar.gz"
+          tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp"
+          "$tmp/gitleaks" detect --redact --verbose
+
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26.x"
