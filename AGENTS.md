@@ -13,6 +13,12 @@ This file documents project conventions and hard constraints for contributors an
 - Do not commit credentials, tokens, or real secret identifiers into the repository (including README examples).
 - If a secret/token is ever pasted into chat/logs, treat it as compromised and rotate/revoke immediately.
 
+## Commit Rules
+- Conventional Commits are required for all non-release commits.
+- Required format: `<type>(optional-scope): <summary>`.
+- Accepted types include: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
+- Examples: `fix: resolve Playwright webServer cwd`, `refactor(session): split transport lifecycle boundaries`.
+
 ## Common Commands
 - Install: `go install github.com/bsmartlabs/dev-vault/cmd/dev-vault@latest`
 - Test (100% coverage required): `go test ./... -coverprofile=coverage.out`
@@ -239,4 +245,3 @@ This is the canonical Codex overlay used by the README install command.
 
 <!-- desloppify-overlay: codex -->
 <!-- desloppify-end -->
-
