@@ -61,6 +61,9 @@ func parseListOptions(parsed *parsedCommand) listOptions {
 
 func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parseListOptions(parsed)
+	if err := rejectUnexpectedArgs(parsed, "list"); err != nil {
+		return newCommandRuntime(ctx, parsed).writeStderrError(err)
+	}
 	return newCommandRuntime(ctx, parsed).execute(func(_ *config.Loaded, service secretsync.Service) error {
 		var re *regexp.Regexp
 		var selectedType secretprovider.SecretType

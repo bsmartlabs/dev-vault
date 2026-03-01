@@ -191,9 +191,6 @@ func TestLoad(t *testing.T) {
 		if ent.Format != MappingFormatRaw || ent.Path != "/" || ent.Mode != MappingModePull {
 			t.Fatalf("normalization not applied: %+v", ent)
 		}
-		if len(loaded.Warnings) != 0 {
-			t.Fatalf("expected no warnings, got: %#v", loaded.Warnings)
-		}
 	})
 
 	t.Run("DiscoverySuccess", func(t *testing.T) {

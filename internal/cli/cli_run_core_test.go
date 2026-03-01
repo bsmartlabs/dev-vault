@@ -105,6 +105,35 @@ func TestRun_Version(t *testing.T) {
 	}
 }
 
+func TestRun_VersionRejectsUnexpectedArgs(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "version", "extra"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 2 {
+		t.Fatalf("expected 2, got %d stderr=%q", code, errBuf.String())
+	}
+	if !strings.Contains(errBuf.String(), "version does not accept positional arguments") {
+		t.Fatalf("unexpected stderr: %q", errBuf.String())
+	}
+}
+
+func TestRun_ListRejectsUnexpectedArgs(t *testing.T) {
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		t.Fatal("list arg validation should run before config/API bootstrap")
+		return nil, nil
+	})
+
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "list", "extra"}, &out, &errBuf, deps)
+	if code != 2 {
+		t.Fatalf("expected 2, got %d stderr=%q", code, errBuf.String())
+	}
+	if !strings.Contains(errBuf.String(), "list does not accept positional arguments") {
+		t.Fatalf("unexpected stderr: %q", errBuf.String())
+	}
+}
+
 func TestRun_Help(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {

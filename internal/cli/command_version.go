@@ -14,7 +14,10 @@ var versionCommandDef = commandDef{
 	RunParsed: runVersionParsed,
 }
 
-func runVersionParsed(ctx commandContext, _ *parsedCommand) int {
+func runVersionParsed(ctx commandContext, parsed *parsedCommand) int {
+	if err := rejectUnexpectedArgs(parsed, "version"); err != nil {
+		return newCommandRuntime(ctx, parsed).writeStderrError(err)
+	}
 	if _, err := fmt.Fprintf(ctx.stdout, "dev-vault %s (commit=%s date=%s)\n", ctx.deps.Version, ctx.deps.Commit, ctx.deps.Date); err != nil {
 		return exitCodeForError(outputError(err))
 	}

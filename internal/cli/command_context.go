@@ -1,9 +1,6 @@
 package cli
 
-import (
-	"fmt"
-	"io"
-)
+import "io"
 
 type commandContext struct {
 	stdout          io.Writer
@@ -11,13 +8,4 @@ type commandContext struct {
 	configPath      string
 	profileOverride string
 	deps            Dependencies
-}
-
-func printConfigWarnings(w io.Writer, warnings []string) error {
-	for _, warning := range warnings {
-		if _, err := fmt.Fprintf(w, "warning: %s\n", warning); err != nil {
-			return err
-		}
-	}
-	return nil
 }

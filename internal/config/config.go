@@ -59,10 +59,9 @@ type Config struct {
 }
 
 type Loaded struct {
-	Path     string
-	Root     string
-	Cfg      Config
-	Warnings []string
+	Path string
+	Root string
+	Cfg  Config
 }
 
 func IsDevSecretName(name string) bool {
@@ -152,45 +151,42 @@ func loadWithDeps(startDir, explicitPath string, deps configDeps) (*Loaded, erro
 		return nil, fmt.Errorf("decode config json: trailing data after top-level JSON object: %w", err)
 	}
 
-	warnings, err := cfg.normalizeAndValidate()
-	if err != nil {
+	if err := cfg.normalizeAndValidate(); err != nil {
 		return nil, err
 	}
 
 	root := filepath.Dir(absPath)
-	return &Loaded{Path: absPath, Root: root, Cfg: cfg, Warnings: warnings}, nil
+	return &Loaded{Path: absPath, Root: root, Cfg: cfg}, nil
 }
 
-func (c *Config) normalizeAndValidate() ([]string, error) {
-	warnings := []string{}
-
+func (c *Config) normalizeAndValidate() error {
 	if strings.TrimSpace(c.OrganizationID) == "" {
-		return nil, errors.New("missing required field: organization_id")
+		return errors.New("missing required field: organization_id")
 	}
 	if strings.TrimSpace(c.ProjectID) == "" {
-		return nil, errors.New("missing required field: project_id")
+		return errors.New("missing required field: project_id")
 	}
 	if strings.TrimSpace(c.Region) == "" {
-		return nil, errors.New("missing required field: region")
+		return errors.New("missing required field: region")
 	}
 	if c.Mapping == nil {
-		return nil, errors.New("missing required field: mapping")
+		return errors.New("missing required field: mapping")
 	}
 	if len(c.Mapping) == 0 {
-		return nil, errors.New("mapping is empty")
+		return errors.New("mapping is empty")
 	}
 
 	for name, entry := range c.Mapping {
 		if err := ValidateDevSecretName(name); err != nil {
-			return nil, err
+			return err
 		}
 
 		entry.File = strings.TrimSpace(entry.File)
 		if entry.File == "" {
-			return nil, fmt.Errorf("mapping %q: missing required field: file", name)
+			return fmt.Errorf("mapping %q: missing required field: file", name)
 		}
 		if filepath.IsAbs(entry.File) {
-			return nil, fmt.Errorf("mapping %q: file must be relative, got %q", name, entry.File)
+			return fmt.Errorf("mapping %q: file must be relative, got %q", name, entry.File)
 		}
 
 		if entry.Format == "" {
@@ -199,35 +195,35 @@ func (c *Config) normalizeAndValidate() ([]string, error) {
 		switch entry.Format {
 		case MappingFormatRaw, MappingFormatDotenv:
 		default:
-			return nil, fmt.Errorf("mapping %q: invalid format %q", name, entry.Format)
+			return fmt.Errorf("mapping %q: invalid format %q", name, entry.Format)
 		}
 
 		if entry.Path == "" {
 			entry.Path = "/"
 		}
 		if !strings.HasPrefix(entry.Path, "/") {
-			return nil, fmt.Errorf("mapping %q: path must start with '/', got %q", name, entry.Path)
+			return fmt.Errorf("mapping %q: path must start with '/', got %q", name, entry.Path)
 		}
 
 		if entry.Mode == "" {
-			return nil, fmt.Errorf("mapping %q: missing required field: mode (expected pull|push)", name)
+			return fmt.Errorf("mapping %q: missing required field: mode (expected pull|push)", name)
 		}
 		switch entry.Mode {
 		case MappingModePull, MappingModePush:
 		default:
-			return nil, fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
+			return fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}
 
 		if entry.Type != "" {
 			if !secrettype.IsValid(string(entry.Type)) {
-				return nil, fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
+				return fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
 			}
 		}
 
 		c.Mapping[name] = entry
 	}
 
-	return warnings, nil
+	return nil
 }
 
 func ResolveFile(rootDir string, rel string) (string, error) {
