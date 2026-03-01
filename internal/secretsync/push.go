@@ -91,15 +91,15 @@ func (s Service) pushOne(target MappingTarget, opts PushOptions, desc string) (P
 }
 
 func (s Service) resolveMappedSecretForPush(name string, entry mapping.Entry, createMissing bool) (*secretprovider.SecretRecord, error) {
+	var (
+		resolvedSecret *secretprovider.SecretRecord
+		err            error
+	)
 	if createMissing {
-		resolvedSecret, err := s.lookupOrCreateMappedSecret(name, entry)
-		if err != nil {
-			return nil, err
-		}
-		return resolvedSecret, nil
+		resolvedSecret, err = s.lookupOrCreateMappedSecret(name, entry)
+	} else {
+		resolvedSecret, err = s.lookupMappedSecret(name, entry)
 	}
-
-	resolvedSecret, err := s.lookupMappedSecret(name, entry)
 	if err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", name, err)
 	}

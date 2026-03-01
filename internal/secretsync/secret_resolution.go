@@ -27,10 +27,10 @@ func (s Service) lookupOrCreateMappedSecret(name string, entry mapping.Entry) (*
 
 	var notFound *SecretLookupMissError
 	if !errors.As(err, &notFound) {
-		return nil, fmt.Errorf("resolve %s: %w", name, err)
+		return nil, err
 	}
 	if entry.Type == "" {
-		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
+		return nil, errors.New("create-missing requires mapping.type")
 	}
 
 	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
@@ -39,7 +39,7 @@ func (s Service) lookupOrCreateMappedSecret(name string, entry mapping.Entry) (*
 		Path: entry.Path,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
+		return nil, fmt.Errorf("create secret: %w", err)
 	}
 	return createdSecret, nil
 }
@@ -56,7 +56,7 @@ func (s Service) lookupMappedSecret(name string, entry mapping.Entry) (*secretpr
 
 	respSecrets, err := s.api.ListSecrets(req)
 	if err != nil {
-		return nil, fmt.Errorf("list secrets: %w", err)
+		return nil, err
 	}
 
 	matches := make([]secretprovider.SecretRecord, 0, len(respSecrets))

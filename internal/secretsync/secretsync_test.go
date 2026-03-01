@@ -254,7 +254,7 @@ func TestLookupMappedSecret(t *testing.T) {
 	svc := baseService(t.TempDir(), nil, api)
 
 	api.listErr = errors.New("boom")
-	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
+	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected list error, got %v", err)
 	}
 	api.listErr = nil
@@ -516,7 +516,7 @@ func TestPushHelpersAndPush(t *testing.T) {
 	}
 
 	api.listErr = errors.New("boom")
-	if _, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
+	if _, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected list error passthrough, got %v", err)
 	}
 	api.listErr = nil
