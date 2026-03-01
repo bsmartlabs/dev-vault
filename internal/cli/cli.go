@@ -38,12 +38,6 @@ func DefaultDependencies(version, commit, date string, openSecretAPI func(cfg co
 }
 
 func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
-	if deps.OpenSecretAPI == nil || deps.Now == nil || deps.Hostname == nil || deps.ResolveProjectPath == nil {
-		if _, err := fmt.Fprintln(stderr, "internal error: missing dependencies"); err != nil {
-			return 1
-		}
-		return 1
-	}
 	if len(args) == 0 {
 		if err := printMainUsage(stderr); err != nil {
 			return 1
@@ -128,8 +122,27 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 			}
 			return 2
 		}
+		if commandNeedsRuntimeDeps(def.Name) && runtimeDepsMissing(deps) {
+			if _, err := fmt.Fprintln(stderr, "internal error: missing dependencies"); err != nil {
+				return 1
+			}
+			return 1
+		}
 		return runCommand(ctx, rest[1:], def)
 	}
+}
+
+func commandNeedsRuntimeDeps(name string) bool {
+	switch name {
+	case "list", "pull", "push":
+		return true
+	default:
+		return false
+	}
+}
+
+func runtimeDepsMissing(deps Dependencies) bool {
+	return deps.OpenSecretAPI == nil || deps.Now == nil || deps.Hostname == nil || deps.ResolveProjectPath == nil
 }
 
 func hasPreCommandHelpFlag(args []string) bool {

@@ -90,11 +90,25 @@ func TestRun_GlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
 	}
 }
 
-func TestRun_MissingDeps(t *testing.T) {
+func TestRun_MissingDeps_OnlyForRuntimeCommands(t *testing.T) {
 	var out, errBuf bytes.Buffer
+
 	code := Run([]string{"dev-vault", "version"}, &out, &errBuf, Dependencies{})
+	if code != 0 {
+		t.Fatalf("expected version to run without runtime deps, got %d", code)
+	}
+	if !strings.Contains(out.String(), "dev-vault") {
+		t.Fatalf("unexpected version output: %q", out.String())
+	}
+
+	out.Reset()
+	errBuf.Reset()
+	code = Run([]string{"dev-vault", "list"}, &out, &errBuf, Dependencies{})
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "missing dependencies") {
+		t.Fatalf("expected missing dependencies error, got %q", errBuf.String())
 	}
 }
 
