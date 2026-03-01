@@ -164,7 +164,7 @@ func (f *fakeSecretAPI) findSecret(id string) *secretprovider.SecretRecord {
 	return nil
 }
 
-func baseService(root string, mapping map[string]config.MappingEntry, api secretprovider.SecretAPI) Service {
+func baseService(root string, mapping map[string]MappingEntry, api secretprovider.SecretAPI) Service {
 	return New(Config{Root: root, Mapping: mapping}, api, Dependencies{
 		Now:      func() time.Time { return time.Unix(123, 0) },
 		Hostname: func() (string, error) { return "host", nil },
@@ -173,7 +173,7 @@ func baseService(root string, mapping map[string]config.MappingEntry, api secret
 
 func TestNewAndNewFromLoaded(t *testing.T) {
 	api := newFakeSecretAPI()
-	svc := New(Config{Root: "/tmp", Mapping: map[string]config.MappingEntry{}}, api, Dependencies{})
+	svc := New(Config{Root: "/tmp", Mapping: map[string]MappingEntry{}}, api, Dependencies{})
 	if svc.api == nil {
 		t.Fatalf("expected api to be set")
 	}
@@ -181,7 +181,7 @@ func TestNewAndNewFromLoaded(t *testing.T) {
 		t.Fatalf("expected default deps to be set")
 	}
 
-	loaded := &config.Loaded{Root: "/project", Cfg: config.Config{Mapping: map[string]config.MappingEntry{"a-dev": {Mode: "both"}}}}
+	loaded := &config.Loaded{Root: "/project", Cfg: config.Config{Mapping: map[string]config.MappingEntry{"a-dev": {File: "a", Mode: "both"}}}}
 	svcFromLoaded := NewFromLoaded(loaded, api, Dependencies{
 		Now:      func() time.Time { return time.Unix(456, 0) },
 		Hostname: func() (string, error) { return "x", nil },
@@ -208,25 +208,25 @@ func TestLookupMappedSecret(t *testing.T) {
 	svc := baseService(t.TempDir(), nil, api)
 
 	api.listErr = errors.New("boom")
-	if _, err := svc.LookupMappedSecret("x-dev", config.MappingEntry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
+	if _, err := svc.LookupMappedSecret("x-dev", MappingEntry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
 		t.Fatalf("expected list error, got %v", err)
 	}
 	api.listErr = nil
 
-	if _, err := svc.LookupMappedSecret("x-dev", config.MappingEntry{Path: "/"}); err == nil {
+	if _, err := svc.LookupMappedSecret("x-dev", MappingEntry{Path: "/"}); err == nil {
 		t.Fatal("expected not found")
 	}
 
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	if _, err := svc.LookupMappedSecret("dup-dev", config.MappingEntry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "multiple secrets") {
+	if _, err := svc.LookupMappedSecret("dup-dev", MappingEntry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "multiple secrets") {
 		t.Fatalf("expected multiple match error, got %v", err)
 	}
 
 	api = newFakeSecretAPI()
 	api.AddSecret("proj", "typed-dev", "/", secret.SecretTypeOpaque)
 	svc = baseService(t.TempDir(), nil, api)
-	got, err := svc.LookupMappedSecret("typed-dev", config.MappingEntry{Path: "/", Type: "opaque"})
+	got, err := svc.LookupMappedSecret("typed-dev", MappingEntry{Path: "/", Type: "opaque"})
 	if err != nil {
 		t.Fatalf("unexpected lookup error: %v", err)
 	}
@@ -302,23 +302,23 @@ func TestPull(t *testing.T) {
 	api := newFakeSecretAPI()
 	svc := baseService(root, nil, api)
 
-	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "", Path: "/", Format: "raw"}}}, false); err == nil {
+	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "", Path: "/", Format: "raw"}}}, false); err == nil {
 		t.Fatal("expected resolve file error")
 	}
 
-	if _, err := svc.Pull([]MappingTarget{{Name: "missing-dev", Entry: config.MappingEntry{File: "out", Path: "/", Format: "raw"}}}, false); err == nil {
+	if _, err := svc.Pull([]MappingTarget{{Name: "missing-dev", Entry: MappingEntry{File: "out", Path: "/", Format: "raw"}}}, false); err == nil {
 		t.Fatal("expected lookup error")
 	}
 
 	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.accessErr = errors.New("access boom")
-	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "out", Path: "/", Format: "raw"}}}, false); err == nil || !strings.Contains(err.Error(), "access") {
+	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "out", Path: "/", Format: "raw"}}}, false); err == nil || !strings.Contains(err.Error(), "access") {
 		t.Fatalf("expected access error, got %v", err)
 	}
 	api.accessErr = nil
 
 	api.AddEnabledVersion(sec.ID, []byte("not-json"))
-	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "dotenv.env", Path: "/", Format: "dotenv"}}}, true); err == nil || !strings.Contains(err.Error(), "format dotenv") {
+	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "dotenv.env", Path: "/", Format: "dotenv"}}}, true); err == nil || !strings.Contains(err.Error(), "format dotenv") {
 		t.Fatalf("expected dotenv conversion error, got %v", err)
 	}
 
@@ -326,7 +326,7 @@ func TestPull(t *testing.T) {
 	sec = api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte(`{"A":"1"}`))
 	svc = baseService(root, nil, api)
-	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "dotenv-success.env", Path: "/", Format: "dotenv"}}}, true); err != nil {
+	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "dotenv-success.env", Path: "/", Format: "dotenv"}}}, true); err != nil {
 		t.Fatalf("expected dotenv conversion success, got %v", err)
 	}
 
@@ -339,7 +339,7 @@ func TestPull(t *testing.T) {
 	if err := os.WriteFile(existingPath, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write existing file: %v", err)
 	}
-	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "exists.txt", Path: "/", Format: "raw"}}}, false); err == nil || !strings.Contains(err.Error(), "file exists") {
+	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "exists.txt", Path: "/", Format: "raw"}}}, false); err == nil || !strings.Contains(err.Error(), "file exists") {
 		t.Fatalf("expected exists error, got %v", err)
 	}
 
@@ -347,11 +347,11 @@ func TestPull(t *testing.T) {
 	if err := os.WriteFile(notDir, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write blocking file: %v", err)
 	}
-	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "notdir/out.txt", Path: "/", Format: "raw"}}}, true); err == nil || !strings.Contains(err.Error(), "write") {
+	if _, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "notdir/out.txt", Path: "/", Format: "raw"}}}, true); err == nil || !strings.Contains(err.Error(), "write") {
 		t.Fatalf("expected generic write error, got %v", err)
 	}
 
-	results, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "ok.bin", Path: "/", Format: "raw"}}}, true)
+	results, err := svc.Pull([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "ok.bin", Path: "/", Format: "raw"}}}, true)
 	if err != nil {
 		t.Fatalf("unexpected pull error: %v", err)
 	}
@@ -376,30 +376,30 @@ func TestPushHelpersAndPush(t *testing.T) {
 		t.Fatalf("unexpected default description: %q", got)
 	}
 
-	if _, err := svc.readPushPayload("x-dev", config.MappingEntry{File: "", Format: "raw"}); err == nil {
+	if _, err := svc.readPushPayload("x-dev", MappingEntry{File: "", Format: "raw"}); err == nil {
 		t.Fatal("expected resolve file error")
 	}
-	if _, err := svc.readPushPayload("x-dev", config.MappingEntry{File: "missing.bin", Format: "raw"}); err == nil {
+	if _, err := svc.readPushPayload("x-dev", MappingEntry{File: "missing.bin", Format: "raw"}); err == nil {
 		t.Fatal("expected read file error")
 	}
 
 	if err := os.WriteFile(filepath.Join(root, "bad.env"), []byte("BAD"), 0o600); err != nil {
 		t.Fatalf("write bad env: %v", err)
 	}
-	if _, err := svc.readPushPayload("x-dev", config.MappingEntry{File: "bad.env", Format: "dotenv"}); err == nil {
+	if _, err := svc.readPushPayload("x-dev", MappingEntry{File: "bad.env", Format: "dotenv"}); err == nil {
 		t.Fatal("expected dotenv parse error")
 	}
 
 	if err := os.WriteFile(filepath.Join(root, "ok.env"), []byte("A=1\n"), 0o600); err != nil {
 		t.Fatalf("write ok env: %v", err)
 	}
-	if _, err := svc.readPushPayload("x-dev", config.MappingEntry{File: "ok.env", Format: "dotenv"}); err != nil {
+	if _, err := svc.readPushPayload("x-dev", MappingEntry{File: "ok.env", Format: "dotenv"}); err != nil {
 		t.Fatalf("unexpected dotenv conversion error: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "raw.bin"), []byte("RAW"), 0o600); err != nil {
 		t.Fatalf("write raw file: %v", err)
 	}
-	if payload, err := svc.readPushPayload("x-dev", config.MappingEntry{File: "raw.bin", Format: "raw"}); err != nil || string(payload) != "RAW" {
+	if payload, err := svc.readPushPayload("x-dev", MappingEntry{File: "raw.bin", Format: "raw"}); err != nil || string(payload) != "RAW" {
 		t.Fatalf("unexpected raw payload: %q err=%v", payload, err)
 	}
 
@@ -412,26 +412,26 @@ func TestPushHelpersAndPush(t *testing.T) {
 		t.Fatalf("expected DisablePrevious=true")
 	}
 
-	if _, err := svc.ResolveMappedSecret("missing-dev", config.MappingEntry{Path: "/"}, false); err == nil {
+	if _, err := svc.ResolveMappedSecret("missing-dev", MappingEntry{Path: "/"}, false); err == nil {
 		t.Fatal("expected resolve error when missing and createMissing=false")
 	}
-	if _, err := svc.ResolveMappedSecret("missing-dev", config.MappingEntry{Path: "/"}, true); err == nil || !strings.Contains(err.Error(), "create-missing requires mapping.type") {
+	if _, err := svc.ResolveMappedSecret("missing-dev", MappingEntry{Path: "/"}, true); err == nil || !strings.Contains(err.Error(), "create-missing requires mapping.type") {
 		t.Fatalf("expected missing type error, got %v", err)
 	}
 
 	api.listErr = errors.New("boom")
-	if _, err := svc.ResolveMappedSecret("x-dev", config.MappingEntry{Path: "/", Type: "opaque"}, true); err == nil || !strings.Contains(err.Error(), "list secrets") {
+	if _, err := svc.ResolveMappedSecret("x-dev", MappingEntry{Path: "/", Type: "opaque"}, true); err == nil || !strings.Contains(err.Error(), "list secrets") {
 		t.Fatalf("expected list error passthrough, got %v", err)
 	}
 	api.listErr = nil
 
 	api.createSecretErr = errors.New("create secret boom")
-	if _, err := svc.ResolveMappedSecret("x-dev", config.MappingEntry{Path: "/", Type: "opaque"}, true); err == nil || !strings.Contains(err.Error(), "create secret") {
+	if _, err := svc.ResolveMappedSecret("x-dev", MappingEntry{Path: "/", Type: "opaque"}, true); err == nil || !strings.Contains(err.Error(), "create secret") {
 		t.Fatalf("expected create secret error, got %v", err)
 	}
 	api.createSecretErr = nil
 
-	created, err := svc.ResolveMappedSecret("x-dev", config.MappingEntry{Path: "/", Type: "opaque"}, true)
+	created, err := svc.ResolveMappedSecret("x-dev", MappingEntry{Path: "/", Type: "opaque"}, true)
 	if err != nil {
 		t.Fatalf("unexpected create missing success error: %v", err)
 	}
@@ -442,19 +442,19 @@ func TestPushHelpersAndPush(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "push.bin"), []byte("PUSH"), 0o600); err != nil {
 		t.Fatalf("write push.bin: %v", err)
 	}
-	if _, err := svc.Push([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "missing.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); err == nil {
+	if _, err := svc.Push([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "missing.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); err == nil {
 		t.Fatal("expected push read payload error")
 	}
-	if _, err := svc.Push([]MappingTarget{{Name: "never-created-dev", Entry: config.MappingEntry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); err == nil || !strings.Contains(err.Error(), "resolve never-created-dev") {
+	if _, err := svc.Push([]MappingTarget{{Name: "never-created-dev", Entry: MappingEntry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); err == nil || !strings.Contains(err.Error(), "resolve never-created-dev") {
 		t.Fatalf("expected push resolve error, got %v", err)
 	}
 	api.createVerErr = errors.New("version boom")
-	if _, err := svc.Push([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); err == nil || !strings.Contains(err.Error(), "create version") {
+	if _, err := svc.Push([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); err == nil || !strings.Contains(err.Error(), "create version") {
 		t.Fatalf("expected create version error, got %v", err)
 	}
 	api.createVerErr = nil
 
-	results, err := svc.Push([]MappingTarget{{Name: "x-dev", Entry: config.MappingEntry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{DisablePrevious: true})
+	results, err := svc.Push([]MappingTarget{{Name: "x-dev", Entry: MappingEntry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{DisablePrevious: true})
 	if err != nil {
 		t.Fatalf("unexpected push success error: %v", err)
 	}

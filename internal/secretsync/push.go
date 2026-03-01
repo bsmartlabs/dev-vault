@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
@@ -52,8 +51,8 @@ func (s Service) pushDescription(explicit string) string {
 	return fmt.Sprintf("dev-vault push %s %s", s.now().UTC().Format(time.RFC3339), host)
 }
 
-func (s Service) readPushPayload(name string, entry config.MappingEntry) ([]byte, error) {
-	inPath, err := config.ResolveFile(s.cfg.Root, entry.File)
+func (s Service) readPushPayload(name string, entry MappingEntry) ([]byte, error) {
+	inPath, err := s.resolvePath(s.cfg.Root, entry.File)
 	if err != nil {
 		return nil, fmt.Errorf("mapping %s: resolve file: %w", name, err)
 	}
@@ -61,7 +60,7 @@ func (s Service) readPushPayload(name string, entry config.MappingEntry) ([]byte
 	if err != nil {
 		return nil, fmt.Errorf("push %s: read %s: %w", name, inPath, err)
 	}
-	if entry.Format == config.MappingFormatDotenv {
+	if entry.Format == MappingFormatDotenv {
 		converted, err := secretworkflow.DotenvToJSON(raw)
 		if err != nil {
 			return nil, fmt.Errorf("format dotenv %s: %w", name, err)
@@ -84,7 +83,7 @@ func createSecretVersionInput(secretID string, payload []byte, description strin
 	return req
 }
 
-func (s Service) ResolveMappedSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
+func (s Service) ResolveMappedSecret(name string, entry MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
 	resolvedSecret, err := s.lookupMappedSecret(name, entry)
 	if err == nil {
 		return resolvedSecret, nil

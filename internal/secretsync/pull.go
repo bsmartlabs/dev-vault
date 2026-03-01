@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/fsx"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
@@ -13,7 +12,7 @@ import (
 func (s Service) Pull(targets []MappingTarget, overwrite bool) ([]PullResult, error) {
 	results := make([]PullResult, 0, len(targets))
 	for _, target := range targets {
-		outPath, err := config.ResolveFile(s.cfg.Root, target.Entry.File)
+		outPath, err := s.resolvePath(s.cfg.Root, target.Entry.File)
 		if err != nil {
 			return nil, fmt.Errorf("mapping %s: resolve file: %w", target.Name, err)
 		}
@@ -32,7 +31,7 @@ func (s Service) Pull(targets []MappingTarget, overwrite bool) ([]PullResult, er
 		}
 
 		payload := access.Data
-		if target.Entry.Format == config.MappingFormatDotenv {
+		if target.Entry.Format == MappingFormatDotenv {
 			converted, err := secretworkflow.JSONToDotenv(payload)
 			if err != nil {
 				return nil, fmt.Errorf("format dotenv %s: %w", target.Name, err)

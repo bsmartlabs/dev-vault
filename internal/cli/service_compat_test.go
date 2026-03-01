@@ -34,8 +34,13 @@ func newCommandService(loaded *config.Loaded, api secretprovider.SecretAPI, deps
 
 func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.SecretAPI, deps Dependencies) commandService {
 	syncDeps := secretsync.Dependencies{
-		Now:      deps.Now,
-		Hostname: deps.Hostname,
+		Now:         deps.Now,
+		Hostname:    deps.Hostname,
+		ResolvePath: config.ResolveFile,
+	}
+	mapping := make(map[string]secretsync.MappingEntry, len(cfg.Mapping))
+	for name, entry := range cfg.Mapping {
+		mapping[name] = secretsync.MappingEntryFromConfig(entry)
 	}
 	return commandService{
 		cfg:      cfg,
@@ -44,7 +49,7 @@ func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.Se
 		hostname: syncDeps.Hostname,
 		inner: secretsync.New(secretsync.Config{
 			Root:    cfg.Root,
-			Mapping: cfg.Mapping,
+			Mapping: mapping,
 		}, api, syncDeps),
 	}
 }
@@ -54,11 +59,11 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 }
 
 func (s commandService) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
-	return s.inner.LookupMappedSecret(name, entry)
+	return s.inner.LookupMappedSecret(name, secretsync.MappingEntryFromConfig(entry))
 }
 
 func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
-	return s.inner.ResolveMappedSecret(name, entry, createMissing)
+	return s.inner.ResolveMappedSecret(name, secretsync.MappingEntryFromConfig(entry), createMissing)
 }
 
 func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {

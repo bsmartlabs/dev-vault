@@ -5,7 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
@@ -18,11 +17,11 @@ func (e *SecretLookupMissError) Error() string {
 	return fmt.Sprintf("secret not found: name=%s path=%s", e.Name, e.Path)
 }
 
-func (s Service) LookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
+func (s Service) LookupMappedSecret(name string, entry MappingEntry) (*secretprovider.SecretRecord, error) {
 	return s.lookupMappedSecret(name, entry)
 }
 
-func (s Service) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
+func (s Service) lookupMappedSecret(name string, entry MappingEntry) (*secretprovider.SecretRecord, error) {
 	req := secretprovider.ListSecretsInput{
 		Name: name,
 		Path: entry.Path,

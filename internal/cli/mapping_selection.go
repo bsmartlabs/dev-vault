@@ -54,7 +54,7 @@ func selectMappingTargetsForMode(mapping map[string]config.MappingEntry, all boo
 		targets := make([]secretsync.MappingTarget, 0, len(mapping))
 		for name, entry := range mapping {
 			if mode.allows(entry) {
-				targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
+				targets = append(targets, secretsync.MappingTarget{Name: name, Entry: secretsync.MappingEntryFromConfig(entry)})
 			}
 		}
 		sort.Slice(targets, func(i, j int) bool {
@@ -85,7 +85,7 @@ func selectMappingTargetsForMode(mapping map[string]config.MappingEntry, all boo
 		if !mode.allows(entry) {
 			return nil, usageError(fmt.Errorf("secret %s not allowed in %s mode (mapping.mode=%s)", name, mode.String(), entry.Mode))
 		}
-		targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
+		targets = append(targets, secretsync.MappingTarget{Name: name, Entry: secretsync.MappingEntryFromConfig(entry)})
 	}
 
 	return targets, nil

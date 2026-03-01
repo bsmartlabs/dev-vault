@@ -23,9 +23,40 @@ type ListRecord struct {
 	Type string `json:"type"`
 }
 
+type MappingFormat string
+
+const (
+	MappingFormatRaw    MappingFormat = "raw"
+	MappingFormatDotenv MappingFormat = "dotenv"
+)
+
+type MappingEntry struct {
+	File   string
+	Format MappingFormat
+	Path   string
+	Type   string
+}
+
+func MappingEntryFromConfig(entry config.MappingEntry) MappingEntry {
+	return MappingEntry{
+		File:   entry.File,
+		Format: MappingFormat(entry.Format),
+		Path:   entry.Path,
+		Type:   entry.Type,
+	}
+}
+
+func mappingFromConfigEntries(entries map[string]config.MappingEntry) map[string]MappingEntry {
+	mapped := make(map[string]MappingEntry, len(entries))
+	for name, entry := range entries {
+		mapped[name] = MappingEntryFromConfig(entry)
+	}
+	return mapped
+}
+
 type MappingTarget struct {
 	Name  string
-	Entry config.MappingEntry
+	Entry MappingEntry
 }
 
 type PullResult struct {
@@ -48,25 +79,29 @@ type PushResult struct {
 
 type Config struct {
 	Root    string
-	Mapping map[string]config.MappingEntry
+	Mapping map[string]MappingEntry
 }
 
+type PathResolver func(rootDir string, rel string) (string, error)
+
 type Dependencies struct {
-	Now      func() time.Time
-	Hostname func() (string, error)
+	Now         func() time.Time
+	Hostname    func() (string, error)
+	ResolvePath PathResolver
 }
 
 type Service struct {
-	cfg      Config
-	api      secretprovider.SecretAPI
-	now      func() time.Time
-	hostname func() (string, error)
+	cfg         Config
+	api         secretprovider.SecretAPI
+	now         func() time.Time
+	hostname    func() (string, error)
+	resolvePath PathResolver
 }
 
 func NewFromLoaded(loaded *config.Loaded, api secretprovider.SecretAPI, deps Dependencies) Service {
 	return New(Config{
 		Root:    loaded.Root,
-		Mapping: loaded.Cfg.Mapping,
+		Mapping: mappingFromConfigEntries(loaded.Cfg.Mapping),
 	}, api, deps)
 }
 
@@ -79,10 +114,15 @@ func New(cfg Config, api secretprovider.SecretAPI, deps Dependencies) Service {
 	if hostname == nil {
 		hostname = os.Hostname
 	}
+	resolvePath := deps.ResolvePath
+	if resolvePath == nil {
+		resolvePath = config.ResolveFile
+	}
 	return Service{
-		cfg:      cfg,
-		api:      api,
-		now:      now,
-		hostname: hostname,
+		cfg:         cfg,
+		api:         api,
+		now:         now,
+		hostname:    hostname,
+		resolvePath: resolvePath,
 	}
 }
