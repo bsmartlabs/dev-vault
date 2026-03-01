@@ -1,4 +1,4 @@
-package cli
+package secretsync
 
 import (
 	"errors"
@@ -10,8 +10,8 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullResult, error) {
-	results := make([]pullResult, 0, len(targets))
+func (s Service) Pull(targets []MappingTarget, overwrite bool) ([]PullResult, error) {
+	results := make([]PullResult, 0, len(targets))
 	for _, target := range targets {
 		outPath, err := config.ResolveFile(s.cfg.Root, target.Entry.File)
 		if err != nil {
@@ -47,7 +47,7 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 			return nil, fmt.Errorf("pull %s: write %s: %w", target.Name, outPath, err)
 		}
 
-		results = append(results, pullResult{
+		results = append(results, PullResult{
 			Name:     target.Name,
 			File:     target.Entry.File,
 			Revision: access.Revision,

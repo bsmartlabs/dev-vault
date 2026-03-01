@@ -2,40 +2,66 @@ package cli
 
 import "io"
 
-type commandRoute struct {
-	name  string
-	usage func(io.Writer)
-	run   func(commandContext, []string) int
+type commandFlagKind int
+
+const (
+	commandFlagBool commandFlagKind = iota + 1
+	commandFlagString
+	commandFlagStringSlice
+)
+
+type commandFlagDef struct {
+	Name      string
+	Kind      commandFlagKind
+	ValueName string
+	Help      string
 }
 
-var commandRoutes = []commandRoute{
-	{name: "version", usage: printVersionUsage, run: runVersion},
-	{name: "list", usage: printListUsage, run: runList},
-	{name: "pull", usage: printPullUsage, run: runPull},
-	{name: "push", usage: printPushUsage, run: runPush},
+type commandDoc struct {
+	Synopsis    string
+	Description []string
+	Notes       []string
+	Examples    []string
 }
 
-func commandNames() []string {
-	names := make([]string, 0, len(commandRoutes))
-	for _, route := range commandRoutes {
-		names = append(names, route.name)
-	}
-	return names
+type commandDef struct {
+	Name      string
+	Summary   string
+	Flags     []commandFlagDef
+	Doc       commandDoc
+	RunParsed func(commandContext, *parsedCommand) int
 }
 
-func routeForCommand(name string) (commandRoute, bool) {
-	for _, route := range commandRoutes {
-		if route.name == name {
-			return route, true
+var commandDefs = []commandDef{
+	versionCommandDef,
+	listCommandDef,
+	pullCommandDef,
+	pushCommandDef,
+}
+
+func commandForName(name string) (commandDef, bool) {
+	for _, def := range commandDefs {
+		if def.Name == name {
+			return def, true
 		}
 	}
-	return commandRoute{}, false
+	return commandDef{}, false
 }
 
 func usageForCommand(name string) (func(io.Writer), bool) {
-	route, ok := routeForCommand(name)
+	def, ok := commandForName(name)
 	if !ok {
 		return nil, false
 	}
-	return route.usage, true
+	return func(w io.Writer) {
+		printCommandUsage(w, def)
+	}, true
+}
+
+func takesValueMap(def commandDef) map[string]bool {
+	spec := make(map[string]bool, len(def.Flags))
+	for _, flagDef := range def.Flags {
+		spec[flagDef.Name] = flagDef.Kind != commandFlagBool
+	}
+	return spec
 }

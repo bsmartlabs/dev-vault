@@ -2,31 +2,17 @@ package cli
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
+	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
-
-type listQuery struct {
-	NameContains []string
-	NameRegex    *regexp.Regexp
-	Path         string
-	Type         secretprovider.SecretType
-}
-
-type listRecord struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Type string `json:"type"`
-}
 
 type mappingCommandSpec struct {
 	mode      string
 	all       bool
-	preflight func(targets []mappingTarget) error
-	execute   func(service commandService, targets []mappingTarget) error
+	preflight func(targets []secretsync.MappingTarget) error
+	execute   func(service secretsync.Service, targets []secretsync.MappingTarget) error
 }
 
 type commandRuntime struct {
@@ -38,28 +24,31 @@ func newCommandRuntime(ctx commandContext, parsed *parsedCommand) commandRuntime
 	return commandRuntime{ctx: ctx, parsed: parsed}
 }
 
-func (r commandRuntime) execute(run func(loaded *config.Loaded, service commandService) error) int {
+func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsync.Service) error) int {
 	loaded, api, err := loadAndOpenAPI(r.parsed.configPath, r.parsed.profileOverride, r.ctx.deps)
 	if err != nil {
 		runErr := runtimeError(err)
-		fmt.Fprintln(r.ctx.stderr, runErr.Error())
+		_, _ = fmt.Fprintln(r.ctx.stderr, runErr.Error())
 		return exitCodeForError(runErr)
 	}
 
 	printConfigWarnings(r.ctx.stderr, loaded.Warnings)
-	service := newCommandService(loaded, api, r.ctx.deps)
+	service := secretsync.NewFromLoaded(loaded, api, secretsync.Dependencies{
+		Now:      r.ctx.deps.Now,
+		Hostname: r.ctx.deps.Hostname,
+	})
 	if err := run(loaded, service); err != nil {
-		fmt.Fprintln(r.ctx.stderr, err.Error())
+		_, _ = fmt.Fprintln(r.ctx.stderr, err.Error())
 		return exitCodeForError(err)
 	}
 	return 0
 }
 
 func (r commandRuntime) executeMapping(spec mappingCommandSpec) int {
-	return r.execute(func(loaded *config.Loaded, service commandService) error {
-		targets, err := selectMappingCommandTargets(loaded.Cfg.Mapping, spec.all, r.parsed.fs.Args(), spec.mode)
+	return r.execute(func(loaded *config.Loaded, service secretsync.Service) error {
+		targets, err := secretsync.SelectTargets(loaded.Cfg.Mapping, spec.all, r.parsed.fs.Args(), spec.mode)
 		if err != nil {
-			return err
+			return usageError(err)
 		}
 		if spec.preflight != nil {
 			if err := spec.preflight(targets); err != nil {

@@ -3,146 +3,127 @@ package cli
 import (
 	"fmt"
 	"io"
-	"strings"
+	"sort"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
+func writeLine(w io.Writer, a ...any) {
+	_, _ = fmt.Fprintln(w, a...)
+}
+
+func writef(w io.Writer, format string, a ...any) {
+	_, _ = fmt.Fprintf(w, format, a...)
+}
+
 func printMainUsage(w io.Writer) {
-	fmt.Fprintln(w, "dev-vault")
-	fmt.Fprintln(w, "  Pull/push Scaleway Secret Manager secrets to disk for local development.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  dev-vault [global options] <command> [command options] [args...]")
-	fmt.Fprintln(w, "  dev-vault help [command]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Global options:")
-	fmt.Fprintf(w, "  --config <path>   Path to %s. If omitted: search upward from cwd.\n", config.DefaultConfigName)
-	fmt.Fprintln(w, "  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Commands:")
-	for _, name := range commandNames() {
-		fmt.Fprintf(w, "  %s\n", name)
+	writeLine(w, "dev-vault")
+	writeLine(w, "  Pull/push Scaleway Secret Manager secrets to disk for local development.")
+	writeLine(w)
+	writeLine(w, "Usage:")
+	writeLine(w, "  dev-vault [global options] <command> [command options] [args...]")
+	writeLine(w, "  dev-vault help [command]")
+	writeLine(w)
+	writeLine(w, "Global options:")
+	writef(w, "  --config <path>   Path to %s. If omitted: search upward from cwd.\n", config.DefaultConfigName)
+	writeLine(w, "  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
+	writeLine(w)
+	writeLine(w, "Commands:")
+	for _, def := range commandDefs {
+		writef(w, "  %-8s %s\n", def.Name, def.Summary)
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Hard safety constraints:")
-	fmt.Fprintln(w, "  - Refuses to operate on secret names that do not end with '-dev'.")
-	fmt.Fprintln(w, "  - Never prints secret payloads.")
-	fmt.Fprintln(w, "  - Pull writes files atomically and chmods them to 0600 (on Unix).")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Batch behavior:")
-	fmt.Fprintln(w, "  - mapping.mode defaults to both.")
-	fmt.Fprintln(w, "  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
-	fmt.Fprintln(w, "  - push --all includes mapping entries with mapping.mode in {push, both}.")
-	fmt.Fprintf(w, "  - %s\n", explicitModePolicySentence)
-	fmt.Fprintln(w, "  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Examples:")
-	fmt.Fprintln(w, "  dev-vault list --json")
-	fmt.Fprintln(w, "  dev-vault pull bweb-env-bsmart-dev --overwrite")
-	fmt.Fprintln(w, "  dev-vault push bweb-env-bsmart-dev")
-	fmt.Fprintln(w, "  dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Notes for automation/LLMs:")
-	fmt.Fprintln(w, "  - Global options can be passed either before the command or as command options (e.g. 'pull --config ...').")
-	fmt.Fprintln(w, "  - Exit codes: 0=success, 1=runtime error, 2=usage error.")
+	writeLine(w)
+	writeLine(w, "Hard safety constraints:")
+	writeLine(w, "  - Refuses to operate on secret names that do not end with '-dev'.")
+	writeLine(w, "  - Never prints secret payloads.")
+	writeLine(w, "  - Pull writes files atomically and chmods them to 0600 (on Unix).")
+	writeLine(w)
+	writeLine(w, "Batch behavior:")
+	writeLine(w, "  - mapping.mode defaults to both.")
+	writeLine(w, "  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
+	writeLine(w, "  - push --all includes mapping entries with mapping.mode in {push, both}.")
+	writef(w, "  - %s\n", explicitModePolicySentence)
+	writeLine(w, "  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
+	writeLine(w)
+	writeLine(w, "Examples:")
+	writeLine(w, "  dev-vault list --json")
+	writeLine(w, "  dev-vault pull bweb-env-bsmart-dev --overwrite")
+	writeLine(w, "  dev-vault push bweb-env-bsmart-dev")
+	writeLine(w, "  dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite")
+	writeLine(w)
+	writeLine(w, "Notes for automation/LLMs:")
+	writeLine(w, "  - Global options can be passed either before the command or as command options (e.g. 'pull --config ...').")
+	writeLine(w, "  - Exit codes: 0=success, 1=runtime error, 2=usage error.")
+}
+
+func printCommandUsage(w io.Writer, def commandDef) {
+	writeLine(w, "Usage:")
+	writef(w, "  %s\n", def.Doc.Synopsis)
+
+	if len(def.Doc.Description) > 0 {
+		writeLine(w)
+		for _, line := range def.Doc.Description {
+			writeLine(w, line)
+		}
+	}
+
+	if len(def.Flags) > 0 {
+		writeLine(w)
+		writeLine(w, "Options:")
+		for _, flagDef := range sortedFlagDefs(def.Flags) {
+			writef(w, "  --%s\n", formatFlagUsage(flagDef))
+		}
+	}
+
+	if len(def.Doc.Notes) > 0 {
+		writeLine(w)
+		writeLine(w, "Notes:")
+		for _, note := range def.Doc.Notes {
+			writeLine(w, "  - "+note)
+		}
+	}
+
+	if len(def.Doc.Examples) > 0 {
+		writeLine(w)
+		writeLine(w, "Examples:")
+		for _, example := range def.Doc.Examples {
+			writef(w, "  %s\n", example)
+		}
+	}
+}
+
+func sortedFlagDefs(flags []commandFlagDef) []commandFlagDef {
+	out := make([]commandFlagDef, len(flags))
+	copy(out, flags)
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+func formatFlagUsage(flagDef commandFlagDef) string {
+	out := flagDef.Name
+	if flagDef.Kind != commandFlagBool {
+		out += " " + flagDef.ValueName
+	}
+	if flagDef.Help != "" {
+		out += "  " + flagDef.Help
+	}
+	return out
 }
 
 func printVersionUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  dev-vault version")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Prints the build version/commit/date.")
+	printCommandUsage(w, versionCommandDef)
 }
 
 func printListUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] list [options]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Lists secrets in the configured Scaleway project/region.")
-	fmt.Fprintln(w, "This command always filters to secret names ending with '-dev'.")
-	fmt.Fprintln(w, "It never prints secret payloads, only metadata (name/type/path/id).")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Options:")
-	fmt.Fprintln(w, "  --config <path>         (optional) Path to .scw.json")
-	fmt.Fprintln(w, "  --profile <name>        (optional) Scaleway profile override")
-	fmt.Fprintln(w, "  --name-contains <s>     (repeatable) substring filter (AND semantics)")
-	fmt.Fprintln(w, "  --name-regex <re>       Go regexp to match names")
-	fmt.Fprintln(w, "  --path <p>              Exact Scaleway secret path to match (default: any)")
-	fmt.Fprintf(w, "  --type <t>              One of: %s\n", strings.Join(secrettype.Names(), "|"))
-	fmt.Fprintln(w, "  --json                  Output JSON")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Examples:")
-	fmt.Fprintln(w, "  dev-vault list")
-	fmt.Fprintln(w, "  dev-vault list --json")
-	fmt.Fprintln(w, "  dev-vault list --name-contains bweb --name-contains env")
-	fmt.Fprintln(w, "  dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value")
+	printCommandUsage(w, listCommandDef)
 }
 
 func printPullUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] pull (--all | <secret-dev> ...) [options]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Pulls one or more secrets to disk based on .scw.json mapping.")
-	fmt.Fprintln(w, "Secrets must exist in mapping and names must end with '-dev'.")
-	fmt.Fprintln(w, "Pull reads the latest enabled secret version (Scaleway revision selector: latest_enabled).")
-	fmt.Fprintln(w, "Pull writes files atomically and chmods them to 0600 (on Unix).")
-	fmt.Fprintln(w, "Never prints secret payloads.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Options:")
-	fmt.Fprintln(w, "  --config <path>   (optional) Path to .scw.json")
-	fmt.Fprintln(w, "  --profile <name>  (optional) Scaleway profile override")
-	fmt.Fprintln(w, "  --all             Pull all mapping entries with mapping.mode in {pull, both}")
-	fmt.Fprintln(w, "  --overwrite       Overwrite existing files (otherwise pull fails if the file exists)")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Formats:")
-	fmt.Fprintln(w, "  - mapping.format=raw")
-	fmt.Fprintln(w, "    Writes secret bytes as-is.")
-	fmt.Fprintln(w, "  - mapping.format=dotenv")
-	fmt.Fprintln(w, "    Expects the secret payload to be a JSON object, renders a deterministic .env file:")
-	fmt.Fprintln(w, "    - keys sorted lexicographically")
-	fmt.Fprintln(w, "    - values quoted")
-	fmt.Fprintln(w, "    - newlines and quotes escaped")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Examples:")
-	fmt.Fprintln(w, "  dev-vault pull bweb-env-bsmart-dev --overwrite")
-	fmt.Fprintln(w, "  dev-vault pull --all --overwrite")
-	fmt.Fprintln(w, "  dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite")
-	fmt.Fprintln(w, "  dev-vault pull bweb-env-bsmart-dev --config .scw.json --overwrite")
+	printCommandUsage(w, pullCommandDef)
 }
 
 func printPushUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  dev-vault [--config <path>] [--profile <name>] push (--all | <secret-dev> ...) [options]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Pushes one or more secrets from disk to Scaleway Secret Manager as a new version.")
-	fmt.Fprintln(w, "Secrets must exist in mapping and names must end with '-dev'.")
-	fmt.Fprintln(w, "Never prints secret payloads.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Options:")
-	fmt.Fprintln(w, "  --config <path>         (optional) Path to .scw.json")
-	fmt.Fprintln(w, "  --profile <name>        (optional) Scaleway profile override")
-	fmt.Fprintln(w, "  --all                   Push all mapping entries with mapping.mode in {push, both}")
-	fmt.Fprintln(w, "  --yes                   Required when pushing more than one secret (including --all)")
-	fmt.Fprintln(w, "  --disable-previous      Disable the previously enabled version when creating the new version")
-	fmt.Fprintln(w, "  --description <text>    Optional description for the new version (default is auto-generated)")
-	fmt.Fprintln(w, "  --create-missing        Create the secret if it does not exist (requires mapping.type)")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Formats:")
-	fmt.Fprintln(w, "  - mapping.format=raw")
-	fmt.Fprintln(w, "    Reads file bytes as-is and uploads them as a new secret version.")
-	fmt.Fprintln(w, "  - mapping.format=dotenv")
-	fmt.Fprintln(w, "    Reads a .env file and uploads a JSON object payload (key_value style).")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Notes:")
-	fmt.Fprintln(w, "  - --create-missing creates the secret if absent (requires mapping.type).")
-	fmt.Fprintln(w, "  - Secret creation uses mapping.path (default is '/').")
-	fmt.Fprintln(w, "  - If more than one secret is being pushed, you must pass --yes.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Examples:")
-	fmt.Fprintln(w, "  dev-vault push bweb-env-bsmart-dev")
-	fmt.Fprintln(w, "  dev-vault push bweb-env-bsmart-dev --description 'local refresh'")
-	fmt.Fprintln(w, "  dev-vault push --all --yes")
-	fmt.Fprintln(w, "  dev-vault push --config .scw.json --all --yes --disable-previous")
+	printCommandUsage(w, pushCommandDef)
 }

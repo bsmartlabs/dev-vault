@@ -15,6 +15,8 @@ type commandContext struct {
 
 func printConfigWarnings(w io.Writer, warnings []string) {
 	for _, warning := range warnings {
-		fmt.Fprintf(w, "warning: %s\n", warning)
+		if _, err := fmt.Fprintf(w, "warning: %s\n", warning); err != nil {
+			return
+		}
 	}
 }

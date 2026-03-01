@@ -38,7 +38,9 @@ func DefaultDependencies(version, commit, date string, openSecretAPI func(cfg co
 
 func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	if deps.OpenSecretAPI == nil || deps.Now == nil || deps.Hostname == nil || deps.Getwd == nil {
-		fmt.Fprintln(stderr, "internal error: missing dependencies")
+		if _, err := fmt.Fprintln(stderr, "internal error: missing dependencies"); err != nil {
+			return 1
+		}
 		return 1
 	}
 	if len(args) == 0 {
@@ -85,7 +87,9 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		if len(rest) > 1 {
 			usagePrinter, ok := usageForCommand(rest[1])
 			if !ok {
-				fmt.Fprintf(stderr, "unknown command for help: %s\n", rest[1])
+				if _, err := fmt.Fprintf(stderr, "unknown command for help: %s\n", rest[1]); err != nil {
+					return 1
+				}
 				printMainUsage(stderr)
 				return 2
 			}
@@ -95,12 +99,14 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		printMainUsage(stdout)
 		return 0
 	default:
-		route, ok := routeForCommand(cmd)
+		def, ok := commandForName(cmd)
 		if !ok {
-			fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
+			if _, err := fmt.Fprintf(stderr, "unknown command: %s\n", cmd); err != nil {
+				return 1
+			}
 			printMainUsage(stderr)
 			return 2
 		}
-		return route.run(ctx, rest[1:])
+		return runCommand(ctx, rest[1:], def)
 	}
 }

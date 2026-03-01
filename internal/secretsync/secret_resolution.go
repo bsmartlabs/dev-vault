@@ -1,4 +1,4 @@
-package cli
+package secretsync
 
 import (
 	"fmt"
@@ -9,16 +9,20 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
-type secretLookupMissError struct {
-	name string
-	path string
+type SecretLookupMissError struct {
+	Name string
+	Path string
 }
 
-func (e *secretLookupMissError) Error() string {
-	return fmt.Sprintf("secret not found: name=%s path=%s", e.name, e.path)
+func (e *SecretLookupMissError) Error() string {
+	return fmt.Sprintf("secret not found: name=%s path=%s", e.Name, e.Path)
 }
 
-func (s commandService) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
+func (s Service) LookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
+	return s.lookupMappedSecret(name, entry)
+}
+
+func (s Service) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
 	req := secretprovider.ListSecretsInput{
 		Name: name,
 		Path: entry.Path,
@@ -40,7 +44,7 @@ func (s commandService) lookupMappedSecret(name string, entry config.MappingEntr
 		}
 	}
 	if len(matches) == 0 {
-		return nil, &secretLookupMissError{name: name, path: entry.Path}
+		return nil, &SecretLookupMissError{Name: name, Path: entry.Path}
 	}
 	if len(matches) > 1 {
 		ids := make([]string, 0, len(matches))

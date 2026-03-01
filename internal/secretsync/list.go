@@ -1,4 +1,4 @@
-package cli
+package secretsync
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
-func (s commandService) list(query listQuery) ([]listRecord, error) {
+func (s Service) List(query ListQuery) ([]ListRecord, error) {
 	req := secretprovider.ListSecretsInput{}
 	if query.Path != "" {
 		req.Path = query.Path
@@ -24,7 +24,7 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 		return nil, fmt.Errorf("list secrets: %w", err)
 	}
 
-	filtered := make([]listRecord, 0, len(respSecrets))
+	filtered := make([]ListRecord, 0, len(respSecrets))
 	for _, secretRecord := range respSecrets {
 		if !config.IsDevSecretName(secretRecord.Name) {
 			continue
@@ -44,7 +44,7 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 		if query.NameRegex != nil && !query.NameRegex.MatchString(secretRecord.Name) {
 			continue
 		}
-		filtered = append(filtered, listRecord{
+		filtered = append(filtered, ListRecord{
 			ID:   secretRecord.ID,
 			Name: secretRecord.Name,
 			Path: secretRecord.Path,

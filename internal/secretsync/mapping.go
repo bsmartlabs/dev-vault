@@ -1,4 +1,4 @@
-package cli
+package secretsync
 
 import (
 	"errors"
@@ -10,12 +10,12 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
-func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {
+func SelectMappingNames(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {
 	if all && len(positional) > 0 {
-		return nil, usageError(errors.New("cannot use --all with explicit secret names"))
+		return nil, errors.New("cannot use --all with explicit secret names")
 	}
 	if !all && len(positional) == 0 {
-		return nil, usageError(errors.New("no secrets specified (use --all or pass secret names)"))
+		return nil, errors.New("no secrets specified (use --all or pass secret names)")
 	}
 
 	isAllowedMode := func(entry config.MappingEntry) bool {
@@ -38,7 +38,7 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 		}
 		sort.Strings(out)
 		if len(out) == 0 {
-			return nil, usageError(fmt.Errorf("no mapping entries selected for %s", mode))
+			return nil, fmt.Errorf("no mapping entries selected for %s", mode)
 		}
 		return out, nil
 	}
@@ -50,33 +50,28 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 		}
 		seen[name] = struct{}{}
 		if !config.IsDevSecretName(name) {
-			return nil, usageError(fmt.Errorf("refusing non-dev secret name: %s", name))
+			return nil, fmt.Errorf("refusing non-dev secret name: %s", name)
 		}
 		entry, ok := mapping[name]
 		if !ok {
-			return nil, usageError(fmt.Errorf("secret not found in mapping: %s", name))
+			return nil, fmt.Errorf("secret not found in mapping: %s", name)
 		}
 		if !isAllowedMode(entry) {
-			return nil, usageError(fmt.Errorf("secret %s not allowed in %s mode (mapping.mode=%s)", name, mode, entry.Mode))
+			return nil, fmt.Errorf("secret %s not allowed in %s mode (mapping.mode=%s)", name, mode, entry.Mode)
 		}
 		out = append(out, name)
 	}
 	return out, nil
 }
 
-type mappingTarget struct {
-	Name  string
-	Entry config.MappingEntry
-}
-
-func selectMappingCommandTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]mappingTarget, error) {
-	names, err := selectMappingTargets(mapping, all, positional, mode)
+func SelectTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]MappingTarget, error) {
+	names, err := SelectMappingNames(mapping, all, positional, mode)
 	if err != nil {
 		return nil, err
 	}
-	targets := make([]mappingTarget, 0, len(names))
+	targets := make([]MappingTarget, 0, len(names))
 	for _, name := range names {
-		targets = append(targets, mappingTarget{
+		targets = append(targets, MappingTarget{
 			Name:  name,
 			Entry: mapping[name],
 		})
@@ -84,7 +79,7 @@ func selectMappingCommandTargets(mapping map[string]config.MappingEntry, all boo
 	return targets, nil
 }
 
-func parseSecretType(s string) (secretprovider.SecretType, error) {
+func ParseSecretType(s string) (secretprovider.SecretType, error) {
 	if !secrettype.IsValid(s) {
 		return "", fmt.Errorf("unknown secret type %q", s)
 	}
