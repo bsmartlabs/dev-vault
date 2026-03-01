@@ -97,14 +97,10 @@ func (s commandService) resolveMappedSecret(name string, entry config.MappingEnt
 	if entry.Type == "" {
 		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
 	}
-	secretType, err := parseSecretType(entry.Type)
-	if err != nil {
-		return nil, fmt.Errorf("push %s: invalid mapping.type %q: %w", name, entry.Type, err)
-	}
 
 	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
 		Name: name,
-		Type: secretType,
+		Type: secretprovider.SecretType(entry.Type),
 		Path: entry.Path,
 	})
 	if err != nil {
