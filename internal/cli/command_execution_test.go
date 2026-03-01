@@ -3,11 +3,14 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
 func TestDefaultDependencies(t *testing.T) {
@@ -22,27 +25,19 @@ func TestDefaultDependencies(t *testing.T) {
 	}
 }
 
-func TestLoadAndOpenAPI_GetwdError(t *testing.T) {
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-		return nil, nil
-	})
-	deps.Getwd = func() (string, error) { return "", errors.New("boom") }
+func TestLoadAndOpenAPI_ConfigDiscoveryError(t *testing.T) {
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
 	_, err := loadConfig("", deps)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
 }
 
-func TestLoadConfig_AbsolutePathSkipsGetwd(t *testing.T) {
+func TestLoadConfig_AbsolutePath(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-		return nil, nil
-	})
-	deps.Getwd = func() (string, error) {
-		return "", errors.New("getwd should not be called for absolute config path")
-	}
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
 
 	loaded, err := loadConfig(cfgPath, deps)
 	if err != nil {
@@ -70,7 +65,11 @@ func TestLoadConfig_RelativePathBranches(t *testing.T) {
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 			return nil, nil
 		})
-		deps.Getwd = func() (string, error) { return root, nil }
+		old, _ := os.Getwd()
+		defer func() { _ = os.Chdir(old) }()
+		if err := os.Chdir(root); err != nil {
+			t.Fatalf("chdir: %v", err)
+		}
 
 		loaded, err := loadConfig(config.DefaultConfigName, deps)
 		if err != nil {
@@ -86,7 +85,11 @@ func TestLoadConfig_RelativePathBranches(t *testing.T) {
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 			return nil, nil
 		})
-		deps.Getwd = func() (string, error) { return root, nil }
+		old, _ := os.Getwd()
+		defer func() { _ = os.Chdir(old) }()
+		if err := os.Chdir(root); err != nil {
+			t.Fatalf("chdir: %v", err)
+		}
 		if _, err := loadConfig("missing.json", deps); err == nil {
 			t.Fatal("expected load error for missing relative config")
 		}
@@ -141,15 +144,10 @@ func TestLoadAndOpenAPI_OpenError(t *testing.T) {
 }
 
 func TestLoadProjectConfig_Branches(t *testing.T) {
-	t.Run("AbsolutePathSkipsGetwd", func(t *testing.T) {
+	t.Run("AbsolutePath", func(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par"}`)
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		})
-		deps.Getwd = func() (string, error) {
-			return "", errors.New("getwd should not be called for absolute config path")
-		}
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
 
 		loaded, err := loadProjectConfig(cfgPath, deps)
 		if err != nil {
@@ -160,13 +158,10 @@ func TestLoadProjectConfig_Branches(t *testing.T) {
 		}
 	})
 
-	t.Run("GetwdError", func(t *testing.T) {
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		})
-		deps.Getwd = func() (string, error) { return "", errors.New("boom") }
+	t.Run("DiscoveryError", func(t *testing.T) {
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
 		if _, err := loadProjectConfig("", deps); err == nil {
-			t.Fatal("expected getwd error")
+			t.Fatal("expected discovery error")
 		}
 	})
 
@@ -184,7 +179,11 @@ func TestLoadProjectConfig_Branches(t *testing.T) {
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 			return nil, nil
 		})
-		deps.Getwd = func() (string, error) { return root, nil }
+		old, _ := os.Getwd()
+		defer func() { _ = os.Chdir(old) }()
+		if err := os.Chdir(root); err != nil {
+			t.Fatalf("chdir: %v", err)
+		}
 		if _, err := loadProjectConfig("missing.json", deps); err == nil {
 			t.Fatal("expected load error")
 		}
@@ -272,10 +271,50 @@ func TestOpenScalewaySecretAPIWrapper(t *testing.T) {
 }
 
 func TestConfigPolicyContracts(t *testing.T) {
-	if loader := configLoaderForPolicy(commandConfigProjectOnly); loader == nil {
+	loader, err := configLoaderForPolicy(commandConfigProjectOnly)
+	if err != nil || loader == nil {
 		t.Fatal("expected project-only loader")
 	}
-	if loader := configLoaderForPolicy(commandConfigPolicy(999)); loader == nil {
-		t.Fatal("expected fallback validated loader")
+	if _, err := configLoaderForPolicy(commandConfigPolicy(999)); err == nil {
+		t.Fatal("expected unsupported policy error")
+	}
+}
+
+func TestCommandRuntime_InvalidConfigPolicy(t *testing.T) {
+	ctx := commandContext{
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+		deps:   baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }),
+	}
+	parsed := &parsedCommand{
+		fs:           flag.NewFlagSet("test", flag.ContinueOnError),
+		configPolicy: commandConfigPolicy(999),
+	}
+	runtime := newCommandRuntime(ctx, parsed)
+
+	code := runtime.executeWithConfigPolicy(parsed.configPolicy, func(_ *config.Loaded, _ secretsync.Service) error {
+		t.Fatal("run callback should not execute for invalid policy")
+		return nil
+	})
+	if code != 1 {
+		t.Fatalf("expected runtime exit code 1, got %d", code)
+	}
+
+	errText := ctx.stderr.(*bytes.Buffer).String()
+	if !strings.Contains(errText, "unsupported command config policy") {
+		t.Fatalf("expected unsupported policy error, got %q", errText)
+	}
+
+	code = runtime.runMappingCommand(
+		"pull",
+		false,
+		nil,
+		func(_ secretsync.Service, _ []mapping.Target) error {
+			t.Fatal("execute callback should not run for invalid policy")
+			return nil
+		},
+	)
+	if code != 1 {
+		t.Fatalf("expected runtime exit code 1 from runMappingCommand, got %d", code)
 	}
 }

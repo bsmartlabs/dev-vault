@@ -1,6 +1,11 @@
 package cli
 
-import "github.com/bsmartlabs/dev-vault/internal/secretsync"
+import (
+	"fmt"
+
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/secretsync"
+)
 
 var pushCommandDef = commandDef{
 	Name:    "push",
@@ -67,5 +72,38 @@ func parsePushOptions(parsed *parsedCommand) pushOptions {
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePushOptions(parsed)
-	return runPushBatch(ctx, parsed, parsed.configPolicy, opts)
+	return runPushBatch(ctx, parsed, opts)
+}
+
+func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResult) error {
+	for _, item := range result.Succeeded {
+		if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
+			return outputError(err)
+		}
+	}
+	for _, failure := range result.Failed {
+		if _, err := fmt.Fprintf(ctx.stderr, "failed push %s: %v\n", failure.Name, failure.Err); err != nil {
+			return outputError(err)
+		}
+	}
+	return result.Summary.ErrorOrNil()
+}
+
+func runPushBatch(ctx commandContext, parsed *parsedCommand, opts pushOptions) int {
+	preflight := func(targets []mapping.Target) error {
+		if len(targets) > 1 && !opts.yes {
+			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
+		}
+		return nil
+	}
+
+	return newCommandRuntime(ctx, parsed).runMappingCommand(
+		mapping.ModePush,
+		opts.all,
+		preflight,
+		func(service secretsync.Service, targets []mapping.Target) error {
+			result := service.PushBatch(targets, opts.pushOptions())
+			return reportPushBatchResults(ctx, result)
+		},
+	)
 }

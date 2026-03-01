@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
@@ -179,12 +180,12 @@ func writeConfig(t *testing.T, dir string, cfg string) string {
 
 func baseDeps(open func(cfg config.Config, profileOverride string) (SecretAPI, error)) Dependencies {
 	return Dependencies{
-		Version:       "v",
-		Commit:        "c",
-		Date:          "d",
-		OpenSecretAPI: open,
-		Now:           func() time.Time { return time.Unix(123, 0) },
-		Hostname:      func() (string, error) { return "host", nil },
-		Getwd:         os.Getwd,
+		Version:            "v",
+		Commit:             "c",
+		Date:               "d",
+		OpenSecretAPI:      open,
+		Now:                func() time.Time { return time.Unix(123, 0) },
+		Hostname:           func() (string, error) { return "host", nil },
+		ResolveProjectPath: pathpolicy.ResolveProjectFile,
 	}
 }

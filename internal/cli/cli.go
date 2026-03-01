@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
@@ -19,25 +20,25 @@ type Dependencies struct {
 
 	OpenSecretAPI func(cfg config.Config, profileOverride string) (secretprovider.SecretAPI, error)
 
-	Now      func() time.Time
-	Hostname func() (string, error)
-	Getwd    func() (string, error)
+	Now                func() time.Time
+	Hostname           func() (string, error)
+	ResolveProjectPath func(rootDir string, rel string) (string, error)
 }
 
 func DefaultDependencies(version, commit, date string, openSecretAPI func(cfg config.Config, profileOverride string) (secretprovider.SecretAPI, error)) Dependencies {
 	return Dependencies{
-		Version:       version,
-		Commit:        commit,
-		Date:          date,
-		OpenSecretAPI: openSecretAPI,
-		Now:           time.Now,
-		Hostname:      os.Hostname,
-		Getwd:         os.Getwd,
+		Version:            version,
+		Commit:             commit,
+		Date:               date,
+		OpenSecretAPI:      openSecretAPI,
+		Now:                time.Now,
+		Hostname:           os.Hostname,
+		ResolveProjectPath: pathpolicy.ResolveProjectFile,
 	}
 }
 
 func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
-	if deps.OpenSecretAPI == nil || deps.Now == nil || deps.Hostname == nil || deps.Getwd == nil {
+	if deps.OpenSecretAPI == nil || deps.Now == nil || deps.Hostname == nil || deps.ResolveProjectPath == nil {
 		if _, err := fmt.Fprintln(stderr, "internal error: missing dependencies"); err != nil {
 			return 1
 		}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
@@ -352,10 +353,10 @@ func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T)
 
 	deps := Dependencies{
 		Version: "v", Commit: "c", Date: "d",
-		OpenSecretAPI: func(cfg config.Config, s string) (SecretAPI, error) { return api, nil },
-		Now:           func() time.Time { return time.Unix(0, 0) },
-		Hostname:      func() (string, error) { return "", errors.New("nope") },
-		Getwd:         os.Getwd,
+		OpenSecretAPI:      func(cfg config.Config, s string) (SecretAPI, error) { return api, nil },
+		Now:                func() time.Time { return time.Unix(0, 0) },
+		Hostname:           func() (string, error) { return "", errors.New("nope") },
+		ResolveProjectPath: pathpolicy.ResolveProjectFile,
 	}
 
 	api.createVerErr = errors.New("boom")

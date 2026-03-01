@@ -2,11 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
@@ -23,7 +21,11 @@ func newCommandRuntime(ctx commandContext, parsed *parsedCommand) commandRuntime
 	return commandRuntime{ctx: ctx, parsed: parsed}
 }
 
-func (r commandRuntime) executeWithConfigLoader(loader configLoader, run func(loaded *config.Loaded, service secretsync.Service) error) int {
+func (r commandRuntime) executeWithConfigPolicy(policy commandConfigPolicy, run func(loaded *config.Loaded, service secretsync.Service) error) int {
+	loader, err := configLoaderForPolicy(policy)
+	if err != nil {
+		return r.writeStderrError(runtimeError(err))
+	}
 	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
 		service, err := r.newService(loaded)
 		if err != nil {
@@ -31,11 +33,6 @@ func (r commandRuntime) executeWithConfigLoader(loader configLoader, run func(lo
 		}
 		return run(loaded, service)
 	})
-}
-
-func (r commandRuntime) executeWithConfigPolicy(policy commandConfigPolicy, run func(loaded *config.Loaded, service secretsync.Service) error) int {
-	loader := configLoaderForPolicy(policy)
-	return r.executeWithConfigLoader(loader, run)
 }
 
 func (r commandRuntime) runWithLoaded(loader configLoader, run func(loaded *config.Loaded) error) int {
@@ -59,7 +56,7 @@ func (r commandRuntime) newService(loaded *config.Loaded) (secretsync.Service, e
 	}, api, secretsync.Dependencies{
 		Now:         r.ctx.deps.Now,
 		Hostname:    r.ctx.deps.Hostname,
-		ResolvePath: pathpolicy.ResolveProjectFile,
+		ResolvePath: r.ctx.deps.ResolveProjectPath,
 	})
 	if err != nil {
 		return secretsync.Service{}, fmt.Errorf("init secret sync service: %w", err)
@@ -75,13 +72,15 @@ func (r commandRuntime) writeStderrError(err error) int {
 }
 
 func (r commandRuntime) runMappingCommand(
-	policy commandConfigPolicy,
 	mode mapping.Mode,
 	all bool,
 	preflight func(targets []mapping.Target) error,
 	execute func(service secretsync.Service, targets []mapping.Target) error,
 ) int {
-	loader := configLoaderForPolicy(policy)
+	loader, err := configLoaderForPolicy(r.parsed.configPolicy)
+	if err != nil {
+		return r.writeStderrError(runtimeError(err))
+	}
 	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
 		targets, err := mapping.SelectTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
 		if err != nil {
@@ -100,12 +99,14 @@ func (r commandRuntime) runMappingCommand(
 	})
 }
 
-func configLoaderForPolicy(policy commandConfigPolicy) configLoader {
+func configLoaderForPolicy(policy commandConfigPolicy) (configLoader, error) {
 	switch policy {
 	case commandConfigProjectOnly:
-		return loadProjectConfig
+		return loadProjectConfig, nil
+	case commandConfigValidated:
+		return loadConfig, nil
 	default:
-		return loadConfig
+		return nil, fmt.Errorf("internal error: unsupported command config policy %d", policy)
 	}
 }
 
@@ -118,18 +119,7 @@ func loadProjectConfig(configPath string, deps Dependencies) (*config.Loaded, er
 }
 
 func loadConfigWithLoader(configPath string, deps Dependencies, loader projectConfigLoader) (*config.Loaded, error) {
-	if configPath != "" && filepath.IsAbs(configPath) {
-		loaded, err := loader("", configPath)
-		if err != nil {
-			return nil, fmt.Errorf("load config: %w", err)
-		}
-		return loaded, nil
-	}
-	wd, err := deps.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("getwd: %w", err)
-	}
-	loaded, err := loader(wd, configPath)
+	loaded, err := loader(".", configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}

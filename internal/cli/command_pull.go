@@ -1,5 +1,12 @@
 package cli
 
+import (
+	"fmt"
+
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/secretsync"
+)
+
 var pullCommandDef = commandDef{
 	Name:    "pull",
 	Summary: "Pull mapped -dev secrets to local files",
@@ -45,5 +52,31 @@ func parsePullOptions(parsed *parsedCommand) pullOptions {
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePullOptions(parsed)
-	return runPullBatch(ctx, parsed, parsed.configPolicy, opts)
+	return runPullBatch(ctx, parsed, opts)
+}
+
+func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResult) error {
+	for _, item := range result.Succeeded {
+		if _, err := fmt.Fprintf(ctx.stdout, "pulled %s -> %s (rev=%d type=%s)\n", item.Name, item.File, item.Revision, item.Type); err != nil {
+			return outputError(err)
+		}
+	}
+	for _, failure := range result.Failed {
+		if _, err := fmt.Fprintf(ctx.stderr, "failed pull %s: %v\n", failure.Name, failure.Err); err != nil {
+			return outputError(err)
+		}
+	}
+	return result.Summary.ErrorOrNil()
+}
+
+func runPullBatch(ctx commandContext, parsed *parsedCommand, opts pullOptions) int {
+	return newCommandRuntime(ctx, parsed).runMappingCommand(
+		mapping.ModePull,
+		opts.all,
+		nil,
+		func(service secretsync.Service, targets []mapping.Target) error {
+			result := service.PullBatch(targets, opts.overwrite)
+			return reportPullBatchResults(ctx, result)
+		},
+	)
 }

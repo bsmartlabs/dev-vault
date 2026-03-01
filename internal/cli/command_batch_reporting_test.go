@@ -34,7 +34,7 @@ func TestRunPullBatch_OpenAPIError(t *testing.T) {
 		t.Fatalf("parseCommand: %v", err)
 	}
 
-	code := runPullBatch(ctx, parsed, commandConfigValidated, pullOptions{})
+	code := runPullBatch(ctx, parsed, pullOptions{})
 	if code != 1 {
 		t.Fatalf("expected runtime exit code 1, got %d", code)
 	}
@@ -67,7 +67,7 @@ func TestRunPullBatch_ServiceInitError(t *testing.T) {
 		t.Fatalf("parseCommand: %v", err)
 	}
 
-	code := runPullBatch(ctx, parsed, commandConfigValidated, pullOptions{})
+	code := runPullBatch(ctx, parsed, pullOptions{})
 	if code != 1 {
 		t.Fatalf("expected runtime exit code 1, got %d", code)
 	}
@@ -104,7 +104,7 @@ func TestRunPushBatch_PreflightStopsBeforeServiceInit(t *testing.T) {
 		t.Fatalf("parseCommand: %v", err)
 	}
 
-	code := runPushBatch(ctx, parsed, commandConfigValidated, pushOptions{all: true})
+	code := runPushBatch(ctx, parsed, pushOptions{all: true})
 	if code != 2 {
 		t.Fatalf("expected usage exit code 2, got %d", code)
 	}

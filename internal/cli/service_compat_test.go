@@ -9,7 +9,6 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
@@ -42,7 +41,7 @@ func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.Se
 	syncDeps := secretsync.Dependencies{
 		Now:         deps.Now,
 		Hostname:    deps.Hostname,
-		ResolvePath: pathpolicy.ResolveProjectFile,
+		ResolvePath: deps.ResolveProjectPath,
 	}
 	inner, err := secretsync.New(secretsync.Config{
 		Root: cfg.Root,

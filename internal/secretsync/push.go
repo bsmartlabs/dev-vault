@@ -10,19 +10,13 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-type pushSecretResolver func(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error)
-
 func (s Service) PushBatch(targets []mapping.Target, opts PushOptions) PushBatchResult {
 	desc := s.pushDescription(opts.Description)
-	resolveSecret := s.resolveExistingSecretForPush
-	if opts.CreateMissing {
-		resolveSecret = s.resolveOrCreateSecretForPush
-	}
 	succeeded, failed, summary := runBatch[PushResult](
 		targets,
 		"push",
 		func(target mapping.Target) (PushResult, error) {
-			return s.pushOne(target, opts, desc, resolveSecret)
+			return s.pushOne(target, opts, desc)
 		},
 		func(target mapping.Target, err error) BatchFailure {
 			return BatchFailure{Name: target.Name, Err: err}
@@ -75,12 +69,18 @@ func createSecretVersionInput(secretID string, payload []byte, description strin
 	return req
 }
 
-func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string, resolveSecret pushSecretResolver) (PushResult, error) {
+func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string) (PushResult, error) {
 	payload, err := s.readPushPayload(target.Name, target.Entry)
 	if err != nil {
 		return PushResult{}, err
 	}
-	resolvedSecret, err := resolveSecret(target.Name, target.Entry)
+
+	var resolvedSecret *secretprovider.SecretRecord
+	if opts.CreateMissing {
+		resolvedSecret, err = s.resolveOrCreateSecretForPush(target.Name, target.Entry)
+	} else {
+		resolvedSecret, err = s.resolveExistingSecretForPush(target.Name, target.Entry)
+	}
 	if err != nil {
 		return PushResult{}, err
 	}
