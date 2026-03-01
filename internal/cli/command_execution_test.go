@@ -27,7 +27,7 @@ func TestLoadAndOpenAPI_GetwdError(t *testing.T) {
 		return nil, nil
 	})
 	deps.Getwd = func() (string, error) { return "", errors.New("boom") }
-	_, _, err := loadAndOpenAPI("", "", deps)
+	_, err := loadConfig("", deps)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -45,14 +45,18 @@ func TestLoadAndOpenAPI_Success(t *testing.T) {
 
 	api := newFakeSecretAPI()
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	loaded, gotAPI, err := loadAndOpenAPI(cfgPath, "", deps)
+	loaded, err := loadConfig(cfgPath, deps)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	gotAPI, err := openAPIForLoaded(loaded, "", deps)
 	if err != nil || loaded == nil || gotAPI == nil {
 		t.Fatalf("expected success, got err=%v loaded=%v api=%v", err, loaded, gotAPI)
 	}
 }
 
 func TestLoadAndOpenAPI_ConfigError(t *testing.T) {
-	_, _, err := loadAndOpenAPI("/nope.json", "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	_, err := loadConfig("/nope.json", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	}))
 	if err == nil {
@@ -63,9 +67,14 @@ func TestLoadAndOpenAPI_ConfigError(t *testing.T) {
 func TestLoadAndOpenAPI_OpenError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
-	_, _, err := loadAndOpenAPI(cfgPath, "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, errors.New("boom")
-	}))
+	})
+	loaded, err := loadConfig(cfgPath, deps)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	_, err = openAPIForLoaded(loaded, "", deps)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

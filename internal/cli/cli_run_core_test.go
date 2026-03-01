@@ -12,6 +12,18 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
+type failAfterFirstWrite struct {
+	writes int
+}
+
+func (w *failAfterFirstWrite) Write(p []byte) (int, error) {
+	w.writes++
+	if w.writes > 1 {
+		return 0, errors.New("write failed")
+	}
+	return len(p), nil
+}
+
 func TestRun_GlobalFlagParseError(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--nope"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -215,6 +227,39 @@ func TestRun_HelpUnknownCommandSpecific(t *testing.T) {
 	}
 }
 
+func TestRun_HelpRejectsExtraArgs(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 2 {
+		t.Fatalf("expected 2, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "help accepts at most one command name") {
+		t.Fatalf("unexpected stderr: %q", errBuf.String())
+	}
+}
+
+func TestRun_HelpRejectsExtraArgs_WriteError(t *testing.T) {
+	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &bytes.Buffer{}, &failingWriter{}, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 1 {
+		t.Fatalf("expected 1, got %d", code)
+	}
+}
+
+func TestRun_HelpRejectsExtraArgs_UsageWriteError(t *testing.T) {
+	var out bytes.Buffer
+	stderr := &failAfterFirstWrite{}
+	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &out, stderr, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 1 {
+		t.Fatalf("expected 1, got %d", code)
+	}
+}
+
 func TestRun_NoCommand(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -366,18 +411,34 @@ func TestRunList_JSONAndTableAndErrors(t *testing.T) {
 	deps := baseDeps(open)
 
 	t.Run("InvalidRegex", func(t *testing.T) {
+		openCalls := 0
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			openCalls++
+			return api, nil
+		})
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "list", "--name-regex", "["}, &out, &errBuf, deps)
 		if code != 2 {
 			t.Fatalf("expected 2, got %d", code)
 		}
+		if openCalls != 0 {
+			t.Fatalf("expected no provider initialization for invalid regex, got %d calls", openCalls)
+		}
 	})
 
 	t.Run("InvalidType", func(t *testing.T) {
+		openCalls := 0
+		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+			openCalls++
+			return api, nil
+		})
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "list", "--type", "nope"}, &out, &errBuf, deps)
 		if code != 2 {
 			t.Fatalf("expected 2, got %d", code)
+		}
+		if openCalls != 0 {
+			t.Fatalf("expected no provider initialization for invalid type, got %d calls", openCalls)
 		}
 	})
 

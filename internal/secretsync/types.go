@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
@@ -80,17 +81,15 @@ func (s BatchSummary) ErrorOrNil() error {
 	}
 }
 
-type PullBatchResult struct {
-	Succeeded []PullResult
+type BatchResult[T any] struct {
+	Succeeded []T
 	Failed    []BatchFailure
 	Summary   BatchSummary
 }
 
-type PushBatchResult struct {
-	Succeeded []PushResult
-	Failed    []BatchFailure
-	Summary   BatchSummary
-}
+type PullBatchResult = BatchResult[PullResult]
+
+type PushBatchResult = BatchResult[PushResult]
 
 type Config struct {
 	Root string
@@ -126,7 +125,7 @@ func New(cfg Config, api secretprovider.SecretAPI, deps Dependencies) (Service, 
 	}
 	resolvePath := deps.ResolvePath
 	if resolvePath == nil {
-		resolvePath = resolveFile
+		resolvePath = pathpolicy.ResolveProjectFile
 	}
 	return Service{
 		cfg:         cfg,

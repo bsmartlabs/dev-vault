@@ -10,7 +10,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) PushBatchResult {
+func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) (PushBatchResult, error) {
 	desc := s.pushDescription(opts.Description)
 	succeeded, failed, summary := runBatch[PushResult](
 		targets,
@@ -22,7 +22,8 @@ func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) PushBatchR
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
-	return PushBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
+	result := PushBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
+	return result, result.Summary.ErrorOrNil()
 }
 
 func (s Service) pushDescription(explicit string) string {

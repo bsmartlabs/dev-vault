@@ -39,13 +39,8 @@ var pullCommandDef = commandDef{
 
 var pullBatchOperation = mappingBatchOperation[secretsync.PullResult, pullOptions]{
 	mode: mapping.ModePull,
-	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (batchRunResult[secretsync.PullResult], error) {
-		result := service.PullBatch(targets, opts.overwrite)
-		return batchRunResult[secretsync.PullResult]{
-			successes: result.Succeeded,
-			failures:  result.Failed,
-			summary:   result.Summary,
-		}, nil
+	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (secretsync.BatchResult[secretsync.PullResult], error) {
+		return service.PullBatch(targets, opts.overwrite)
 	},
 	callbacks: batchReportCallbacks[secretsync.PullResult]{
 		SuccessLine: func(item secretsync.PullResult) string {

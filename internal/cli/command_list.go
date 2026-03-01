@@ -58,58 +58,72 @@ func parseListOptions(parsed *parsedCommand) listOptions {
 	}
 }
 
+func buildListQuery(opts listOptions) (secretsync.ListQuery, error) {
+	var re *regexp.Regexp
+	var selectedType secretprovider.SecretType
+
+	if opts.nameRegex != "" {
+		compiled, err := regexp.Compile(opts.nameRegex)
+		if err != nil {
+			return secretsync.ListQuery{}, usageError(fmt.Errorf("invalid --name-regex: %w", err))
+		}
+		re = compiled
+	}
+
+	if opts.secretType != "" {
+		parsedType, err := parseSecretType(opts.secretType)
+		if err != nil {
+			return secretsync.ListQuery{}, usageError(fmt.Errorf("invalid --type: %w", err))
+		}
+		selectedType = parsedType
+	}
+
+	return secretsync.ListQuery{
+		NameContains: opts.nameContains,
+		NameRegex:    re,
+		Path:         opts.path,
+		Type:         selectedType,
+	}, nil
+}
+
+func renderListOutput(ctx commandContext, asJSON bool, filtered []secretsync.ListRecord) error {
+	if asJSON {
+		enc := json.NewEncoder(ctx.stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(filtered); err != nil {
+			return outputError(err)
+		}
+		return nil
+	}
+
+	if _, err := fmt.Fprintln(ctx.stdout, "NAME\tTYPE\tPATH\tID"); err != nil {
+		return outputError(err)
+	}
+	for _, it := range filtered {
+		if _, err := fmt.Fprintf(ctx.stdout, "%s\t%s\t%s\t%s\n", it.Name, it.Type, it.Path, it.ID); err != nil {
+			return outputError(err)
+		}
+	}
+	return nil
+}
+
 func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parseListOptions(parsed)
+	runtime := newCommandRuntime(ctx, parsed)
 	if err := rejectUnexpectedArgs(parsed, "list"); err != nil {
-		return newCommandRuntime(ctx, parsed).writeStderrError(err)
+		return runtime.writeStderrError(err)
 	}
-	return newCommandRuntime(ctx, parsed).execute(func(_ *config.Loaded, service secretsync.Service) error {
-		var re *regexp.Regexp
-		var selectedType secretprovider.SecretType
+	query, err := buildListQuery(opts)
+	if err != nil {
+		return runtime.writeStderrError(err)
+	}
 
-		if opts.nameRegex != "" {
-			compiled, err := regexp.Compile(opts.nameRegex)
-			if err != nil {
-				return usageError(fmt.Errorf("invalid --name-regex: %w", err))
-			}
-			re = compiled
-		}
-
-		if opts.secretType != "" {
-			parsedType, err := parseSecretType(opts.secretType)
-			if err != nil {
-				return usageError(fmt.Errorf("invalid --type: %w", err))
-			}
-			selectedType = parsedType
-		}
-
-		filtered, err := service.List(secretsync.ListQuery{
-			NameContains: opts.nameContains,
-			NameRegex:    re,
-			Path:         opts.path,
-			Type:         selectedType,
-		})
+	return runtime.execute(func(_ *config.Loaded, service secretsync.Service) error {
+		filtered, err := service.List(query)
 		if err != nil {
 			return err
 		}
 
-		if opts.json {
-			enc := json.NewEncoder(ctx.stdout)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(filtered); err != nil {
-				return outputError(err)
-			}
-			return nil
-		}
-
-		if _, err := fmt.Fprintln(ctx.stdout, "NAME\tTYPE\tPATH\tID"); err != nil {
-			return outputError(err)
-		}
-		for _, it := range filtered {
-			if _, err := fmt.Fprintf(ctx.stdout, "%s\t%s\t%s\t%s\n", it.Name, it.Type, it.Path, it.ID); err != nil {
-				return outputError(err)
-			}
-		}
-		return nil
+		return renderListOutput(ctx, opts.json, filtered)
 	})
 }

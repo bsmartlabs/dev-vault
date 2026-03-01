@@ -250,39 +250,6 @@ func TestLoad(t *testing.T) {
 	})
 }
 
-func TestResolveFile(t *testing.T) {
-	t.Run("Errors", func(t *testing.T) {
-		if _, err := ResolveFile("", "x"); err == nil {
-			t.Fatalf("expected error")
-		}
-		if _, err := ResolveFile("root", ""); err == nil {
-			t.Fatalf("expected error")
-		}
-		if _, err := ResolveFile("root", "/abs"); err == nil {
-			t.Fatalf("expected error")
-		}
-	})
-
-	t.Run("EscapesRoot", func(t *testing.T) {
-		root := t.TempDir()
-		_, err := ResolveFile(root, "../x")
-		if err == nil {
-			t.Fatalf("expected error")
-		}
-	})
-
-	t.Run("Success", func(t *testing.T) {
-		root := t.TempDir()
-		p, err := ResolveFile(root, "a/b.txt")
-		if err != nil {
-			t.Fatalf("resolve: %v", err)
-		}
-		if !strings.HasPrefix(p, root+string(filepath.Separator)) {
-			t.Fatalf("expected path under root, got %s", p)
-		}
-	})
-}
-
 func TestMappingMode_Allows(t *testing.T) {
 	cases := []struct {
 		mode       mapping.Mode
@@ -301,6 +268,15 @@ func TestMappingMode_Allows(t *testing.T) {
 		if tc.mode.AllowsPush() != tc.push {
 			t.Fatalf("AllowsPush mismatch for %q", tc.mode)
 		}
+		if tc.mode.IsSupportedCommandMode() != (tc.mode == mapping.ModePull || tc.mode == mapping.ModePush) {
+			t.Fatalf("IsSupportedCommandMode mismatch for %q", tc.mode)
+		}
+	}
+	if !mapping.ModePull.AllowsCommand(mapping.ModePull) || mapping.ModePull.AllowsCommand(mapping.ModePush) {
+		t.Fatal("unexpected pull mode command-allowance")
+	}
+	if !mapping.ModePush.AllowsCommand(mapping.ModePush) || mapping.ModePush.AllowsCommand(mapping.ModePull) {
+		t.Fatal("unexpected push mode command-allowance")
 	}
 }
 

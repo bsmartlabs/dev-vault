@@ -1,6 +1,7 @@
 package secretsync
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -20,7 +21,7 @@ func (s Service) List(query ListQuery) ([]ListRecord, error) {
 
 	respSecrets, err := s.api.ListSecrets(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list secrets: %w", err)
 	}
 
 	filtered := make([]ListRecord, 0, len(respSecrets))

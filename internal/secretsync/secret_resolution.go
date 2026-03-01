@@ -35,7 +35,7 @@ func (s Service) lookupOrCreateMappedSecret(name string, entry mapping.Entry) (*
 
 	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
 		Name: name,
-		Type: entry.Type,
+		Type: secretprovider.SecretType(entry.Type),
 		Path: entry.Path,
 	})
 	if err != nil {
@@ -51,12 +51,12 @@ func (s Service) lookupMappedSecret(name string, entry mapping.Entry) (*secretpr
 	}
 
 	if entry.Type != "" {
-		req.Type = entry.Type
+		req.Type = secretprovider.SecretType(entry.Type)
 	}
 
 	respSecrets, err := s.api.ListSecrets(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list secrets: %w", err)
 	}
 
 	matches := make([]secretprovider.SecretRecord, 0, len(respSecrets))

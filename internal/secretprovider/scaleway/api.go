@@ -89,7 +89,7 @@ func (s *API) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider
 
 	resp, err := s.api.ListSecrets(listReq, scw.WithAllPages())
 	if err != nil {
-		return nil, fmt.Errorf("list secrets: %w", err)
+		return nil, fmt.Errorf("scaleway list secrets: %w", err)
 	}
 	out := make([]secretprovider.SecretRecord, 0, len(resp.Secrets))
 	for _, item := range resp.Secrets {
@@ -114,7 +114,7 @@ func (s *API) AccessSecretVersion(req secretprovider.AccessSecretVersionInput) (
 		Revision: string(req.Revision),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("access secret version: %w", err)
+		return nil, fmt.Errorf("scaleway access secret version: %w", err)
 	}
 	return &secretprovider.SecretVersionRecord{
 		SecretID: resp.SecretID,
@@ -146,7 +146,7 @@ func (s *API) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovide
 		KeyID:       nil,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create secret: %w", err)
+		return nil, fmt.Errorf("scaleway create secret: %w", err)
 	}
 	return &secretprovider.SecretRecord{
 		ID:        resp.ID,
@@ -166,7 +166,7 @@ func (s *API) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (
 		DisablePrevious: req.DisablePrevious,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create secret version: %w", err)
+		return nil, fmt.Errorf("scaleway create secret version: %w", err)
 	}
 	return &secretprovider.SecretVersionRecord{
 		SecretID: resp.SecretID,

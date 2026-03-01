@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
@@ -200,8 +199,4 @@ func (c *Config) normalizeAndValidate() error {
 	}
 
 	return nil
-}
-
-func ResolveFile(rootDir string, rel string) (string, error) {
-	return pathpolicy.ResolveProjectFile(rootDir, rel)
 }

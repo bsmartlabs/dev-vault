@@ -234,6 +234,8 @@ func TestHelpersAndBranches(t *testing.T) {
 	}
 	if _, err := selectMappingTargets(mapping, false, []string{"c-dev"}, "pull"); err == nil {
 		t.Fatalf("expected error")
+	} else if !strings.Contains(err.Error(), "mapping entry c-dev has mode=push, cannot be used with pull") {
+		t.Fatalf("unexpected mode mismatch error: %v", err)
 	}
 
 	// jsonToDotenv rejects non-string values.

@@ -51,13 +51,8 @@ var pushBatchOperation = mappingBatchOperation[secretsync.PushResult, pushOption
 		}
 		return nil
 	},
-	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pushOptions) (batchRunResult[secretsync.PushResult], error) {
-		result := service.PushBatch(targets, opts.pushOptions())
-		return batchRunResult[secretsync.PushResult]{
-			successes: result.Succeeded,
-			failures:  result.Failed,
-			summary:   result.Summary,
-		}, nil
+	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pushOptions) (secretsync.BatchResult[secretsync.PushResult], error) {
+		return service.PushBatch(targets, opts.pushOptions())
 	},
 	callbacks: batchReportCallbacks[secretsync.PushResult]{
 		SuccessLine: func(item secretsync.PushResult) string {

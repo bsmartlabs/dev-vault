@@ -1,6 +1,9 @@
 package cli
 
-import "io"
+import (
+	"fmt"
+	"io"
+)
 
 type commandFlagKind int
 
@@ -32,20 +35,48 @@ type commandDef struct {
 	RunParsed func(commandContext, *parsedCommand) int
 }
 
-var commandDefs = []commandDef{
+type commandCatalogState struct {
+	ordered []commandDef
+	byName  map[string]commandDef
+}
+
+var commandCatalog = newCommandCatalog(
 	versionCommandDef,
 	listCommandDef,
 	pullCommandDef,
 	pushCommandDef,
+)
+
+func newCommandCatalog(defs ...commandDef) commandCatalogState {
+	state := commandCatalogState{
+		ordered: make([]commandDef, 0, len(defs)),
+		byName:  make(map[string]commandDef, len(defs)),
+	}
+	for _, def := range defs {
+		if def.Name == "" {
+			panic("cli command catalog: empty command name")
+		}
+		if def.RunParsed == nil {
+			panic(fmt.Sprintf("cli command catalog: command %q missing RunParsed", def.Name))
+		}
+		if _, exists := state.byName[def.Name]; exists {
+			panic(fmt.Sprintf("cli command catalog: duplicate command name %q", def.Name))
+		}
+		state.byName[def.Name] = def
+		state.ordered = append(state.ordered, def)
+	}
+	return state
+}
+
+func commandDefs() []commandDef {
+	out := make([]commandDef, len(commandCatalog.ordered))
+	copy(out, commandCatalog.ordered)
+	return out
 }
 
 func commandForName(name string) (commandDef, bool) {
-	for _, def := range commandDefs {
-		if def.Name == name {
-			return def, true
-		}
-	}
-	return commandDef{}, false
+	def, ok := commandCatalog.byName[name]
+	return def, ok
 }
 
 func usageForCommand(name string) (func(io.Writer) error, bool) {

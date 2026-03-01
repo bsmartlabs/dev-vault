@@ -9,6 +9,7 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
@@ -41,7 +42,7 @@ func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.Se
 	syncDeps := secretsync.Dependencies{
 		Now:         deps.Now,
 		Hostname:    deps.Hostname,
-		ResolvePath: config.ResolveFile,
+		ResolvePath: pathpolicy.ResolveProjectFile,
 	}
 	inner, err := secretsync.New(secretsync.Config{
 		Root: cfg.Root,
@@ -66,7 +67,7 @@ func (s commandService) lookupMappedSecret(name string, entry mapping.Entry) (*s
 	req := secretprovider.ListSecretsInput{
 		Name: name,
 		Path: entry.Path,
-		Type: entry.Type,
+		Type: secretprovider.SecretType(entry.Type),
 	}
 	respSecrets, err := s.api.ListSecrets(req)
 	if err != nil {
@@ -110,7 +111,7 @@ func (s commandService) resolveMappedSecret(name string, entry mapping.Entry, cr
 	}
 	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
 		Name: name,
-		Type: entry.Type,
+		Type: secretprovider.SecretType(entry.Type),
 		Path: entry.Path,
 	})
 	if err != nil {

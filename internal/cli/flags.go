@@ -11,6 +11,11 @@ const (
 	explicitModePolicySentence = "Explicit pull/push names must satisfy mapping.mode for that command."
 )
 
+var globalOptionTakesValue = map[string]bool{
+	"config":  true,
+	"profile": true,
+}
+
 type stringSliceFlag []string
 
 func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
@@ -68,10 +73,30 @@ func bindGlobalOptionFlags(fs *flag.FlagSet, configPath *string, profileOverride
 	fs.StringVar(profileOverride, "profile", *profileOverride, globalProfileFlagUsage)
 }
 
+func isGlobalOptionFlag(name string) (bool, bool) {
+	takesValue, ok := globalOptionTakesValue[name]
+	return takesValue, ok
+}
+
+func parseLongFlagToken(token string) (name string, hasValue bool, ok bool) {
+	if !strings.HasPrefix(token, "--") {
+		return "", false, false
+	}
+	trimmed := strings.TrimPrefix(token, "--")
+	if trimmed == "" {
+		return "", false, false
+	}
+	if idx := strings.IndexByte(trimmed, '='); idx >= 0 {
+		return trimmed[:idx], true, true
+	}
+	return trimmed, false, true
+}
+
 func withGlobalFlagSpecs(spec map[string]bool) map[string]bool {
 	out := make(map[string]bool, len(spec)+2)
-	out["config"] = true
-	out["profile"] = true
+	for name, takesValue := range globalOptionTakesValue {
+		out[name] = takesValue
+	}
 	for key, value := range spec {
 		out[key] = value
 	}

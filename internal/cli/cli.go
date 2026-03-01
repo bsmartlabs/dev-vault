@@ -87,6 +87,15 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	}
 	switch cmd {
 	case "help":
+		if len(rest) > 2 {
+			if _, err := fmt.Fprintf(stderr, "help accepts at most one command name, got %d arguments\n", len(rest)-1); err != nil {
+				return 1
+			}
+			if err := printMainUsage(stderr); err != nil {
+				return 1
+			}
+			return 2
+		}
 		if len(rest) > 1 {
 			usagePrinter, ok := usageForCommand(rest[1])
 			if !ok {
@@ -130,12 +139,15 @@ func hasPreCommandHelpFlag(args []string) bool {
 			return true
 		case "--":
 			return false
-		case "--config", "--profile":
-			i++
-			continue
 		}
-		if strings.HasPrefix(token, "--config=") || strings.HasPrefix(token, "--profile=") {
-			continue
+		if name, hasValue, ok := parseLongFlagToken(token); ok {
+			takesValue, isGlobal := isGlobalOptionFlag(name)
+			if isGlobal {
+				if takesValue && !hasValue {
+					i++
+				}
+				continue
+			}
 		}
 		if strings.HasPrefix(token, "-") {
 			continue

@@ -41,7 +41,7 @@ func printMainUsage(w io.Writer) error {
 	out.line("  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
 	out.line()
 	out.line("Commands:")
-	for _, def := range commandDefs {
+	for _, def := range commandDefs() {
 		out.f("  %-8s %s\n", def.Name, def.Summary)
 	}
 	out.line()

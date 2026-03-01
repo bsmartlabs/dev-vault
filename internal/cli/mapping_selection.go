@@ -17,14 +17,14 @@ func selectMappingTargetsForMode(entries map[string]mapping.Entry, all bool, pos
 		return nil, usageError(errors.New("no secrets specified (use --all or pass secret names)"))
 	}
 
-	if mode != mapping.ModePull && mode != mapping.ModePush {
+	if !mode.IsSupportedCommandMode() {
 		return nil, usageError(fmt.Errorf("unsupported command mode: %s", mode))
 	}
 
 	if all {
 		targets := make([]secretsync.MappingTarget, 0, len(entries))
 		for name, entry := range entries {
-			if entry.Mode == mode {
+			if entry.Mode.AllowsCommand(mode) {
 				targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
 			}
 		}
@@ -49,8 +49,8 @@ func selectMappingTargetsForMode(entries map[string]mapping.Entry, all bool, pos
 		if !ok {
 			return nil, usageError(fmt.Errorf("secret not found in mapping: %s", name))
 		}
-		if entry.Mode != mode {
-			return nil, usageError(fmt.Errorf("secret %s not allowed in %s mode (mapping.mode=%s)", name, mode, entry.Mode))
+		if !entry.Mode.AllowsCommand(mode) {
+			return nil, usageError(fmt.Errorf("mapping entry %s has mode=%s, cannot be used with %s", name, entry.Mode, mode))
 		}
 		targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
 	}
