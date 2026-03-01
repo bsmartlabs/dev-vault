@@ -8,35 +8,38 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/cli"
 )
 
-func TestMain_ExitsWithRunCode(t *testing.T) {
-	oldVersion, oldCommit, oldDate := version, commit, date
-	oldRun, oldExit := run, osExit
-	defer func() {
-		version, commit, date = oldVersion, oldCommit, oldDate
-		run, osExit = oldRun, oldExit
-	}()
-
-	version, commit, date = "v", "c", "d"
-
-	var gotExit int
-	osExit = func(code int) { gotExit = code }
-
-	run = func(args []string, stdout, stderr io.Writer, deps cli.Dependencies) int {
+func TestRunMain_UsesInjectedRunnerAndBuildMetadata(t *testing.T) {
+	got := runMain([]string{"dev-vault"}, io.Discard, io.Discard, "v", "c", "d", func(args []string, stdout, stderr io.Writer, deps cli.Dependencies) int {
 		if deps.Version != "v" || deps.Commit != "c" || deps.Date != "d" {
 			t.Fatalf("unexpected deps: %#v", deps)
 		}
-		_, _ = stdout.Write([]byte("ok"))
-		_, _ = stderr.Write([]byte("err"))
+		if len(args) != 1 || args[0] != "dev-vault" {
+			t.Fatalf("unexpected args: %#v", args)
+		}
 		return 42
+	})
+	if got != 42 {
+		t.Fatalf("expected 42, got %d", got)
+	}
+}
+
+func TestMain_UsesExitFnWithRunMainStatus(t *testing.T) {
+	origArgs := os.Args
+	origExit := exitFn
+	t.Cleanup(func() {
+		os.Args = origArgs
+		exitFn = origExit
+	})
+
+	os.Args = []string{"dev-vault", "-h"}
+	exitCode := -1
+	exitFn = func(code int) {
+		exitCode = code
 	}
 
-	// Ensure args is non-empty for parity with real invocation.
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
-	os.Args = []string{"dev-vault"}
-
 	main()
-	if gotExit != 42 {
-		t.Fatalf("expected exit 42, got %d", gotExit)
+
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 }

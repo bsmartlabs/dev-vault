@@ -3,8 +3,6 @@ package cli
 import (
 	"fmt"
 	"regexp"
-	"sort"
-	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 )
@@ -47,63 +45,8 @@ func executeList(configPath, profileOverride string, deps Dependencies, query li
 		return nil, nil, runtimeError(err)
 	}
 
-	req := ListSecretsInput{
-		Region:    runtime.loaded.Cfg.Region,
-		ProjectID: runtime.loaded.Cfg.ProjectID,
-	}
-	if query.Path != "" {
-		req.Path = query.Path
-	}
-	secretTypes := supportedSecretTypes()
-	if query.Type != "" {
-		st, err := parseSecretType(query.Type)
-		if err != nil {
-			return nil, nil, usageError(fmt.Errorf("invalid --type: %w", err))
-		}
-		secretTypes = []string{st}
-	}
-
-	respSecrets, err := listSecretsByTypes(runtime.api, req, secretTypes)
-	if err != nil {
-		return nil, nil, runtimeError(err)
-	}
-
-	filtered := make([]listRecord, 0, len(respSecrets))
-	for _, s := range respSecrets {
-		if s == nil {
-			continue
-		}
-		if !strings.HasSuffix(s.Name, "-dev") {
-			continue
-		}
-		if query.Path != "" && s.Path != query.Path {
-			continue
-		}
-		if len(query.NameContains) > 0 {
-			miss := false
-			for _, c := range query.NameContains {
-				if !strings.Contains(s.Name, c) {
-					miss = true
-					break
-				}
-			}
-			if miss {
-				continue
-			}
-		}
-		if query.NameRegex != nil && !query.NameRegex.MatchString(s.Name) {
-			continue
-		}
-		filtered = append(filtered, listRecord{
-			ID:   s.ID,
-			Name: s.Name,
-			Path: s.Path,
-			Type: s.Type,
-		})
-	}
-
-	sort.Slice(filtered, func(i, j int) bool { return filtered[i].Name < filtered[j].Name })
-	return filtered, runtime.loaded.Warnings, nil
+	filtered, err := runtime.service.list(query)
+	return filtered, runtime.loaded.Warnings, err
 }
 
 func executePull(configPath, profileOverride string, deps Dependencies, all bool, positional []string, overwrite bool) ([]pullResult, []string, error) {

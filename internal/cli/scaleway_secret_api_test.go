@@ -43,7 +43,7 @@ func TestOpenScalewaySecretAPI_InvalidRegionSmoke(t *testing.T) {
 	}
 }
 
-func TestScwSecretAPI_ListSecrets(t *testing.T) {
+func TestScalewaySecretAPI_ListSecrets(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
 		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
 		_, err := api.ListSecrets(ListSecretsInput{Region: "bad", ProjectID: "p", Type: "opaque"})
@@ -106,7 +106,7 @@ func TestScwSecretAPI_ListSecrets(t *testing.T) {
 	})
 }
 
-func TestScwSecretAPI_AccessSecretVersion(t *testing.T) {
+func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
 		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
 		_, err := api.AccessSecretVersion(AccessSecretVersionInput{Region: "bad"})
@@ -151,7 +151,7 @@ func TestScwSecretAPI_AccessSecretVersion(t *testing.T) {
 	})
 }
 
-func TestScwSecretAPI_CreateSecret(t *testing.T) {
+func TestScalewaySecretAPI_CreateSecret(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
 		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
 		_, err := api.CreateSecret(CreateSecretInput{Region: "bad"})
@@ -210,7 +210,7 @@ func TestScwSecretAPI_CreateSecret(t *testing.T) {
 	})
 }
 
-func TestScwSecretAPI_CreateSecretVersion(t *testing.T) {
+func TestScalewaySecretAPI_CreateSecretVersion(t *testing.T) {
 	t.Run("InvalidRegion", func(t *testing.T) {
 		api := &scwSecretAPI{api: &fakeScalewaySDK{}}
 		_, err := api.CreateSecretVersion(CreateSecretVersionInput{Region: "bad"})

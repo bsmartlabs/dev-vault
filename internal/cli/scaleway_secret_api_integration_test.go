@@ -9,7 +9,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 )
 
-func TestScwClientAdapter_IntegrationListOpaque(t *testing.T) {
+func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
 	projectID := os.Getenv("DEV_VAULT_TEST_PROJECT_ID")
 	orgID := os.Getenv("DEV_VAULT_TEST_ORGANIZATION_ID")
 	region := os.Getenv("DEV_VAULT_TEST_REGION")

@@ -82,14 +82,14 @@ Unit tests are fully mocked (no Scaleway network calls).
 
 Provider compatibility gate:
 
-- Adapter contract tests (`internal/cli/scwclient_test.go`) validate DTO translation and request shaping without network access.
+- Adapter contract tests (`internal/cli/scaleway_secret_api_test.go`) validate DTO translation and request shaping without network access.
 - Optional live integration gate (read-only list call through the adapter):
 
 ```bash
 DEV_VAULT_TEST_PROJECT_ID=<project-id> \
 DEV_VAULT_TEST_ORGANIZATION_ID=<org-id> \
 DEV_VAULT_TEST_REGION=fr-par \
-go test ./internal/cli -tags=integration -run TestScwClientAdapter_IntegrationListOpaque
+scripts/test-provider-contract.sh
 ```
 
 Tests require 100% statement coverage:

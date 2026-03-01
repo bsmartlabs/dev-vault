@@ -16,7 +16,7 @@ func TestCommandServiceModule_NewServiceWiresDeps(t *testing.T) {
 		Hostname: func() (string, error) { return "host", nil },
 	}
 	svc := newCommandService(loaded, api, deps)
-	if svc.loaded != loaded || svc.lister != api || svc.accessor != api || svc.creator != api || svc.version != api {
+	if svc.loaded != loaded || svc.api != api {
 		t.Fatalf("service wiring mismatch: %#v", svc)
 	}
 	if got := svc.now(); got.Unix() != 123 {
