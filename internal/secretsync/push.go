@@ -11,20 +11,10 @@ import (
 )
 
 func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) PushBatchResult {
-	if err := validateBatchTargets(targets, mapping.ModePush); err != nil {
-		return PushBatchResult{
-			Summary: BatchSummary{
-				Operation: "push",
-				Failed:    1,
-				Total:     len(targets),
-			},
-			Failed: []BatchFailure{{Name: "batch", Err: err}},
-		}
-	}
-
+	validTargets, policyFailures := splitTargetsByPolicy(targets, mapping.ModePush)
 	desc := s.pushDescription(opts.Description)
 	succeeded, failed, summary := runBatch[PushResult](
-		targets,
+		validTargets,
 		"push",
 		func(target MappingTarget) (PushResult, error) {
 			return s.pushOne(target, opts, desc)
@@ -33,11 +23,12 @@ func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) PushBatchR
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
-	return PushBatchResult{
-		Succeeded: succeeded,
-		Failed:    failed,
-		Summary:   summary,
+	if len(policyFailures) > 0 {
+		failed = append(policyFailures, failed...)
 	}
+	summary.Failed = len(failed)
+	summary.Total = len(targets)
+	return PushBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
 }
 
 func (s Service) pushDescription(explicit string) string {

@@ -11,19 +11,9 @@ import (
 )
 
 func (s Service) PullBatch(targets []MappingTarget, overwrite bool) PullBatchResult {
-	if err := validateBatchTargets(targets, mapping.ModePull); err != nil {
-		return PullBatchResult{
-			Summary: BatchSummary{
-				Operation: "pull",
-				Failed:    1,
-				Total:     len(targets),
-			},
-			Failed: []BatchFailure{{Name: "batch", Err: err}},
-		}
-	}
-
+	validTargets, policyFailures := splitTargetsByPolicy(targets, mapping.ModePull)
 	succeeded, failed, summary := runBatch[PullResult](
-		targets,
+		validTargets,
 		"pull",
 		func(target MappingTarget) (PullResult, error) {
 			return s.pullOne(target, overwrite)
@@ -32,11 +22,12 @@ func (s Service) PullBatch(targets []MappingTarget, overwrite bool) PullBatchRes
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
-	return PullBatchResult{
-		Succeeded: succeeded,
-		Failed:    failed,
-		Summary:   summary,
+	if len(policyFailures) > 0 {
+		failed = append(policyFailures, failed...)
 	}
+	summary.Failed = len(failed)
+	summary.Total = len(targets)
+	return PullBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
 }
 
 func (s Service) pullOne(target MappingTarget, overwrite bool) (PullResult, error) {
