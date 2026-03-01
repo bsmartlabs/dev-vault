@@ -34,42 +34,18 @@ type configDeps struct {
 	readFile func(string) ([]byte, error)
 }
 
-type MappingFormat = mapping.Format
-
-const (
-	MappingFormatRaw    = mapping.FormatRaw
-	MappingFormatDotenv = mapping.FormatDotenv
-)
-
-type MappingMode = mapping.Mode
-
-const (
-	MappingModePull = mapping.ModePull
-	MappingModePush = mapping.ModePush
-)
-
-type MappingEntry = mapping.Entry
-
 type Config struct {
-	OrganizationID string                  `json:"organization_id"`
-	ProjectID      string                  `json:"project_id"`
-	Region         string                  `json:"region"`
-	Profile        string                  `json:"profile,omitempty"`
-	Mapping        map[string]MappingEntry `json:"mapping"`
+	OrganizationID string                   `json:"organization_id"`
+	ProjectID      string                   `json:"project_id"`
+	Region         string                   `json:"region"`
+	Profile        string                   `json:"profile,omitempty"`
+	Mapping        map[string]mapping.Entry `json:"mapping"`
 }
 
 type Loaded struct {
 	Path string
 	Root string
 	Cfg  Config
-}
-
-func IsDevSecretName(name string) bool {
-	return secretcontract.IsDevSecretName(name)
-}
-
-func ValidateDevSecretName(name string) error {
-	return secretcontract.ValidateDevSecretName(name)
 }
 
 func FindConfigPath(startDir string) (string, error) {
@@ -177,7 +153,7 @@ func (c *Config) normalizeAndValidate() error {
 	}
 
 	for name, entry := range c.Mapping {
-		if err := ValidateDevSecretName(name); err != nil {
+		if err := secretcontract.ValidateDevSecretName(name); err != nil {
 			return err
 		}
 
@@ -190,10 +166,10 @@ func (c *Config) normalizeAndValidate() error {
 		}
 
 		if entry.Format == "" {
-			entry.Format = MappingFormatRaw
+			entry.Format = mapping.FormatRaw
 		}
 		switch entry.Format {
-		case MappingFormatRaw, MappingFormatDotenv:
+		case mapping.FormatRaw, mapping.FormatDotenv:
 		default:
 			return fmt.Errorf("mapping %q: invalid format %q", name, entry.Format)
 		}
@@ -209,7 +185,7 @@ func (c *Config) normalizeAndValidate() error {
 			return fmt.Errorf("mapping %q: missing required field: mode (expected pull|push)", name)
 		}
 		switch entry.Mode {
-		case MappingModePull, MappingModePush:
+		case mapping.ModePull, mapping.ModePush:
 		default:
 			return fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}

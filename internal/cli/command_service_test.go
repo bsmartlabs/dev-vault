@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 )
 
 func TestCommandServiceModule_NewServiceWiresDeps(t *testing.T) {
@@ -37,7 +38,7 @@ func TestCommandService_LookupMappedSecret_ListError(t *testing.T) {
 		Hostname: func() (string, error) { return "host", nil },
 	})
 
-	_, err := svc.lookupMappedSecret("x-dev", config.MappingEntry{Path: "/"})
+	_, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -52,7 +53,7 @@ func TestCommandService_ResolveMappedSecret_NoCreateMissing(t *testing.T) {
 		Hostname: func() (string, error) { return "host", nil },
 	})
 
-	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{Path: "/"}, false)
+	_, err := svc.resolveMappedSecret("x-dev", mapping.Entry{Path: "/"}, false)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -84,7 +85,7 @@ func TestCommandService_ResolveMappedSecret_CreateMissingRequiresType(t *testing
 		Hostname: func() (string, error) { return "host", nil },
 	})
 
-	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{Path: "/"}, true)
+	_, err := svc.resolveMappedSecret("x-dev", mapping.Entry{Path: "/"}, true)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -101,7 +102,7 @@ func TestCommandService_ResolveMappedSecret_ListErrorWithCreateMissing(t *testin
 		Hostname: func() (string, error) { return "host", nil },
 	})
 
-	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{Path: "/", Type: "opaque"}, true)
+	_, err := svc.resolveMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}, true)
 	if err == nil {
 		t.Fatal("expected error")
 	}

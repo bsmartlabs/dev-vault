@@ -3,13 +3,12 @@ package cli
 import (
 	"testing"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
 func TestMappingModule_Smoke(t *testing.T) {
-	mapping := map[string]config.MappingEntry{"a-dev": {Mode: "pull"}}
+	mapping := map[string]mapping.Entry{"a-dev": {Mode: "pull"}}
 	targets, err := selectMappingTargets(mapping, true, nil, "pull")
 	if err != nil {
 		t.Fatalf("select all: %v", err)
@@ -29,7 +28,7 @@ func TestMappingModule_Smoke(t *testing.T) {
 }
 
 func TestSelectMappingTargets_DedupesExplicitTargetsPreservingOrder(t *testing.T) {
-	mapping := map[string]config.MappingEntry{
+	mapping := map[string]mapping.Entry{
 		"a-dev": {Mode: "pull"},
 		"b-dev": {Mode: "pull"},
 	}

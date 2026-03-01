@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
@@ -36,7 +36,7 @@ func TestHelpersFile_BasicSmoke(t *testing.T) {
 		t.Fatalf("reorderFlags mismatch: got %#v want %#v", got, want)
 	}
 
-	mapping := map[string]config.MappingEntry{
+	mapping := map[string]mapping.Entry{
 		"a-dev": {Mode: "pull"},
 		"b-dev": {Mode: "pull"},
 	}

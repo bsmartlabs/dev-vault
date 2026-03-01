@@ -62,7 +62,7 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 	return s.inner.List(query)
 }
 
-func (s commandService) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
+func (s commandService) lookupMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
 	req := secretprovider.ListSecretsInput{
 		Name: name,
 		Path: entry.Path,
@@ -93,7 +93,7 @@ func (s commandService) lookupMappedSecret(name string, entry config.MappingEntr
 	return &resolved, nil
 }
 
-func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
+func (s commandService) resolveMappedSecret(name string, entry mapping.Entry, createMissing bool) (*secretprovider.SecretRecord, error) {
 	resolvedSecret, err := s.lookupMappedSecret(name, entry)
 	if err == nil {
 		return resolvedSecret, nil
@@ -119,7 +119,7 @@ func (s commandService) resolveMappedSecret(name string, entry config.MappingEnt
 	return createdSecret, nil
 }
 
-func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {
+func selectMappingTargets(mapping map[string]mapping.Entry, all bool, positional []string, mode string) ([]string, error) {
 	var typedMode commandMode
 	switch mode {
 	case "pull":

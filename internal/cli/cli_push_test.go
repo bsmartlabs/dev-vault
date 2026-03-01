@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
@@ -208,7 +209,7 @@ func TestHelpersAndBranches(t *testing.T) {
 	}
 
 	// selectMappingTargets default-mode and various errors.
-	mapping := map[string]config.MappingEntry{
+	mapping := map[string]mapping.Entry{
 		"a-dev": {File: "a", Mode: "push"},
 		"b-dev": {File: "b", Mode: "pull"},
 		"c-dev": {File: "c", Mode: "push"},
@@ -313,7 +314,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
-	_, err := svc.lookupMappedSecret("dup-dev", config.MappingEntry{Path: "/"})
+	_, err := svc.lookupMappedSecret("dup-dev", mapping.Entry{Path: "/"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -322,7 +323,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 	api := newFakeSecretAPI()
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
-	_, err := svc.lookupMappedSecret("missing-dev", config.MappingEntry{Path: "/"})
+	_, err := svc.lookupMappedSecret("missing-dev", mapping.Entry{Path: "/"})
 	var nf *secretLookupMissError
 	if !errors.As(err, &nf) {
 		t.Fatalf("expected notFoundError, got %v", err)
@@ -334,7 +335,7 @@ func TestListSecretsByTypes_Error(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.listErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
-	_, err := svc.lookupMappedSecret("x-dev", config.MappingEntry{Path: "/"})
+	_, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}

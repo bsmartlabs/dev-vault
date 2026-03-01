@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 )
 
 func TestFindConfigPath(t *testing.T) {
@@ -188,7 +191,7 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("load: %v", err)
 		}
 		ent := loaded.Cfg.Mapping["a-dev"]
-		if ent.Format != MappingFormatRaw || ent.Path != "/" || ent.Mode != MappingModePull {
+		if ent.Format != mapping.FormatRaw || ent.Path != "/" || ent.Mode != mapping.ModePull {
 			t.Fatalf("normalization not applied: %+v", ent)
 		}
 	})
@@ -282,13 +285,13 @@ func TestResolveFile(t *testing.T) {
 
 func TestMappingMode_Allows(t *testing.T) {
 	cases := []struct {
-		mode       MappingMode
+		mode       mapping.Mode
 		pull, push bool
 	}{
-		{mode: MappingModePull, pull: true, push: false},
-		{mode: MappingModePush, pull: false, push: true},
-		{mode: MappingMode(""), pull: false, push: false},
-		{mode: MappingMode("nope"), pull: false, push: false},
+		{mode: mapping.ModePull, pull: true, push: false},
+		{mode: mapping.ModePush, pull: false, push: true},
+		{mode: mapping.Mode(""), pull: false, push: false},
+		{mode: mapping.Mode("nope"), pull: false, push: false},
 	}
 
 	for _, tc := range cases {
@@ -302,16 +305,16 @@ func TestMappingMode_Allows(t *testing.T) {
 }
 
 func TestDevSecretNameWrappers(t *testing.T) {
-	if !IsDevSecretName("x-dev") {
+	if !secretcontract.IsDevSecretName("x-dev") {
 		t.Fatal("expected x-dev to be accepted")
 	}
-	if IsDevSecretName("x-prod") {
+	if secretcontract.IsDevSecretName("x-prod") {
 		t.Fatal("expected x-prod to be rejected")
 	}
-	if err := ValidateDevSecretName("x-dev"); err != nil {
+	if err := secretcontract.ValidateDevSecretName("x-dev"); err != nil {
 		t.Fatalf("expected validation success, got %v", err)
 	}
-	if err := ValidateDevSecretName("x-prod"); err == nil {
+	if err := secretcontract.ValidateDevSecretName("x-prod"); err == nil {
 		t.Fatal("expected validation error for non-dev name")
 	}
 }
