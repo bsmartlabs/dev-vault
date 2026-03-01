@@ -10,7 +10,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s Service) PullBatch(targets []mapping.Target, overwrite bool) (PullBatchResult, error) {
+func (s Service) PullBatch(targets []mapping.Target, overwrite bool) PullBatchResult {
 	succeeded, failed, summary := runBatch[PullResult](
 		targets,
 		"pull",
@@ -22,7 +22,7 @@ func (s Service) PullBatch(targets []mapping.Target, overwrite bool) (PullBatchR
 		},
 	)
 	result := PullBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
-	return result, result.Summary.ErrorOrNil()
+	return result
 }
 
 func (s Service) pullOne(target mapping.Target, overwrite bool) (PullResult, error) {

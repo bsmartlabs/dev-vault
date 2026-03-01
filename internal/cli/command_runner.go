@@ -8,6 +8,7 @@ type parsedCommand struct {
 	fs              *flag.FlagSet
 	configPath      string
 	profileOverride string
+	configPolicy    commandConfigPolicy
 	boolValues      map[string]bool
 	stringValues    map[string]string
 	sliceValues     map[string][]string
@@ -98,6 +99,7 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 		fs:              fs,
 		configPath:      configPath,
 		profileOverride: profileOverride,
+		configPolicy:    def.Config,
 		boolValues:      boolValues,
 		stringValues:    stringValues,
 		sliceValues:     sliceValues,

@@ -121,11 +121,12 @@ func TestReportBatchResults(t *testing.T) {
 			secretsync.PullBatchResult{
 				Succeeded: []secretsync.PullResult{{Name: "a-dev", File: "a.env", Revision: 3, Type: "opaque"}},
 				Failed:    []secretsync.BatchFailure{{Name: "b-dev", Err: errors.New("boom")}},
+				Summary:   secretsync.BatchSummary{Operation: "pull", Failed: 1, Total: 2},
 			},
-			nil,
 		)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		var batchErr *secretsync.BatchOperationError
+		if !errors.As(err, &batchErr) {
+			t.Fatalf("expected batch operation error, got %v", err)
 		}
 		if !strings.Contains(out.String(), "pulled a-dev -> a.env (rev=3 type=opaque)") {
 			t.Fatalf("unexpected stdout: %q", out.String())
@@ -135,15 +136,16 @@ func TestReportBatchResults(t *testing.T) {
 		}
 	})
 
-	t.Run("PushReporterRunErrorPropagates", func(t *testing.T) {
-		want := runtimeError(errors.New("run failed"))
+	t.Run("PushReporterReturnsSummaryError", func(t *testing.T) {
 		err := reportPushBatchResults(
 			commandContext{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}},
-			secretsync.PushBatchResult{},
-			want,
+			secretsync.PushBatchResult{
+				Summary: secretsync.BatchSummary{Operation: "push", Failed: 1, Total: 2},
+			},
 		)
-		if err == nil || err.Error() != want.Error() {
-			t.Fatalf("expected %v, got %v", want, err)
+		var batchErr *secretsync.BatchOperationError
+		if !errors.As(err, &batchErr) {
+			t.Fatalf("expected batch operation error, got %v", err)
 		}
 	})
 
@@ -153,7 +155,6 @@ func TestReportBatchResults(t *testing.T) {
 			secretsync.PullBatchResult{
 				Succeeded: []secretsync.PullResult{{Name: "a-dev", File: "a.env", Revision: 1, Type: "opaque"}},
 			},
-			nil,
 		)
 		var outputErr *commandError
 		if !errors.As(err, &outputErr) {

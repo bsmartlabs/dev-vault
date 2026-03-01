@@ -45,5 +45,5 @@ func parsePullOptions(parsed *parsedCommand) pullOptions {
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePullOptions(parsed)
-	return runPullBatch(ctx, parsed, commandConfigValidated, opts)
+	return runPullBatch(ctx, parsed, parsed.configPolicy, opts)
 }

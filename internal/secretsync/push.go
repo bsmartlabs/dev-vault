@@ -10,20 +10,26 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s Service) PushBatch(targets []mapping.Target, opts PushOptions) (PushBatchResult, error) {
+type pushSecretResolver func(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error)
+
+func (s Service) PushBatch(targets []mapping.Target, opts PushOptions) PushBatchResult {
 	desc := s.pushDescription(opts.Description)
+	resolveSecret := s.resolveExistingSecretForPush
+	if opts.CreateMissing {
+		resolveSecret = s.resolveOrCreateSecretForPush
+	}
 	succeeded, failed, summary := runBatch[PushResult](
 		targets,
 		"push",
 		func(target mapping.Target) (PushResult, error) {
-			return s.pushOne(target, opts, desc)
+			return s.pushOne(target, opts, desc, resolveSecret)
 		},
 		func(target mapping.Target, err error) BatchFailure {
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
 	result := PushBatchResult{Succeeded: succeeded, Failed: failed, Summary: summary}
-	return result, result.Summary.ErrorOrNil()
+	return result
 }
 
 func (s Service) pushDescription(explicit string) string {
@@ -69,12 +75,12 @@ func createSecretVersionInput(secretID string, payload []byte, description strin
 	return req
 }
 
-func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string) (PushResult, error) {
+func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string, resolveSecret pushSecretResolver) (PushResult, error) {
 	payload, err := s.readPushPayload(target.Name, target.Entry)
 	if err != nil {
 		return PushResult{}, err
 	}
-	resolvedSecret, err := s.resolveMappedSecretForPush(target.Name, target.Entry, opts.CreateMissing)
+	resolvedSecret, err := resolveSecret(target.Name, target.Entry)
 	if err != nil {
 		return PushResult{}, err
 	}
@@ -91,16 +97,16 @@ func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string) (
 	return PushResult{Name: target.Name, Revision: version.Revision}, nil
 }
 
-func (s Service) resolveMappedSecretForPush(name string, entry mapping.Entry, createMissing bool) (*secretprovider.SecretRecord, error) {
-	var (
-		resolvedSecret *secretprovider.SecretRecord
-		err            error
-	)
-	if createMissing {
-		resolvedSecret, err = s.lookupOrCreateMappedSecret(name, entry)
-	} else {
-		resolvedSecret, err = s.lookupMappedSecret(name, entry)
+func (s Service) resolveExistingSecretForPush(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
+	resolvedSecret, err := s.lookupMappedSecret(name, entry)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", name, err)
 	}
+	return resolvedSecret, nil
+}
+
+func (s Service) resolveOrCreateSecretForPush(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
+	resolvedSecret, err := s.lookupOrCreateMappedSecret(name, entry)
 	if err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", name, err)
 	}

@@ -7,7 +7,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
-func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResult, runErr error) error {
+func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResult) error {
 	for _, item := range result.Succeeded {
 		if _, err := fmt.Fprintf(ctx.stdout, "pulled %s -> %s (rev=%d type=%s)\n", item.Name, item.File, item.Revision, item.Type); err != nil {
 			return outputError(err)
@@ -18,13 +18,10 @@ func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResul
 			return outputError(err)
 		}
 	}
-	if runErr != nil {
-		return runErr
-	}
-	return nil
+	return result.Summary.ErrorOrNil()
 }
 
-func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResult, runErr error) error {
+func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResult) error {
 	for _, item := range result.Succeeded {
 		if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
 			return outputError(err)
@@ -35,10 +32,7 @@ func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResul
 			return outputError(err)
 		}
 	}
-	if runErr != nil {
-		return runErr
-	}
-	return nil
+	return result.Summary.ErrorOrNil()
 }
 
 func runPullBatch(ctx commandContext, parsed *parsedCommand, policy commandConfigPolicy, opts pullOptions) int {
@@ -48,8 +42,8 @@ func runPullBatch(ctx commandContext, parsed *parsedCommand, policy commandConfi
 		opts.all,
 		nil,
 		func(service secretsync.Service, targets []mapping.Target) error {
-			result, err := service.PullBatch(targets, opts.overwrite)
-			return reportPullBatchResults(ctx, result, err)
+			result := service.PullBatch(targets, opts.overwrite)
+			return reportPullBatchResults(ctx, result)
 		},
 	)
 }
@@ -68,8 +62,8 @@ func runPushBatch(ctx commandContext, parsed *parsedCommand, policy commandConfi
 		opts.all,
 		preflight,
 		func(service secretsync.Service, targets []mapping.Target) error {
-			result, err := service.PushBatch(targets, opts.pushOptions())
-			return reportPushBatchResults(ctx, result, err)
+			result := service.PushBatch(targets, opts.pushOptions())
+			return reportPushBatchResults(ctx, result)
 		},
 	)
 }

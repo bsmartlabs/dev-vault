@@ -92,18 +92,20 @@ func loadWithDeps(startDir, explicitPath string, deps configDeps) (*Loaded, erro
 }
 
 func loadWithDepsAndValidator(startDir, explicitPath string, deps configDeps, validator configValidator) (*Loaded, error) {
-	if startDir == "" {
-		return nil, errors.New("startDir is empty")
-	}
-
 	var path string
 	if explicitPath != "" {
 		if filepath.IsAbs(explicitPath) {
 			path = explicitPath
 		} else {
+			if startDir == "" {
+				return nil, errors.New("startDir is empty")
+			}
 			path = filepath.Join(startDir, explicitPath)
 		}
 	} else {
+		if startDir == "" {
+			return nil, errors.New("startDir is empty")
+		}
 		found, err := findConfigPath(startDir, deps)
 		if err != nil {
 			return nil, err
@@ -145,14 +147,8 @@ func loadWithDepsAndValidator(startDir, explicitPath string, deps configDeps, va
 }
 
 func (c *Config) normalizeAndValidate() error {
-	if strings.TrimSpace(c.OrganizationID) == "" {
-		return errors.New("missing required field: organization_id")
-	}
-	if strings.TrimSpace(c.ProjectID) == "" {
-		return errors.New("missing required field: project_id")
-	}
-	if strings.TrimSpace(c.Region) == "" {
-		return errors.New("missing required field: region")
+	if err := c.validateProjectFields(); err != nil {
+		return err
 	}
 	if c.Mapping == nil {
 		return errors.New("missing required field: mapping")
@@ -212,6 +208,16 @@ func (c *Config) normalizeAndValidate() error {
 }
 
 func (c *Config) normalizeAndValidateProjectOnly() error {
+	if err := c.validateProjectFields(); err != nil {
+		return err
+	}
+	if c.Mapping == nil {
+		c.Mapping = map[string]mapping.Entry{}
+	}
+	return nil
+}
+
+func (c *Config) validateProjectFields() error {
 	if strings.TrimSpace(c.OrganizationID) == "" {
 		return errors.New("missing required field: organization_id")
 	}
@@ -220,9 +226,6 @@ func (c *Config) normalizeAndValidateProjectOnly() error {
 	}
 	if strings.TrimSpace(c.Region) == "" {
 		return errors.New("missing required field: region")
-	}
-	if c.Mapping == nil {
-		c.Mapping = map[string]mapping.Entry{}
 	}
 	return nil
 }

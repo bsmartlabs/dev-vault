@@ -67,6 +67,31 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
+	t.Run("EmptyStartDirWithAbsoluteExplicitPath", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, DefaultConfigName)
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"pull"}}}`), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		loaded, err := Load("", cfgPath)
+		if err != nil {
+			t.Fatalf("expected absolute explicit path to load without startDir, got %v", err)
+		}
+		if loaded.Path != cfgPath {
+			t.Fatalf("expected path %s, got %s", cfgPath, loaded.Path)
+		}
+	})
+
+	t.Run("EmptyStartDirWithRelativeExplicitPath", func(t *testing.T) {
+		_, err := Load("", DefaultConfigName)
+		if err == nil {
+			t.Fatal("expected startDir error for relative explicit path")
+		}
+		if !strings.Contains(err.Error(), "startDir is empty") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
 	t.Run("ExplicitRelative", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, DefaultConfigName)

@@ -119,7 +119,7 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 		return runtime.writeStderrError(err)
 	}
 
-	return runtime.executeWithConfigPolicy(commandConfigProjectOnly, func(_ *config.Loaded, service secretsync.Service) error {
+	return runtime.executeWithConfigPolicy(parsed.configPolicy, func(_ *config.Loaded, service secretsync.Service) error {
 		filtered, err := service.List(query)
 		if err != nil {
 			return err

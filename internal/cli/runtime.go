@@ -127,7 +127,7 @@ func loadProjectConfig(configPath string, deps Dependencies) (*config.Loaded, er
 
 func loadConfigWithLoader(configPath string, deps Dependencies, loader projectConfigLoader) (*config.Loaded, error) {
 	if configPath != "" && filepath.IsAbs(configPath) {
-		loaded, err := loader(string(filepath.Separator), configPath)
+		loaded, err := loader("", configPath)
 		if err != nil {
 			return nil, fmt.Errorf("load config: %w", err)
 		}

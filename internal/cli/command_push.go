@@ -67,5 +67,5 @@ func parsePushOptions(parsed *parsedCommand) pushOptions {
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePushOptions(parsed)
-	return runPushBatch(ctx, parsed, commandConfigValidated, opts)
+	return runPushBatch(ctx, parsed, parsed.configPolicy, opts)
 }
