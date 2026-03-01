@@ -16,6 +16,9 @@ func TestHasHelpFlag(t *testing.T) {
 	if !hasHelpFlag([]string{"--help"}) {
 		t.Fatal("expected --help to be recognized")
 	}
+	if !hasHelpFlag([]string{"-help"}) {
+		t.Fatal("expected -help to be recognized")
+	}
 	if hasHelpFlag([]string{"--", "-h"}) {
 		t.Fatal("expected -- sentinel to stop help-flag detection")
 	}
@@ -49,8 +52,8 @@ func TestParseCommand_SingleDashHelpPath(t *testing.T) {
 
 func TestParseCommand_SingleDashHelpWriteFailure(t *testing.T) {
 	ctx := commandContext{
-		stdout: &bytes.Buffer{},
-		stderr: &failingWriter{},
+		stdout: &failingWriter{},
+		stderr: &bytes.Buffer{},
 		deps: baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 			return newFakeSecretAPI(), nil
 		}),

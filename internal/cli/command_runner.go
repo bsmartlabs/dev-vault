@@ -69,9 +69,8 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 
 	fs := flag.NewFlagSet(def.Name, flag.ContinueOnError)
 	fs.SetOutput(ctx.stderr)
-	var usageWriteErr error
 	fs.Usage = func() {
-		usageWriteErr = printCommandUsage(ctx.stderr, def)
+		_ = printCommandUsage(ctx.stderr, def)
 	}
 
 	configPath := ctx.configPath
@@ -102,12 +101,6 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 
 	reordered := reorderFlags(argv, withGlobalFlagSpecs(takesValueMap(def)))
 	if err := fs.Parse(reordered); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			if usageWriteErr != nil {
-				return nil, &parseCommandError{code: 1, err: outputError(usageWriteErr)}
-			}
-			return nil, &parseCommandError{code: 0, err: err}
-		}
 		return nil, &parseCommandError{code: 2, err: err}
 	}
 
@@ -144,7 +137,7 @@ func hasHelpFlag(argv []string) bool {
 		if arg == "--" {
 			return false
 		}
-		if arg == "-h" || arg == "--help" {
+		if arg == "-h" || arg == "--help" || arg == "-help" {
 			return true
 		}
 	}

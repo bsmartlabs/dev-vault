@@ -9,6 +9,7 @@ func TestHasPreCommandHelpFlag(t *testing.T) {
 		want bool
 	}{
 		{name: "direct", args: []string{"-h"}, want: true},
+		{name: "singleDashHelp", args: []string{"-help"}, want: true},
 		{name: "withGlobalBefore", args: []string{"--config", "x", "-h"}, want: true},
 		{name: "withGlobalEquals", args: []string{"--config=x", "--help"}, want: true},
 		{name: "subcommandHelpNotGlobal", args: []string{"pull", "-h"}, want: false},

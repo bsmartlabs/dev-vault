@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -68,9 +67,6 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	}
 
 	if err := global.Parse(args[1:]); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return 0
-		}
 		return 2
 	}
 	rest := global.Args()
@@ -130,7 +126,7 @@ func hasPreCommandHelpFlag(args []string) bool {
 	for i := 0; i < len(args); i++ {
 		token := args[i]
 		switch token {
-		case "-h", "--help":
+		case "-h", "--help", "-help":
 			return true
 		case "--":
 			return false

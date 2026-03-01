@@ -69,8 +69,11 @@ func TestRun_GlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
-	if !strings.Contains(errBuf.String(), "Usage:") {
-		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("expected no stderr output, got: %s", errBuf.String())
 	}
 }
 
@@ -251,6 +254,22 @@ func TestRun_SubcommandHelpFlag(t *testing.T) {
 	}
 }
 
+func TestRun_GlobalSingleDashHelpFlag(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("expected no stderr output for help, got: %s", errBuf.String())
+	}
+}
+
 func TestRun_SubcommandHelpFlag_List(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "list", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -261,6 +280,22 @@ func TestRun_SubcommandHelpFlag_List(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Usage:") {
 		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+}
+
+func TestRun_SubcommandSingleDashHelpFlag_List(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "list", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("expected no stderr output for help, got: %s", errBuf.String())
 	}
 }
 
