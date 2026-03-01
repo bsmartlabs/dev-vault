@@ -7,20 +7,28 @@ import (
 	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
-	"github.com/bsmartlabs/dev-vault/internal/secrettype"
+)
+
+const (
+	listFlagJSON         = "json"
+	listFlagNameContains = "name-contains"
+	listFlagNameRegex    = "name-regex"
+	listFlagPath         = "path"
+	listFlagType         = "type"
 )
 
 var listCommandDef = commandDef{
 	Name:    "list",
 	Summary: "List project -dev secrets metadata",
 	Flags: []commandFlagDef{
-		{Name: "json", Kind: commandFlagBool, Help: "Output JSON"},
-		{Name: "name-contains", Kind: commandFlagStringSlice, ValueName: "<substring>", Help: "Substring filter (repeatable, AND semantics)"},
-		{Name: "name-regex", Kind: commandFlagString, ValueName: "<regexp>", Help: "Go regexp to match secret names"},
-		{Name: "path", Kind: commandFlagString, ValueName: "<path>", Help: "Exact Scaleway secret path to filter"},
-		{Name: "type", Kind: commandFlagString, ValueName: "<type>", Help: fmt.Sprintf("One of: %s", strings.Join(secrettype.Names(), "|"))},
+		{Name: listFlagJSON, Kind: commandFlagBool, Help: "Output JSON"},
+		{Name: listFlagNameContains, Kind: commandFlagStringSlice, ValueName: "<substring>", Help: "Substring filter (repeatable, AND semantics)"},
+		{Name: listFlagNameRegex, Kind: commandFlagString, ValueName: "<regexp>", Help: "Go regexp to match secret names"},
+		{Name: listFlagPath, Kind: commandFlagString, ValueName: "<path>", Help: "Exact Scaleway secret path to filter"},
+		{Name: listFlagType, Kind: commandFlagString, ValueName: "<type>", Help: fmt.Sprintf("One of: %s", strings.Join(secretcontract.Names(), "|"))},
 	},
 	Doc: commandDoc{
 		Synopsis: "dev-vault [--config <path>] [--profile <name>] list [options]",
@@ -50,13 +58,7 @@ type listOptions struct {
 }
 
 func parseListOptions(parsed *parsedCommand) listOptions {
-	return listOptions{
-		json:         parsed.Bool("json"),
-		nameContains: parsed.Strings("name-contains"),
-		nameRegex:    parsed.String("name-regex"),
-		path:         parsed.String("path"),
-		secretType:   parsed.String("type"),
-	}
+	return parsed.listOptions
 }
 
 func buildListQuery(opts listOptions) (secretsync.ListQuery, error) {

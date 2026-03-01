@@ -33,6 +33,15 @@ func Names() []string {
 	return out
 }
 
+func IsType(name string) bool {
+	switch Type(name) {
+	case TypeOpaque, TypeCertificate, TypeKeyValue, TypeBasicCreds, TypeDatabaseCreds, TypeSSHKey:
+		return true
+	default:
+		return false
+	}
+}
+
 func IsDevSecretName(name string) bool {
 	return strings.HasSuffix(name, "-dev")
 }

@@ -7,12 +7,17 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
+const (
+	pullFlagAll       = "all"
+	pullFlagOverwrite = "overwrite"
+)
+
 var pullCommandDef = commandDef{
 	Name:    "pull",
 	Summary: "Pull mapped -dev secrets to local files",
 	Flags: []commandFlagDef{
-		{Name: "all", Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull"},
-		{Name: "overwrite", Kind: commandFlagBool, Help: "Overwrite existing files"},
+		{Name: pullFlagAll, Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull"},
+		{Name: pullFlagOverwrite, Kind: commandFlagBool, Help: "Overwrite existing files"},
 	},
 	Doc: commandDoc{
 		Synopsis: "dev-vault [--config <path>] [--profile <name>] pull (--all | <secret-dev> ...) [options]",
@@ -44,10 +49,7 @@ type pullOptions struct {
 }
 
 func parsePullOptions(parsed *parsedCommand) pullOptions {
-	return pullOptions{
-		all:       parsed.Bool("all"),
-		overwrite: parsed.Bool("overwrite"),
-	}
+	return parsed.pullOptions
 }
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {

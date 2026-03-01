@@ -34,3 +34,22 @@ func TestDevNamePolicy(t *testing.T) {
 		t.Fatal("expected validation error for non-dev name")
 	}
 }
+
+func TestIsType(t *testing.T) {
+	valid := []string{
+		string(TypeOpaque),
+		string(TypeCertificate),
+		string(TypeKeyValue),
+		string(TypeBasicCreds),
+		string(TypeDatabaseCreds),
+		string(TypeSSHKey),
+	}
+	for _, name := range valid {
+		if !IsType(name) {
+			t.Fatalf("expected %q to be valid", name)
+		}
+	}
+	if IsType("unknown") {
+		t.Fatal("expected unknown to be invalid")
+	}
+}

@@ -7,15 +7,23 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
+const (
+	pushFlagAll             = "all"
+	pushFlagYes             = "yes"
+	pushFlagDisablePrevious = "disable-previous"
+	pushFlagDescription     = "description"
+	pushFlagCreateMissing   = "create-missing"
+)
+
 var pushCommandDef = commandDef{
 	Name:    "push",
 	Summary: "Push local files as new secret versions",
 	Flags: []commandFlagDef{
-		{Name: "all", Kind: commandFlagBool, Help: "Push all mapping entries with mode push"},
-		{Name: "yes", Kind: commandFlagBool, Help: "Confirm batch push (required when pushing more than one secret)"},
-		{Name: "disable-previous", Kind: commandFlagBool, Help: "Disable previous enabled version when creating a new version"},
-		{Name: "description", Kind: commandFlagString, ValueName: "<text>", Help: "Description for the new version (optional)"},
-		{Name: "create-missing", Kind: commandFlagBool, Help: "Create missing secrets (requires mapping.type)"},
+		{Name: pushFlagAll, Kind: commandFlagBool, Help: "Push all mapping entries with mode push"},
+		{Name: pushFlagYes, Kind: commandFlagBool, Help: "Confirm batch push (required when pushing more than one secret)"},
+		{Name: pushFlagDisablePrevious, Kind: commandFlagBool, Help: "Disable previous enabled version when creating a new version"},
+		{Name: pushFlagDescription, Kind: commandFlagString, ValueName: "<text>", Help: "Description for the new version (optional)"},
+		{Name: pushFlagCreateMissing, Kind: commandFlagBool, Help: "Create missing secrets (requires mapping.type)"},
 	},
 	Doc: commandDoc{
 		Synopsis: "dev-vault [--config <path>] [--profile <name>] push (--all | <secret-dev> ...) [options]",
@@ -61,13 +69,7 @@ func (o pushOptions) pushOptions() secretsync.PushOptions {
 }
 
 func parsePushOptions(parsed *parsedCommand) pushOptions {
-	return pushOptions{
-		all:             parsed.Bool("all"),
-		yes:             parsed.Bool("yes"),
-		disablePrevious: parsed.Bool("disable-previous"),
-		description:     parsed.String("description"),
-		createMissing:   parsed.Bool("create-missing"),
-	}
+	return parsed.pushOptions
 }
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {

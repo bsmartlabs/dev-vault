@@ -12,7 +12,6 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
-	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
 const DefaultConfigName = ".scw.json"
@@ -196,7 +195,7 @@ func (c *Config) normalizeAndValidate() error {
 		}
 
 		if entry.Type != "" {
-			if !secrettype.IsValid(string(entry.Type)) {
+			if !secretcontract.IsType(string(entry.Type)) {
 				return fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
 			}
 		}

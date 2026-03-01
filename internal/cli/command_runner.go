@@ -9,27 +9,9 @@ type parsedCommand struct {
 	configPath      string
 	profileOverride string
 	configPolicy    commandConfigPolicy
-	boolValues      map[string]bool
-	stringValues    map[string]string
-	sliceValues     map[string][]string
-}
-
-func (p *parsedCommand) Bool(name string) bool {
-	return p.boolValues[name]
-}
-
-func (p *parsedCommand) String(name string) string {
-	return p.stringValues[name]
-}
-
-func (p *parsedCommand) Strings(name string) []string {
-	values := p.sliceValues[name]
-	if len(values) == 0 {
-		return nil
-	}
-	out := make([]string, len(values))
-	copy(out, values)
-	return out
+	pullOptions     pullOptions
+	pushOptions     pushOptions
+	listOptions     listOptions
 }
 
 func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCommand, error) {
@@ -77,33 +59,36 @@ func parseCommand(ctx commandContext, argv []string, def commandDef) (*parsedCom
 		return nil, usageError(err)
 	}
 
-	boolValues := make(map[string]bool, len(boolHolders))
-	for name, value := range boolHolders {
-		boolValues[name] = *value
-	}
-	stringValues := make(map[string]string, len(stringHolders))
-	for name, value := range stringHolders {
-		stringValues[name] = *value
-	}
-	sliceValues := make(map[string][]string, len(sliceHolders))
-	for name, value := range sliceHolders {
-		if len(*value) == 0 {
-			continue
-		}
-		items := make([]string, len(*value))
-		copy(items, *value)
-		sliceValues[name] = items
-	}
-
-	return &parsedCommand{
+	parsed := &parsedCommand{
 		fs:              fs,
 		configPath:      configPath,
 		profileOverride: profileOverride,
 		configPolicy:    def.Config,
-		boolValues:      boolValues,
-		stringValues:    stringValues,
-		sliceValues:     sliceValues,
-	}, nil
+	}
+	switch def.Name {
+	case pullCommandDef.Name:
+		parsed.pullOptions = pullOptions{
+			all:       boolFlagValue(boolHolders, pullFlagAll),
+			overwrite: boolFlagValue(boolHolders, pullFlagOverwrite),
+		}
+	case pushCommandDef.Name:
+		parsed.pushOptions = pushOptions{
+			all:             boolFlagValue(boolHolders, pushFlagAll),
+			yes:             boolFlagValue(boolHolders, pushFlagYes),
+			disablePrevious: boolFlagValue(boolHolders, pushFlagDisablePrevious),
+			description:     stringFlagValue(stringHolders, pushFlagDescription),
+			createMissing:   boolFlagValue(boolHolders, pushFlagCreateMissing),
+		}
+	case listCommandDef.Name:
+		parsed.listOptions = listOptions{
+			json:         boolFlagValue(boolHolders, listFlagJSON),
+			nameContains: sliceFlagValue(sliceHolders, listFlagNameContains),
+			nameRegex:    stringFlagValue(stringHolders, listFlagNameRegex),
+			path:         stringFlagValue(stringHolders, listFlagPath),
+			secretType:   stringFlagValue(stringHolders, listFlagType),
+		}
+	}
+	return parsed, nil
 }
 
 func hasHelpFlag(argv []string) bool {
@@ -130,4 +115,27 @@ func runCommand(ctx commandContext, argv []string, def commandDef) int {
 	return runParsedCommand(ctx, argv, def, func(parsed *parsedCommand) int {
 		return def.RunParsed(ctx, parsed)
 	})
+}
+
+func boolFlagValue(values map[string]*bool, name string) bool {
+	value, ok := values[name]
+	return ok && value != nil && *value
+}
+
+func stringFlagValue(values map[string]*string, name string) string {
+	value, ok := values[name]
+	if !ok || value == nil {
+		return ""
+	}
+	return *value
+}
+
+func sliceFlagValue(values map[string]*stringSliceFlag, name string) []string {
+	value, ok := values[name]
+	if !ok || value == nil || len(*value) == 0 {
+		return nil
+	}
+	items := make([]string, len(*value))
+	copy(items, *value)
+	return items
 }

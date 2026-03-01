@@ -63,3 +63,71 @@ func TestParseCommand_SingleDashHelpWriteFailure(t *testing.T) {
 		t.Fatalf("expected output failure code 1, got %d", exitCodeForError(err))
 	}
 }
+
+func TestFlagValueHelpers(t *testing.T) {
+	t.Run("BoolFlagValue", func(t *testing.T) {
+		trueValue := true
+		falseValue := false
+		values := map[string]*bool{
+			"true":  &trueValue,
+			"false": &falseValue,
+			"nil":   nil,
+		}
+		if !boolFlagValue(values, "true") {
+			t.Fatal("expected true flag value")
+		}
+		if boolFlagValue(values, "false") {
+			t.Fatal("expected false flag value")
+		}
+		if boolFlagValue(values, "missing") {
+			t.Fatal("expected missing bool flag value to be false")
+		}
+		if boolFlagValue(values, "nil") {
+			t.Fatal("expected nil bool flag pointer to be false")
+		}
+	})
+
+	t.Run("StringFlagValue", func(t *testing.T) {
+		text := "value"
+		values := map[string]*string{
+			"set": &text,
+			"nil": nil,
+		}
+		if got := stringFlagValue(values, "set"); got != "value" {
+			t.Fatalf("unexpected string flag value: %q", got)
+		}
+		if got := stringFlagValue(values, "missing"); got != "" {
+			t.Fatalf("expected empty string for missing value, got %q", got)
+		}
+		if got := stringFlagValue(values, "nil"); got != "" {
+			t.Fatalf("expected empty string for nil pointer, got %q", got)
+		}
+	})
+
+	t.Run("SliceFlagValue", func(t *testing.T) {
+		value := stringSliceFlag{"a", "b"}
+		empty := stringSliceFlag{}
+		values := map[string]*stringSliceFlag{
+			"set":   &value,
+			"empty": &empty,
+			"nil":   nil,
+		}
+		got := sliceFlagValue(values, "set")
+		if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+			t.Fatalf("unexpected slice flag value: %#v", got)
+		}
+		got[0] = "changed"
+		if value[0] != "a" {
+			t.Fatalf("expected returned slice to be copied, got original=%#v", value)
+		}
+		if got := sliceFlagValue(values, "empty"); got != nil {
+			t.Fatalf("expected nil for empty slice value, got %#v", got)
+		}
+		if got := sliceFlagValue(values, "missing"); got != nil {
+			t.Fatalf("expected nil for missing slice value, got %#v", got)
+		}
+		if got := sliceFlagValue(values, "nil"); got != nil {
+			t.Fatalf("expected nil for nil pointer, got %#v", got)
+		}
+	})
+}
