@@ -42,7 +42,7 @@ func runPull(ctx commandContext, argv []string) int {
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
 	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
-		mode: "pull",
+		mode: commandModePull,
 		all:  parsed.Bool("all"),
 		execute: func(service secretsync.Service, targets []secretsync.MappingTarget) error {
 			results, err := service.Pull(targets, parsed.Bool("overwrite"))

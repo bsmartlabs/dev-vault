@@ -48,7 +48,7 @@ func runPush(ctx commandContext, argv []string) int {
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
 	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
-		mode: "push",
+		mode: commandModePush,
 		all:  parsed.Bool("all"),
 		preflight: func(targets []secretsync.MappingTarget) error {
 			if len(targets) > 1 && !parsed.Bool("yes") {

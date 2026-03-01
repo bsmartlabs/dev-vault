@@ -9,7 +9,7 @@ import (
 )
 
 type mappingCommandSpec struct {
-	mode      string
+	mode      commandMode
 	all       bool
 	preflight func(targets []secretsync.MappingTarget) error
 	execute   func(service secretsync.Service, targets []secretsync.MappingTarget) error
@@ -46,9 +46,9 @@ func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsy
 
 func (r commandRuntime) executeMapping(spec mappingCommandSpec) int {
 	return r.execute(func(loaded *config.Loaded, service secretsync.Service) error {
-		targets, err := secretsync.SelectTargets(loaded.Cfg.Mapping, spec.all, r.parsed.fs.Args(), spec.mode)
+		targets, err := selectMappingTargetsForMode(loaded.Cfg.Mapping, spec.all, r.parsed.fs.Args(), spec.mode)
 		if err != nil {
-			return usageError(err)
+			return err
 		}
 		if spec.preflight != nil {
 			if err := spec.preflight(targets); err != nil {

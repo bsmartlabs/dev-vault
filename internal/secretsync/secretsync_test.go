@@ -194,57 +194,7 @@ func TestNewAndNewFromLoaded(t *testing.T) {
 	}
 }
 
-func TestSelectMappingAndParseType(t *testing.T) {
-	mapping := map[string]config.MappingEntry{
-		"a-dev": {Mode: "both"},
-		"b-dev": {Mode: "pull"},
-		"c-dev": {Mode: "push"},
-	}
-
-	if _, err := SelectMappingNames(mapping, true, []string{"a-dev"}, "pull"); err == nil {
-		t.Fatal("expected --all conflict error")
-	}
-	if _, err := SelectMappingNames(mapping, false, nil, "pull"); err == nil {
-		t.Fatal("expected no-secret error")
-	}
-	if _, err := SelectMappingNames(mapping, true, nil, "nope"); err == nil {
-		t.Fatal("expected unknown-mode error")
-	}
-	if _, err := SelectMappingNames(mapping, true, nil, "push"); err != nil {
-		t.Fatalf("expected push mode selection success, got %v", err)
-	}
-	if _, err := SelectMappingNames(map[string]config.MappingEntry{"c-dev": {Mode: "push"}}, true, nil, "pull"); err == nil {
-		t.Fatal("expected empty selection error")
-	}
-	if _, err := SelectMappingNames(mapping, false, []string{"notprod"}, "pull"); err == nil {
-		t.Fatal("expected non-dev name error")
-	}
-	if _, err := SelectMappingNames(mapping, false, []string{"missing-dev"}, "pull"); err == nil {
-		t.Fatal("expected missing mapping error")
-	}
-	if _, err := SelectMappingNames(mapping, false, []string{"c-dev"}, "pull"); err == nil {
-		t.Fatal("expected mode mismatch error")
-	}
-
-	names, err := SelectMappingNames(mapping, false, []string{"a-dev", "b-dev", "a-dev"}, "pull")
-	if err != nil {
-		t.Fatalf("unexpected select error: %v", err)
-	}
-	if strings.Join(names, ",") != "a-dev,b-dev" {
-		t.Fatalf("unexpected names: %v", names)
-	}
-
-	targets, err := SelectTargets(mapping, true, nil, "pull")
-	if err != nil {
-		t.Fatalf("unexpected select targets error: %v", err)
-	}
-	if len(targets) != 2 {
-		t.Fatalf("unexpected target count: %d", len(targets))
-	}
-	if _, err := SelectTargets(mapping, false, nil, "pull"); err == nil {
-		t.Fatal("expected select targets error passthrough")
-	}
-
+func TestParseType(t *testing.T) {
 	if _, err := ParseSecretType("opaque"); err != nil {
 		t.Fatalf("expected valid secret type, got %v", err)
 	}

@@ -62,11 +62,24 @@ func (s commandService) resolveMappedSecret(name string, entry config.MappingEnt
 }
 
 func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {
-	targets, err := secretsync.SelectMappingNames(mapping, all, positional, mode)
-	if err != nil {
-		return nil, usageError(err)
+	var typedMode commandMode
+	switch mode {
+	case "pull":
+		typedMode = commandModePull
+	case "push":
+		typedMode = commandModePush
+	default:
+		typedMode = commandMode(0)
 	}
-	return targets, nil
+	targets, err := selectMappingTargetsForMode(mapping, all, positional, typedMode)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(targets))
+	for _, target := range targets {
+		names = append(names, target.Name)
+	}
+	return names, nil
 }
 
 func parseSecretType(s string) (secretprovider.SecretType, error) {

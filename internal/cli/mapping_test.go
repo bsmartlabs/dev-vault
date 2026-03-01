@@ -47,3 +47,25 @@ func TestSelectMappingTargets_DedupesExplicitTargetsPreservingOrder(t *testing.T
 		}
 	}
 }
+
+func TestCommandModeHelpers(t *testing.T) {
+	entry := config.MappingEntry{Mode: "both"}
+	if commandModePull.String() != "pull" {
+		t.Fatalf("unexpected pull mode string: %q", commandModePull.String())
+	}
+	if commandModePush.String() != "push" {
+		t.Fatalf("unexpected push mode string: %q", commandModePush.String())
+	}
+	if commandMode(0).String() != "unknown" {
+		t.Fatalf("unexpected unknown mode string: %q", commandMode(0).String())
+	}
+	if !commandModePull.allows(entry) {
+		t.Fatalf("pull mode should allow mapping mode both")
+	}
+	if !commandModePush.allows(entry) {
+		t.Fatalf("push mode should allow mapping mode both")
+	}
+	if commandMode(0).allows(entry) {
+		t.Fatalf("unknown mode should not allow mapping entries")
+	}
+}
