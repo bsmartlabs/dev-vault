@@ -15,21 +15,13 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 		req.Path = query.Path
 	}
 
-	var (
-		respSecrets []secretprovider.SecretRecord
-		err         error
-	)
 	if query.Type != "" {
-		st, err := parseSecretType(query.Type)
-		if err != nil {
-			return nil, usageError(fmt.Errorf("invalid --type: %w", err))
-		}
-		req.Type = st
+		req.Type = query.Type
 	}
 
-	respSecrets, err = s.api.ListSecrets(req)
+	respSecrets, err := s.api.ListSecrets(req)
 	if err != nil {
-		return nil, runtimeError(err)
+		return nil, fmt.Errorf("list secrets: %w", err)
 	}
 
 	filtered := make([]listRecord, 0, len(respSecrets))

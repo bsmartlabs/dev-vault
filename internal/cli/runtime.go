@@ -12,7 +12,7 @@ type listQuery struct {
 	NameContains []string
 	NameRegex    *regexp.Regexp
 	Path         string
-	Type         string
+	Type         secretprovider.SecretType
 }
 
 type listRecord struct {

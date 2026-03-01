@@ -25,11 +25,7 @@ func (s commandService) lookupMappedSecret(name string, entry config.MappingEntr
 	}
 
 	if entry.Type != "" {
-		secretType, err := parseSecretType(entry.Type)
-		if err != nil {
-			return nil, fmt.Errorf("invalid mapping.type %q: %w", entry.Type, err)
-		}
-		req.Type = secretType
+		req.Type = secretprovider.SecretType(entry.Type)
 	}
 
 	respSecrets, err := s.api.ListSecrets(req)

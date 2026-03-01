@@ -102,21 +102,6 @@ func TestCommandService_List_ListError(t *testing.T) {
 	}
 }
 
-func TestCommandService_List_InvalidType(t *testing.T) {
-	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
-		Now:      time.Now,
-		Hostname: func() (string, error) { return "host", nil },
-	})
-
-	_, err := svc.list(listQuery{Type: "not-a-type"})
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "invalid --type") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestCommandService_ResolveMappedSecret_CreateMissingRequiresType(t *testing.T) {
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
 		Now:      time.Now,

@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
 func runList(ctx commandContext, argv []string) int {
@@ -37,6 +38,7 @@ func runList(ctx commandContext, argv []string) int {
 	}, func(parsed *parsedCommand) int {
 		return newCommandRuntime(ctx, parsed).execute(func(_ *config.Loaded, service commandService) error {
 			var re *regexp.Regexp
+			var selectedType secretprovider.SecretType
 			if nameRegex != "" {
 				compiled, err := regexp.Compile(nameRegex)
 				if err != nil {
@@ -44,12 +46,19 @@ func runList(ctx commandContext, argv []string) int {
 				}
 				re = compiled
 			}
+			if typeFilter != "" {
+				parsedType, err := parseSecretType(typeFilter)
+				if err != nil {
+					return usageError(fmt.Errorf("invalid --type: %w", err))
+				}
+				selectedType = parsedType
+			}
 
 			filtered, err := service.list(listQuery{
 				NameContains: contains,
 				NameRegex:    re,
 				Path:         pathFilter,
-				Type:         typeFilter,
+				Type:         selectedType,
 			})
 			if err != nil {
 				return err
