@@ -98,32 +98,20 @@ func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResul
 }
 
 func runPushBatch(ctx commandContext, parsed *parsedCommand, opts pushOptions) int {
-	preflight := func(targets []mapping.Target) error {
-		if len(targets) > 1 && !opts.yes {
-			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
-		}
-		return nil
-	}
-
-	runtime := newCommandRuntime(ctx, parsed)
-	loaded, err := runtime.loadWithPolicy(parsed.configPolicy)
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	targets, err := runtime.selectMappingTargets(loaded, mapping.ModePush, opts.all, preflight, parsed.fs.Args())
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	service, err := runtime.newService(loaded)
-	if err != nil {
-		return runtime.writeStderrError(runtimeError(err))
-	}
-
-	result := service.PushBatch(targets, opts.toServicePushOptions())
-	if err := reportPushBatchResults(ctx, result); err != nil {
-		return runtime.writeStderrError(err)
-	}
-	return 0
+	return runOperationBatch(
+		ctx,
+		parsed,
+		mapping.ModePush,
+		opts.all,
+		func(targets []mapping.Target) error {
+			if len(targets) > 1 && !opts.yes {
+				return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
+			}
+			return nil
+		},
+		func(service secretsync.Service, targets []mapping.Target) secretsync.PushBatchResult {
+			return service.PushBatch(targets, opts.toServicePushOptions())
+		},
+		reportPushBatchResults,
+	)
 }

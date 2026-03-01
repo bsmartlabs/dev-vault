@@ -75,25 +75,15 @@ func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResul
 }
 
 func runPullBatch(ctx commandContext, parsed *parsedCommand, opts pullOptions) int {
-	runtime := newCommandRuntime(ctx, parsed)
-	loaded, err := runtime.loadWithPolicy(parsed.configPolicy)
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	targets, err := runtime.selectMappingTargets(loaded, mapping.ModePull, opts.all, nil, parsed.fs.Args())
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	service, err := runtime.newService(loaded)
-	if err != nil {
-		return runtime.writeStderrError(runtimeError(err))
-	}
-
-	result := service.PullBatch(targets, opts.overwrite)
-	if err := reportPullBatchResults(ctx, result); err != nil {
-		return runtime.writeStderrError(err)
-	}
-	return 0
+	return runOperationBatch(
+		ctx,
+		parsed,
+		mapping.ModePull,
+		opts.all,
+		nil,
+		func(service secretsync.Service, targets []mapping.Target) secretsync.PullBatchResult {
+			return service.PullBatch(targets, opts.overwrite)
+		},
+		reportPullBatchResults,
+	)
 }
