@@ -9,8 +9,8 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-func resolveSecretByNameAndPathFromIndex(api secretprovider.SecretLister, scope secretProjectScope, name, path string) (*secretprovider.SecretRecord, error) {
-	index, err := buildSecretLookupIndex(api, scope)
+func resolveSecretByNameAndPathFromIndex(api secretprovider.SecretLister, name, path string) (*secretprovider.SecretRecord, error) {
+	index, err := buildSecretLookupIndex(api)
 	if err != nil {
 		return nil, err
 	}
@@ -26,10 +26,7 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 	fake := newFakeSecretAPI()
 	s := fake.AddSecret("project", "x-dev", "/", secret.SecretTypeOpaque)
 
-	found, err := resolveSecretByNameAndPathFromIndex(fake, secretProjectScope{
-		Region:    "fr-par",
-		ProjectID: "project",
-	}, "x-dev", "/")
+	found, err := resolveSecretByNameAndPathFromIndex(fake, "x-dev", "/")
 	if err != nil {
 		t.Fatalf("resolveSecretByNameAndPathFromIndex: %v", err)
 	}
@@ -52,10 +49,7 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 func TestResolveSecretByNameAndPath_ListError(t *testing.T) {
 	fake := newFakeSecretAPI()
 	fake.listErr = errors.New("boom")
-	_, err := resolveSecretByNameAndPathFromIndex(fake, secretProjectScope{
-		Region:    "fr-par",
-		ProjectID: "project",
-	}, "x-dev", "/")
+	_, err := resolveSecretByNameAndPathFromIndex(fake, "x-dev", "/")
 	if err == nil {
 		t.Fatal("expected list error")
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullResult, error) {
-	lookupIndex, err := buildSecretLookupIndex(s.api, s.projectScope())
+	lookupIndex, err := buildSecretLookupIndex(s.api)
 	if err != nil {
 		return nil, fmt.Errorf("build secret lookup index: %w", err)
 	}
@@ -28,7 +28,6 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 		}
 
 		access, err := s.api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{
-			Region:   s.cfg.Region,
 			SecretID: resolvedSecret.ID,
 			Revision: secretprovider.RevisionLatestEnabled,
 		})

@@ -27,16 +27,8 @@ func (e *notFoundError) Error() string {
 	return fmt.Sprintf("secret not found: name=%s path=%s", e.name, e.path)
 }
 
-type secretProjectScope struct {
-	Region    string
-	ProjectID string
-}
-
-func buildSecretLookupIndex(api secretprovider.SecretLister, scope secretProjectScope) (map[string][]secretprovider.SecretRecord, error) {
-	respSecrets, err := listSecretsByTypes(api, secretprovider.ListSecretsInput{
-		Region:    scope.Region,
-		ProjectID: scope.ProjectID,
-	}, supportedSecretTypes())
+func buildSecretLookupIndex(api secretprovider.SecretLister) (map[string][]secretprovider.SecretRecord, error) {
+	respSecrets, err := listSecretsByTypes(api, secretprovider.ListSecretsInput{}, supportedSecretTypes())
 	if err != nil {
 		return nil, err
 	}

@@ -51,15 +51,8 @@ func newCommandService(loaded *config.Loaded, api secretprovider.SecretAPI, deps
 func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.SecretAPI, deps Dependencies) commandService {
 	return commandService{
 		cfg:      cfg,
-		api:      api,
+		api:      secretprovider.BindScope(api, cfg.Region, cfg.ProjectID),
 		now:      deps.Now,
 		hostname: deps.Hostname,
-	}
-}
-
-func (s commandService) projectScope() secretProjectScope {
-	return secretProjectScope{
-		Region:    s.cfg.Region,
-		ProjectID: s.cfg.ProjectID,
 	}
 }

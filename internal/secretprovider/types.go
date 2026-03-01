@@ -85,3 +85,11 @@ type SecretAPI interface {
 	SecretCreator
 	SecretVersionCreator
 }
+
+func BindScope(api SecretAPI, region, projectID string) SecretAPI {
+	return &scopedAPI{
+		base:      api,
+		region:    region,
+		projectID: projectID,
+	}
+}

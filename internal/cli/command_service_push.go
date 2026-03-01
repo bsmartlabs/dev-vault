@@ -12,7 +12,7 @@ import (
 
 func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushResult, error) {
 	desc := s.pushDescription(opts.Description)
-	lookupIndex, err := buildSecretLookupIndex(s.api, s.projectScope())
+	lookupIndex, err := buildSecretLookupIndex(s.api)
 	if err != nil {
 		return nil, fmt.Errorf("build secret lookup index: %w", err)
 	}
@@ -29,7 +29,6 @@ func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushR
 		}
 
 		version, err := s.api.CreateSecretVersion(createSecretVersionInput(
-			s.cfg.Region,
 			resolvedSecret.ID,
 			payload,
 			desc,
@@ -75,9 +74,8 @@ func (s commandService) readPushPayload(name string, entry config.MappingEntry) 
 	return raw, nil
 }
 
-func createSecretVersionInput(region, secretID string, payload []byte, description string, disablePrevious bool) secretprovider.CreateSecretVersionInput {
+func createSecretVersionInput(secretID string, payload []byte, description string, disablePrevious bool) secretprovider.CreateSecretVersionInput {
 	req := secretprovider.CreateSecretVersionInput{
-		Region:      region,
 		SecretID:    secretID,
 		Data:        payload,
 		Description: &description,
@@ -111,11 +109,9 @@ func (s commandService) resolveMappedSecret(name string, entry config.MappingEnt
 		return nil, fmt.Errorf("push %s: invalid mapping.type %q: %w", name, entry.Type, err)
 	}
 	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
-		Region:    s.cfg.Region,
-		ProjectID: s.cfg.ProjectID,
-		Name:      name,
-		Type:      secretType,
-		Path:      entry.Path,
+		Name: name,
+		Type: secretType,
+		Path: entry.Path,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
