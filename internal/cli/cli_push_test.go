@@ -17,7 +17,7 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
+func TestRunPushRawAndDotenvAndCreateMissing(t *testing.T) {
 	root := t.TempDir()
 	cfg := `{
 	  "organization_id":"org",
@@ -125,7 +125,7 @@ func TestRunPush_RawAndDotenvAndCreateMissing(t *testing.T) {
 	})
 }
 
-func TestRunPush_MoreBranches(t *testing.T) {
+func TestRunPushMoreBranches(t *testing.T) {
 	t.Run("LoadError", func(t *testing.T) {
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", "/nope.json", "push", "--all", "--yes"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -308,7 +308,7 @@ func TestReorderFlags(t *testing.T) {
 	})
 }
 
-func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
+func TestResolveSecretByNameAndPathMultipleMatches(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
@@ -319,7 +319,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 	}
 }
 
-func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
+func TestResolveSecretByNameAndPathNotFound(t *testing.T) {
 	api := newFakeSecretAPI()
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
 	_, err := svc.lookupMappedSecret("missing-dev", mapping.Entry{Path: "/"})
@@ -330,7 +330,7 @@ func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 	_ = nf.Error()
 }
 
-func TestListSecretsByTypes_Error(t *testing.T) {
+func TestListSecretsByTypesError(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
@@ -340,7 +340,7 @@ func TestListSecretsByTypes_Error(t *testing.T) {
 	}
 }
 
-func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T) {
+func TestRunPushDefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
@@ -371,7 +371,7 @@ func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T)
 	}
 }
 
-func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.T) {
+func TestRunPushCreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
 		t.Fatalf("write in.bin: %v", err)
@@ -400,7 +400,7 @@ func TestRunPush_CreateMissingInvalidMappingTypeAndCreateSecretError(t *testing.
 	})
 }
 
-func TestRunPush_ResolveErrorNoCreateMissing(t *testing.T) {
+func TestRunPushResolveErrorNoCreateMissing(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
@@ -415,7 +415,7 @@ func TestRunPush_ResolveErrorNoCreateMissing(t *testing.T) {
 	}
 }
 
-func TestRunPush_FileReadError(t *testing.T) {
+func TestRunPushFileReadError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"missing.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
@@ -428,7 +428,7 @@ func TestRunPush_FileReadError(t *testing.T) {
 	}
 }
 
-func TestRunPush_MappingResolveError(t *testing.T) {
+func TestRunPushMappingResolveError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
@@ -441,7 +441,7 @@ func TestRunPush_MappingResolveError(t *testing.T) {
 	}
 }
 
-func TestRunPush_DisablePrevious(t *testing.T) {
+func TestRunPushDisablePrevious(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("A"), 0o644); err != nil {
@@ -473,7 +473,7 @@ func TestRunPush_DisablePrevious(t *testing.T) {
 	}
 }
 
-func TestRunPush_ListErrorViaLookupIndex(t *testing.T) {
+func TestRunPushListErrorViaLookupIndex(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
@@ -489,7 +489,7 @@ func TestRunPush_ListErrorViaLookupIndex(t *testing.T) {
 	}
 }
 
-func TestRunPush_DotenvParseError(t *testing.T) {
+func TestRunPushDotenvParseError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.env","format":"dotenv","path":"/","mode":"push","type":"key_value"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.env"), []byte("NOPE"), 0o644); err != nil {
@@ -505,7 +505,7 @@ func TestRunPush_DotenvParseError(t *testing.T) {
 	}
 }
 
-func TestRunPush_TypeMismatch(t *testing.T) {
+func TestRunPushTypeMismatch(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"key_value"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
@@ -521,7 +521,7 @@ func TestRunPush_TypeMismatch(t *testing.T) {
 	}
 }
 
-func TestRunPush_CreateMissing_ResolveStillFails(t *testing.T) {
+func TestRunPushCreateMissingResolveStillFails(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {

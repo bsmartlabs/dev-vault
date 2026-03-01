@@ -23,7 +23,7 @@ func TestDefaultDependencies(t *testing.T) {
 	}
 }
 
-func TestLoadAndOpenAPI_ConfigDiscoveryError(t *testing.T) {
+func TestLoadAndOpenAPIConfigDiscoveryError(t *testing.T) {
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
 	_, err := loadConfig("", deps)
 	if err == nil {
@@ -31,7 +31,7 @@ func TestLoadAndOpenAPI_ConfigDiscoveryError(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_AbsolutePath(t *testing.T) {
+func TestLoadConfigAbsolutePath(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
@@ -46,7 +46,7 @@ func TestLoadConfig_AbsolutePath(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_AbsolutePathLoadError(t *testing.T) {
+func TestLoadConfigAbsolutePathLoadError(t *testing.T) {
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	})
@@ -56,7 +56,7 @@ func TestLoadConfig_AbsolutePathLoadError(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_RelativePathBranches(t *testing.T) {
+func TestLoadConfigRelativePathBranches(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		root := t.TempDir()
 		writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
@@ -94,7 +94,7 @@ func TestLoadConfig_RelativePathBranches(t *testing.T) {
 	})
 }
 
-func TestLoadAndOpenAPI_Success(t *testing.T) {
+func TestLoadAndOpenAPISuccess(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
@@ -116,7 +116,7 @@ func TestLoadAndOpenAPI_Success(t *testing.T) {
 	}
 }
 
-func TestLoadAndOpenAPI_ConfigError(t *testing.T) {
+func TestLoadAndOpenAPIConfigError(t *testing.T) {
 	_, err := loadConfig("/nope.json", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	}))
@@ -125,7 +125,7 @@ func TestLoadAndOpenAPI_ConfigError(t *testing.T) {
 	}
 }
 
-func TestLoadAndOpenAPI_OpenError(t *testing.T) {
+func TestLoadAndOpenAPIOpenError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -141,7 +141,7 @@ func TestLoadAndOpenAPI_OpenError(t *testing.T) {
 	}
 }
 
-func TestLoadProjectConfig_Branches(t *testing.T) {
+func TestLoadProjectConfigBranches(t *testing.T) {
 	t.Run("AbsolutePath", func(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par"}`)
@@ -188,7 +188,7 @@ func TestLoadProjectConfig_Branches(t *testing.T) {
 	})
 }
 
-func TestRun_ProfileOverridePropagatesToOpenSecretAPI(t *testing.T) {
+func TestRunProfileOverridePropagatesToOpenSecretAPI(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
   "organization_id":"org",
@@ -216,7 +216,7 @@ func TestRun_ProfileOverridePropagatesToOpenSecretAPI(t *testing.T) {
 	}
 }
 
-func TestRun_ReportsServiceInitErrorWhenAPIIsNil(t *testing.T) {
+func TestRunReportsServiceInitErrorWhenAPIIsNil(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
   "organization_id":"org",
@@ -278,7 +278,7 @@ func TestConfigPolicyContracts(t *testing.T) {
 	}
 }
 
-func TestCommandRuntime_InvalidConfigPolicy(t *testing.T) {
+func TestCommandRuntimeInvalidConfigPolicy(t *testing.T) {
 	ctx := commandContext{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestUsageFunctions_BasicSmoke(t *testing.T) {
+func TestUsageFunctionsBasicSmoke(t *testing.T) {
 	tests := []struct {
 		name     string
 		fn       func(io.Writer) error
@@ -37,7 +37,7 @@ func TestUsageFunctions_BasicSmoke(t *testing.T) {
 	}
 }
 
-func TestPrintMainUsage_ExplicitNamesMustRespectMode(t *testing.T) {
+func TestPrintMainUsageExplicitNamesMustRespectMode(t *testing.T) {
 	var buf bytes.Buffer
 	if err := printMainUsage(&buf); err != nil {
 		t.Fatalf("printMainUsage: %v", err)
@@ -48,7 +48,7 @@ func TestPrintMainUsage_ExplicitNamesMustRespectMode(t *testing.T) {
 	}
 }
 
-func TestUsageWriter_ShortCircuitOnError(t *testing.T) {
+func TestUsageWriterShortCircuitOnError(t *testing.T) {
 	w := &usageWriter{w: &failingWriter{}}
 	w.line("first")
 	if w.err == nil {

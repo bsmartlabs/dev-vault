@@ -8,7 +8,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 )
 
-func TestRunPullBatch_ServiceInitError(t *testing.T) {
+func TestRunPullBatchServiceInitError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
   "organization_id":"org",
@@ -40,7 +40,7 @@ func TestRunPullBatch_ServiceInitError(t *testing.T) {
 	}
 }
 
-func TestRunPushBatch_ServiceInitError(t *testing.T) {
+func TestRunPushBatchServiceInitError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
   "organization_id":"org",

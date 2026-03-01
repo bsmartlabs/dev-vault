@@ -12,7 +12,7 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-func TestRunPull_RawAndErrors(t *testing.T) {
+func TestRunPullRawAndErrors(t *testing.T) {
 	root := t.TempDir()
 	cfg := `{
 	  "organization_id":"org",
@@ -104,7 +104,7 @@ func TestRunPull_RawAndErrors(t *testing.T) {
 	})
 }
 
-func TestRunPull_SelectionErrorsAndLoadError(t *testing.T) {
+func TestRunPullSelectionErrorsAndLoadError(t *testing.T) {
 	t.Run("LoadError", func(t *testing.T) {
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", "/nope.json", "pull", "--all"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -159,7 +159,7 @@ func TestRunPull_SelectionErrorsAndLoadError(t *testing.T) {
 	})
 }
 
-func TestRunPull_DotenvAndTypeMismatch(t *testing.T) {
+func TestRunPullDotenvAndTypeMismatch(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 
@@ -176,7 +176,7 @@ func TestRunPull_DotenvAndTypeMismatch(t *testing.T) {
 	}
 }
 
-func TestRunPull_DotenvSuccess(t *testing.T) {
+func TestRunPullDotenvSuccess(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 
@@ -201,7 +201,7 @@ func TestRunPull_DotenvSuccess(t *testing.T) {
 	}
 }
 
-func TestRunPull_DotenvFormatError(t *testing.T) {
+func TestRunPullDotenvFormatError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 	api := newFakeSecretAPI()
@@ -216,7 +216,7 @@ func TestRunPull_DotenvFormatError(t *testing.T) {
 	}
 }
 
-func TestRunPull_MappingResolveError(t *testing.T) {
+func TestRunPullMappingResolveError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
@@ -229,7 +229,7 @@ func TestRunPull_MappingResolveError(t *testing.T) {
 	}
 }
 
-func TestRunPull_ResolveMultipleMatches(t *testing.T) {
+func TestRunPullResolveMultipleMatches(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"dup-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
@@ -243,7 +243,7 @@ func TestRunPull_ResolveMultipleMatches(t *testing.T) {
 	}
 }
 
-func TestRunPull_ListErrorViaResolve(t *testing.T) {
+func TestRunPullListErrorViaResolve(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()

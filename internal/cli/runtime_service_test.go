@@ -10,7 +10,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 )
 
-func TestCommandRuntime_NewServiceErrors(t *testing.T) {
+func TestCommandRuntimeNewServiceErrors(t *testing.T) {
 	loaded := &config.Loaded{
 		Root: ".",
 		Cfg: config.Config{

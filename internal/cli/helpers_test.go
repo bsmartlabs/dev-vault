@@ -18,7 +18,7 @@ func dotenvToJSONForTest(payload []byte) ([]byte, error) {
 	return secretworkflow.DotenvToJSON(payload)
 }
 
-func TestHelpersFile_BasicSmoke(t *testing.T) {
+func TestHelpersFileBasicSmoke(t *testing.T) {
 	var flags stringSliceFlag
 	if err := flags.Set("one"); err != nil {
 		t.Fatalf("set flag one: %v", err)

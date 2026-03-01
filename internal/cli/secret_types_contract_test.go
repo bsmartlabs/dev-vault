@@ -9,7 +9,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
-func TestSecretTypesContract_CanonicalPolicy(t *testing.T) {
+func TestSecretTypesContractCanonicalPolicy(t *testing.T) {
 	canonical := secrettype.Names()
 	if len(canonical) == 0 {
 		t.Fatal("expected canonical secret type policy to be non-empty")
@@ -53,7 +53,7 @@ func TestSecretTypesContract_CanonicalPolicy(t *testing.T) {
 	}
 }
 
-func TestSecretTypesContract_ListUsageIncludesCanonicalTypes(t *testing.T) {
+func TestSecretTypesContractListUsageIncludesCanonicalTypes(t *testing.T) {
 	var buf bytes.Buffer
 	if err := printListUsage(&buf); err != nil {
 		t.Fatalf("printListUsage: %v", err)

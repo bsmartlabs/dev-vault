@@ -7,7 +7,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
-func TestMappingModule_Smoke(t *testing.T) {
+func TestMappingModuleSmoke(t *testing.T) {
 	mapping := map[string]mapping.Entry{"a-dev": {Mode: "pull"}}
 	targets, err := selectMappingTargets(mapping, true, nil, "pull")
 	if err != nil {
@@ -27,7 +27,7 @@ func TestMappingModule_Smoke(t *testing.T) {
 	}
 }
 
-func TestSelectMappingTargets_DedupesExplicitTargetsPreservingOrder(t *testing.T) {
+func TestSelectMappingTargetsDedupesExplicitTargetsPreservingOrder(t *testing.T) {
 	mapping := map[string]mapping.Entry{
 		"a-dev": {Mode: "pull"},
 		"b-dev": {Mode: "pull"},

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestFlagsModule_Smoke(t *testing.T) {
+func TestFlagsModuleSmoke(t *testing.T) {
 	takes := withGlobalFlagSpecs(map[string]bool{"json": false})
 	if !takes["config"] || !takes["profile"] {
 		t.Fatalf("expected global keys in spec: %#v", takes)

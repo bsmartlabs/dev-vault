@@ -25,7 +25,7 @@ func (w *failAfterFirstWrite) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func TestRun_GlobalFlagParseError(t *testing.T) {
+func TestRunGlobalFlagParseError(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--nope"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -35,7 +35,7 @@ func TestRun_GlobalFlagParseError(t *testing.T) {
 	}
 }
 
-func TestRun_GlobalHelpFlag(t *testing.T) {
+func TestRunGlobalHelpFlag(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -48,7 +48,7 @@ func TestRun_GlobalHelpFlag(t *testing.T) {
 	}
 }
 
-func TestRun_GlobalHelpLongFlag(t *testing.T) {
+func TestRunGlobalHelpLongFlag(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -61,7 +61,7 @@ func TestRun_GlobalHelpLongFlag(t *testing.T) {
 	}
 }
 
-func TestRun_GlobalHelpViaFlagSetPath(t *testing.T) {
+func TestRunGlobalHelpViaFlagSetPath(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", "x", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -74,7 +74,7 @@ func TestRun_GlobalHelpViaFlagSetPath(t *testing.T) {
 	}
 }
 
-func TestRun_GlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
+func TestRunGlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--profile", "ci", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -90,7 +90,7 @@ func TestRun_GlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
 	}
 }
 
-func TestRun_MissingDeps_OnlyForRuntimeCommands(t *testing.T) {
+func TestRunMissingDepsOnlyForRuntimeCommands(t *testing.T) {
 	var out, errBuf bytes.Buffer
 
 	code := Run([]string{"dev-vault", "version"}, &out, &errBuf, Dependencies{})
@@ -112,7 +112,7 @@ func TestRun_MissingDeps_OnlyForRuntimeCommands(t *testing.T) {
 	}
 }
 
-func TestRun_UnknownCommand(t *testing.T) {
+func TestRunUnknownCommand(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "nope"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -122,7 +122,7 @@ func TestRun_UnknownCommand(t *testing.T) {
 	}
 }
 
-func TestRun_Version(t *testing.T) {
+func TestRunVersion(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "version"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -135,7 +135,7 @@ func TestRun_Version(t *testing.T) {
 	}
 }
 
-func TestRun_VersionRejectsUnexpectedArgs(t *testing.T) {
+func TestRunVersionRejectsUnexpectedArgs(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "version", "extra"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -148,7 +148,7 @@ func TestRun_VersionRejectsUnexpectedArgs(t *testing.T) {
 	}
 }
 
-func TestRun_ListRejectsUnexpectedArgs(t *testing.T) {
+func TestRunListRejectsUnexpectedArgs(t *testing.T) {
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		t.Fatal("list arg validation should run before config/API bootstrap")
 		return nil, nil
@@ -164,7 +164,7 @@ func TestRun_ListRejectsUnexpectedArgs(t *testing.T) {
 	}
 }
 
-func TestRun_Help(t *testing.T) {
+func TestRunHelp(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -177,7 +177,7 @@ func TestRun_Help(t *testing.T) {
 	}
 }
 
-func TestRun_HelpCommandSpecific(t *testing.T) {
+func TestRunHelpCommandSpecific(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help", "pull"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -190,7 +190,7 @@ func TestRun_HelpCommandSpecific(t *testing.T) {
 	}
 }
 
-func TestRun_HelpCommandSpecific_Version(t *testing.T) {
+func TestRunHelpCommandSpecificVersion(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help", "version"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -203,7 +203,7 @@ func TestRun_HelpCommandSpecific_Version(t *testing.T) {
 	}
 }
 
-func TestRun_HelpCommandSpecific_List(t *testing.T) {
+func TestRunHelpCommandSpecificList(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help", "list"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -216,7 +216,7 @@ func TestRun_HelpCommandSpecific_List(t *testing.T) {
 	}
 }
 
-func TestRun_HelpCommandSpecific_Push(t *testing.T) {
+func TestRunHelpCommandSpecificPush(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help", "push"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -229,7 +229,7 @@ func TestRun_HelpCommandSpecific_Push(t *testing.T) {
 	}
 }
 
-func TestRun_HelpUnknownCommandSpecific(t *testing.T) {
+func TestRunHelpUnknownCommandSpecific(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help", "nope"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -242,7 +242,7 @@ func TestRun_HelpUnknownCommandSpecific(t *testing.T) {
 	}
 }
 
-func TestRun_HelpRejectsExtraArgs(t *testing.T) {
+func TestRunHelpRejectsExtraArgs(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -255,7 +255,7 @@ func TestRun_HelpRejectsExtraArgs(t *testing.T) {
 	}
 }
 
-func TestRun_HelpRejectsExtraArgs_WriteError(t *testing.T) {
+func TestRunHelpRejectsExtraArgsWriteError(t *testing.T) {
 	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &bytes.Buffer{}, &failingWriter{}, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	}))
@@ -264,7 +264,7 @@ func TestRun_HelpRejectsExtraArgs_WriteError(t *testing.T) {
 	}
 }
 
-func TestRun_HelpRejectsExtraArgs_UsageWriteError(t *testing.T) {
+func TestRunHelpRejectsExtraArgsUsageWriteError(t *testing.T) {
 	var out bytes.Buffer
 	stderr := &failAfterFirstWrite{}
 	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &out, stderr, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -275,7 +275,7 @@ func TestRun_HelpRejectsExtraArgs_UsageWriteError(t *testing.T) {
 	}
 }
 
-func TestRun_NoCommand(t *testing.T) {
+func TestRunNoCommand(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -288,7 +288,7 @@ func TestRun_NoCommand(t *testing.T) {
 	}
 }
 
-func TestRun_EmptyArgv(t *testing.T) {
+func TestRunEmptyArgv(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -301,7 +301,7 @@ func TestRun_EmptyArgv(t *testing.T) {
 	}
 }
 
-func TestRun_SubcommandHelpFlag(t *testing.T) {
+func TestRunSubcommandHelpFlag(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "pull", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -314,7 +314,7 @@ func TestRun_SubcommandHelpFlag(t *testing.T) {
 	}
 }
 
-func TestRun_GlobalSingleDashHelpFlag(t *testing.T) {
+func TestRunGlobalSingleDashHelpFlag(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -330,7 +330,7 @@ func TestRun_GlobalSingleDashHelpFlag(t *testing.T) {
 	}
 }
 
-func TestRun_SubcommandHelpFlag_List(t *testing.T) {
+func TestRunSubcommandHelpFlagList(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "list", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -343,7 +343,7 @@ func TestRun_SubcommandHelpFlag_List(t *testing.T) {
 	}
 }
 
-func TestRun_SubcommandSingleDashHelpFlag_List(t *testing.T) {
+func TestRunSubcommandSingleDashHelpFlagList(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "list", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -359,7 +359,7 @@ func TestRun_SubcommandSingleDashHelpFlag_List(t *testing.T) {
 	}
 }
 
-func TestRun_SubcommandHelpFlag_Push(t *testing.T) {
+func TestRunSubcommandHelpFlagPush(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "push", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
@@ -372,7 +372,7 @@ func TestRun_SubcommandHelpFlag_Push(t *testing.T) {
 	}
 }
 
-func TestRun_SubcommandConfigFlag(t *testing.T) {
+func TestRunSubcommandConfigFlag(t *testing.T) {
 	dir := t.TempDir()
 	writeConfig(t, dir, `{
   "organization_id": "00000000-0000-0000-0000-000000000000",
@@ -413,7 +413,7 @@ func TestRun_SubcommandConfigFlag(t *testing.T) {
 	}
 }
 
-func TestRunList_JSONAndTableAndErrors(t *testing.T) {
+func TestRunListJSONAndTableAndErrors(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 

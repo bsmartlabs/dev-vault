@@ -2,7 +2,7 @@ package cli
 
 import "testing"
 
-func TestCommandCatalog_Lookups(t *testing.T) {
+func TestCommandCatalogLookups(t *testing.T) {
 	defs := commandDefs()
 	if len(defs) != 4 {
 		t.Fatalf("expected 4 commands, got %d", len(defs))

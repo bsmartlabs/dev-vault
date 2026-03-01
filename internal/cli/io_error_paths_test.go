@@ -24,7 +24,7 @@ func (w *failAfterWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func TestRun_WriteFailureBranches(t *testing.T) {
+func TestRunWriteFailureBranches(t *testing.T) {
 	deps := Dependencies{}
 	if code := Run([]string{"dev-vault", "list"}, &bytes.Buffer{}, &failingWriter{}, deps); code != 1 {
 		t.Fatalf("expected internal dependency error to return 1, got %d", code)
@@ -80,7 +80,7 @@ func TestRun_WriteFailureBranches(t *testing.T) {
 	}
 }
 
-func TestRunVersionParsed_WriteFailure(t *testing.T) {
+func TestRunVersionParsedWriteFailure(t *testing.T) {
 	code := runVersionParsed(commandContext{
 		stdout: &failingWriter{},
 		stderr: &bytes.Buffer{},
@@ -95,7 +95,7 @@ func TestRunVersionParsed_WriteFailure(t *testing.T) {
 	}
 }
 
-func TestRunList_TableRowWriteFailure(t *testing.T) {
+func TestRunListTableRowWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
@@ -115,7 +115,7 @@ func TestRunList_TableRowWriteFailure(t *testing.T) {
 	}
 }
 
-func TestRuntimeExecute_ErrorWriteFailureStillReturnsExitCode(t *testing.T) {
+func TestRuntimeExecuteErrorWriteFailureStillReturnsExitCode(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"in.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	if err := os.WriteFile(filepath.Join(root, "in.bin"), []byte("DATA"), 0o644); err != nil {
@@ -139,7 +139,7 @@ func TestRuntimeExecute_ErrorWriteFailureStillReturnsExitCode(t *testing.T) {
 	}
 }
 
-func TestRunList_ModeCleanupLeavesListPathClean(t *testing.T) {
+func TestRunListModeCleanupLeavesListPathClean(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
@@ -156,7 +156,7 @@ func TestRunList_ModeCleanupLeavesListPathClean(t *testing.T) {
 	}
 }
 
-func TestRunList_HelpUsageWriteFailure(t *testing.T) {
+func TestRunListHelpUsageWriteFailure(t *testing.T) {
 	code := runList(commandContext{
 		stdout: &failingWriter{},
 		stderr: &bytes.Buffer{},

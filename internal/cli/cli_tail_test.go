@@ -28,7 +28,7 @@ func (c *createSecretNoPersist) CreateSecretVersion(req CreateSecretVersionInput
 	return c.inner.CreateSecretVersion(req)
 }
 
-func TestPrintUsage_Coverage(t *testing.T) {
+func TestPrintUsageCoverage(t *testing.T) {
 	var b bytes.Buffer
 	if err := printMainUsage(&b); err != nil {
 		t.Fatalf("printMainUsage: %v", err)

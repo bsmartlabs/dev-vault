@@ -12,7 +12,7 @@ import (
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-func TestRunList_MoreBranches(t *testing.T) {
+func TestRunListMoreBranches(t *testing.T) {
 	t.Run("ParseError", func(t *testing.T) {
 		var out, errBuf bytes.Buffer
 		code := runList(commandContext{
@@ -117,7 +117,7 @@ func TestRunList_MoreBranches(t *testing.T) {
 	})
 }
 
-func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
+func TestListCommandUsesAllTypesWhenNoTypeFilter(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
@@ -136,7 +136,7 @@ func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
 	}
 }
 
-func TestRunList_LoadAndOpenViaDiscovery(t *testing.T) {
+func TestRunListLoadAndOpenViaDiscovery(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "nested"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)

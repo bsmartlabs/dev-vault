@@ -24,7 +24,7 @@ func TestHasHelpFlag(t *testing.T) {
 	}
 }
 
-func TestParseCommand_SingleDashHelpPath(t *testing.T) {
+func TestParseCommandSingleDashHelpPath(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	ctx := commandContext{
 		stdout: &out,
@@ -46,7 +46,7 @@ func TestParseCommand_SingleDashHelpPath(t *testing.T) {
 	}
 }
 
-func TestParseCommand_SingleDashHelpWriteFailure(t *testing.T) {
+func TestParseCommandSingleDashHelpWriteFailure(t *testing.T) {
 	ctx := commandContext{
 		stdout: &failingWriter{},
 		stderr: &bytes.Buffer{},

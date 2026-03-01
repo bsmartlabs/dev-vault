@@ -45,7 +45,7 @@ func TestCommandErrorHelpers(t *testing.T) {
 	}
 }
 
-func TestRunHandlers_HelpAndParseErrors(t *testing.T) {
+func TestRunHandlersHelpAndParseErrors(t *testing.T) {
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return newFakeSecretAPI(), nil
 	})
@@ -85,7 +85,7 @@ func TestRunHandlers_HelpAndParseErrors(t *testing.T) {
 	}
 }
 
-func TestRunList_TableWriteFailure(t *testing.T) {
+func TestRunListTableWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
@@ -104,7 +104,7 @@ func TestRunList_TableWriteFailure(t *testing.T) {
 	}
 }
 
-func TestRunPull_And_RunPush_OutputWriteFailure(t *testing.T) {
+func TestRunPullAndRunPushOutputWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
 		"organization_id":"org",
@@ -149,7 +149,7 @@ func TestRunPull_And_RunPush_OutputWriteFailure(t *testing.T) {
 	}
 }
 
-func TestRunPullAndPush_ReportPartialBatchFailures(t *testing.T) {
+func TestRunPullAndPushReportPartialBatchFailures(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
 		"organization_id":"org",
@@ -211,7 +211,7 @@ func TestRunPullAndPush_ReportPartialBatchFailures(t *testing.T) {
 	}
 }
 
-func TestRunPullAndPush_SingleFailureUsesBatchErrorContract(t *testing.T) {
+func TestRunPullAndPushSingleFailureUsesBatchErrorContract(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
 		"organization_id":"org",
@@ -262,7 +262,7 @@ func TestRunPullAndPush_SingleFailureUsesBatchErrorContract(t *testing.T) {
 	}
 }
 
-func TestRunPullAndPush_PartialFailureStderrWriteError(t *testing.T) {
+func TestRunPullAndPushPartialFailureStderrWriteError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
 		"organization_id":"org",
@@ -310,7 +310,7 @@ func TestRunPullAndPush_PartialFailureStderrWriteError(t *testing.T) {
 	}
 }
 
-func TestRunPull_AllowsDashPrefixedPositionalAfterSentinel(t *testing.T) {
+func TestRunPullAllowsDashPrefixedPositionalAfterSentinel(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{
 		"organization_id":"org",

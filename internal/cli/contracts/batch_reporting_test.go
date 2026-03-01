@@ -55,7 +55,7 @@ func depsWithOpen(openFn func(cfg config.Config, profileOverride string) (secret
 	}
 }
 
-func TestPullBoundaryContract_OpenAPIError(t *testing.T) {
+func TestPullBoundaryContractOpenAPIError(t *testing.T) {
 	cfgPath := writeProjectConfig(t, `{
 		"organization_id":"org",
 		"project_id":"proj",
@@ -80,7 +80,7 @@ func TestPullBoundaryContract_OpenAPIError(t *testing.T) {
 	}
 }
 
-func TestPullBoundaryContract_ServiceInitError(t *testing.T) {
+func TestPullBoundaryContractServiceInitError(t *testing.T) {
 	cfgPath := writeProjectConfig(t, `{
 		"organization_id":"org",
 		"project_id":"proj",
@@ -105,7 +105,7 @@ func TestPullBoundaryContract_ServiceInitError(t *testing.T) {
 	}
 }
 
-func TestPushBoundaryContract_PreflightStopsBeforeOpen(t *testing.T) {
+func TestPushBoundaryContractPreflightStopsBeforeOpen(t *testing.T) {
 	cfgPath := writeProjectConfig(t, `{
 		"organization_id":"org",
 		"project_id":"proj",

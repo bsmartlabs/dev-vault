@@ -10,7 +10,7 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 )
 
-func TestCommandServiceModule_NewServiceWiresDeps(t *testing.T) {
+func TestCommandServiceModuleNewServiceWiresDeps(t *testing.T) {
 	loaded := &config.Loaded{}
 	api := newFakeSecretAPI()
 	deps := Dependencies{
@@ -30,7 +30,7 @@ func TestCommandServiceModule_NewServiceWiresDeps(t *testing.T) {
 	}
 }
 
-func TestCommandService_LookupMappedSecret_ListError(t *testing.T) {
+func TestCommandServiceLookupMappedSecretListError(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
@@ -47,7 +47,7 @@ func TestCommandService_LookupMappedSecret_ListError(t *testing.T) {
 	}
 }
 
-func TestCommandService_ResolveMappedSecret_NoCreateMissing(t *testing.T) {
+func TestCommandServiceResolveMappedSecretNoCreateMissing(t *testing.T) {
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
 		Now:      time.Now,
 		Hostname: func() (string, error) { return "host", nil },
@@ -62,7 +62,7 @@ func TestCommandService_ResolveMappedSecret_NoCreateMissing(t *testing.T) {
 	}
 }
 
-func TestCommandService_List_ListError(t *testing.T) {
+func TestCommandServiceListListError(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
@@ -79,7 +79,7 @@ func TestCommandService_List_ListError(t *testing.T) {
 	}
 }
 
-func TestCommandService_ResolveMappedSecret_CreateMissingRequiresType(t *testing.T) {
+func TestCommandServiceResolveMappedSecretCreateMissingRequiresType(t *testing.T) {
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
 		Now:      time.Now,
 		Hostname: func() (string, error) { return "host", nil },
@@ -94,7 +94,7 @@ func TestCommandService_ResolveMappedSecret_CreateMissingRequiresType(t *testing
 	}
 }
 
-func TestCommandService_ResolveMappedSecret_ListErrorWithCreateMissing(t *testing.T) {
+func TestCommandServiceResolveMappedSecretListErrorWithCreateMissing(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.ListErr = errors.New("boom")
 	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
