@@ -22,7 +22,7 @@ func (c *createSecretNoPersist) CreateSecret(req CreateSecretInput) (*SecretReco
 	if c.inner.createSecretErr != nil {
 		return nil, c.inner.createSecretErr
 	}
-	return &SecretRecord{ID: "tmp", ProjectID: req.ProjectID, Name: req.Name, Path: "/", Type: req.Type}, nil
+	return &SecretRecord{ID: "tmp", ProjectID: "proj", Name: req.Name, Path: "/", Type: req.Type}, nil
 }
 func (c *createSecretNoPersist) CreateSecretVersion(req CreateSecretVersionInput) (*SecretVersionRecord, error) {
 	return c.inner.CreateSecretVersion(req)

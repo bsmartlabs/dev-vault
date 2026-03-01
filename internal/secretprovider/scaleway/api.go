@@ -48,16 +48,16 @@ func Open(cfg config.Config, profileOverride string) (secretprovider.SecretAPI, 
 	}
 
 	return &API{
-		api:              secret.NewAPI(client),
-		defaultRegion:    cfg.Region,
-		defaultProjectID: cfg.ProjectID,
+		api:       secret.NewAPI(client),
+		region:    region,
+		projectID: cfg.ProjectID,
 	}, nil
 }
 
 type API struct {
-	api              scalewaySecretSDK
-	defaultRegion    string
-	defaultProjectID string
+	api       scalewaySecretSDK
+	region    scw.Region
+	projectID string
 }
 
 type scalewaySecretSDK interface {
@@ -68,14 +68,9 @@ type scalewaySecretSDK interface {
 }
 
 func (s *API) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider.SecretRecord, error) {
-	region, err := scw.ParseRegion(s.resolveRegion(req.Region))
-	if err != nil {
-		return nil, fmt.Errorf("parse region %q: %w", s.resolveRegion(req.Region), err)
-	}
-
 	listReq := &secret.ListSecretsRequest{
-		Region:               region,
-		ProjectID:            scw.StringPtr(s.resolveProjectID(req.ProjectID)),
+		Region:               s.region,
+		ProjectID:            scw.StringPtr(s.projectID),
 		ScheduledForDeletion: false,
 	}
 	if req.Type != "" {
@@ -113,12 +108,8 @@ func (s *API) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider
 }
 
 func (s *API) AccessSecretVersion(req secretprovider.AccessSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
-	region, err := scw.ParseRegion(s.resolveRegion(req.Region))
-	if err != nil {
-		return nil, fmt.Errorf("parse region %q: %w", s.resolveRegion(req.Region), err)
-	}
 	resp, err := s.api.AccessSecretVersion(&secret.AccessSecretVersionRequest{
-		Region:   region,
+		Region:   s.region,
 		SecretID: req.SecretID,
 		Revision: string(req.Revision),
 	})
@@ -134,10 +125,6 @@ func (s *API) AccessSecretVersion(req secretprovider.AccessSecretVersionInput) (
 }
 
 func (s *API) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovider.SecretRecord, error) {
-	region, err := scw.ParseRegion(s.resolveRegion(req.Region))
-	if err != nil {
-		return nil, fmt.Errorf("parse region %q: %w", s.resolveRegion(req.Region), err)
-	}
 	secretType, err := toScalewaySecretType(req.Type)
 	if err != nil {
 		return nil, err
@@ -148,8 +135,8 @@ func (s *API) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovide
 	}
 
 	resp, err := s.api.CreateSecret(&secret.CreateSecretRequest{
-		Region:      region,
-		ProjectID:   s.resolveProjectID(req.ProjectID),
+		Region:      s.region,
+		ProjectID:   s.projectID,
 		Name:        req.Name,
 		Tags:        []string{},
 		Description: nil,
@@ -171,12 +158,8 @@ func (s *API) CreateSecret(req secretprovider.CreateSecretInput) (*secretprovide
 }
 
 func (s *API) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
-	region, err := scw.ParseRegion(s.resolveRegion(req.Region))
-	if err != nil {
-		return nil, fmt.Errorf("parse region %q: %w", s.resolveRegion(req.Region), err)
-	}
 	resp, err := s.api.CreateSecretVersion(&secret.CreateSecretVersionRequest{
-		Region:          region,
+		Region:          s.region,
 		SecretID:        req.SecretID,
 		Data:            req.Data,
 		Description:     req.Description,
@@ -194,18 +177,4 @@ func (s *API) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (
 
 func toScalewaySecretType(name secretprovider.SecretType) (secret.SecretType, error) {
 	return secrettype.ToScaleway(string(name))
-}
-
-func (s *API) resolveRegion(explicit string) string {
-	if explicit != "" {
-		return explicit
-	}
-	return s.defaultRegion
-}
-
-func (s *API) resolveProjectID(explicit string) string {
-	if explicit != "" {
-		return explicit
-	}
-	return s.defaultProjectID
 }

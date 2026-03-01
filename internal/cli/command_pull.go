@@ -36,10 +36,9 @@ var pullCommandDef = commandDef{
 	RunParsed: runPullParsed,
 }
 
-var pullBatchOperation = mappingBatchOperation[secretsync.PullResult]{
+var pullBatchOperation = mappingBatchOperation[secretsync.PullResult, pullOptions]{
 	mode: commandModePull,
-	run: func(service secretsync.Service, parsed *parsedCommand, targets []secretsync.MappingTarget) (batchRunResult[secretsync.PullResult], error) {
-		opts := parsePullOptions(parsed)
+	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (batchRunResult[secretsync.PullResult], error) {
 		result := service.PullBatch(targets, opts.overwrite)
 		return batchRunResult[secretsync.PullResult]{
 			successes: result.Succeeded,
@@ -71,5 +70,5 @@ func parsePullOptions(parsed *parsedCommand) pullOptions {
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePullOptions(parsed)
-	return runMappingBatchOperation(ctx, parsed, opts.all, pullBatchOperation)
+	return runMappingBatchOperation(ctx, parsed, opts.all, opts, pullBatchOperation)
 }

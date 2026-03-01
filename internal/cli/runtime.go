@@ -25,8 +25,7 @@ func (r commandRuntime) execute(run func(loaded *config.Loaded, service secretsy
 	}
 
 	service, err := secretsync.New(secretsync.Config{
-		Root:    loaded.Root,
-		Mapping: loaded.Cfg.Mapping,
+		Root: loaded.Root,
 	}, api, secretsync.Dependencies{
 		Now:         r.ctx.deps.Now,
 		Hostname:    r.ctx.deps.Hostname,

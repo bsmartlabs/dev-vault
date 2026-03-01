@@ -17,10 +17,10 @@ type batchRunResult[T any] struct {
 	summary   secretsync.BatchSummary
 }
 
-type mappingBatchOperation[T any] struct {
+type mappingBatchOperation[T any, O any] struct {
 	mode      commandMode
-	preflight func(parsed *parsedCommand, targets []secretsync.MappingTarget) error
-	run       func(service secretsync.Service, parsed *parsedCommand, targets []secretsync.MappingTarget) (batchRunResult[T], error)
+	preflight func(opts O, targets []secretsync.MappingTarget) error
+	run       func(service secretsync.Service, targets []secretsync.MappingTarget, opts O) (batchRunResult[T], error)
 	callbacks batchReportCallbacks[T]
 }
 
@@ -42,11 +42,11 @@ func reportBatchResults[T any](result batchRunResult[T], ctx commandContext, cal
 	return result.summary.ErrorOrNil()
 }
 
-func runMappingBatchOperation[T any](ctx commandContext, parsed *parsedCommand, all bool, op mappingBatchOperation[T]) int {
+func runMappingBatchOperation[T any, O any](ctx commandContext, parsed *parsedCommand, all bool, opts O, op mappingBatchOperation[T, O]) int {
 	var preflight func(targets []secretsync.MappingTarget) error
 	if op.preflight != nil {
 		preflight = func(targets []secretsync.MappingTarget) error {
-			return op.preflight(parsed, targets)
+			return op.preflight(opts, targets)
 		}
 	}
 	return newCommandRuntime(ctx, parsed).runMappingCommand(
@@ -54,7 +54,7 @@ func runMappingBatchOperation[T any](ctx commandContext, parsed *parsedCommand, 
 		all,
 		preflight,
 		func(service secretsync.Service, targets []secretsync.MappingTarget) error {
-			result, err := op.run(service, parsed, targets)
+			result, err := op.run(service, targets, opts)
 			if err != nil {
 				return err
 			}

@@ -11,6 +11,17 @@ import (
 )
 
 func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) PushBatchResult {
+	if err := validateBatchTargets(targets, mapping.ModePush); err != nil {
+		return PushBatchResult{
+			Summary: BatchSummary{
+				Operation: "push",
+				Failed:    1,
+				Total:     len(targets),
+			},
+			Failed: []BatchFailure{{Name: "batch", Err: err}},
+		}
+	}
+
 	desc := s.pushDescription(opts.Description)
 	succeeded, failed, summary := runBatch[PushResult](
 		targets,
@@ -96,14 +107,14 @@ func (s Service) pushOne(target MappingTarget, opts PushOptions, desc string) (P
 
 func (s Service) resolveMappedSecretForPush(name string, entry mapping.Entry, createMissing bool) (*secretprovider.SecretRecord, error) {
 	if createMissing {
-		resolvedSecret, err := s.LookupOrCreateMappedSecret(name, entry)
+		resolvedSecret, err := s.lookupOrCreateMappedSecret(name, entry)
 		if err != nil {
 			return nil, err
 		}
 		return resolvedSecret, nil
 	}
 
-	resolvedSecret, err := s.LookupMappedSecret(name, entry)
+	resolvedSecret, err := s.lookupMappedSecret(name, entry)
 	if err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", name, err)
 	}

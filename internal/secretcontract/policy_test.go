@@ -8,12 +8,12 @@ import (
 func TestNames(t *testing.T) {
 	got := Names()
 	want := []string{
-		TypeBasicCreds,
-		TypeCertificate,
-		TypeDatabaseCreds,
-		TypeKeyValue,
-		TypeOpaque,
-		TypeSSHKey,
+		string(TypeBasicCreds),
+		string(TypeCertificate),
+		string(TypeDatabaseCreds),
+		string(TypeKeyValue),
+		string(TypeOpaque),
+		string(TypeSSHKey),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() mismatch: got=%v want=%v", got, want)

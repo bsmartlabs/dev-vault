@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
@@ -75,16 +74,9 @@ func selectMappingTargetsForMode(mapping map[string]mapping.Entry, all bool, pos
 		}
 		seen[name] = struct{}{}
 
-		if !secretcontract.IsDevSecretName(name) {
-			return nil, usageError(fmt.Errorf("refusing non-dev secret name: %s", name))
-		}
-
 		entry, ok := mapping[name]
 		if !ok {
 			return nil, usageError(fmt.Errorf("secret not found in mapping: %s", name))
-		}
-		if !mode.allows(entry) {
-			return nil, usageError(fmt.Errorf("secret %s not allowed in %s mode (mapping.mode=%s)", name, mode.String(), entry.Mode))
 		}
 		targets = append(targets, secretsync.MappingTarget{Name: name, Entry: entry})
 	}

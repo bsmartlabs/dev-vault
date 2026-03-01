@@ -19,11 +19,7 @@ func (e *SecretLookupMissError) Error() string {
 	return fmt.Sprintf("secret not found: name=%s path=%s", e.Name, e.Path)
 }
 
-func (s Service) LookupMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
-	return s.lookupMappedSecret(name, entry)
-}
-
-func (s Service) LookupOrCreateMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
+func (s Service) lookupOrCreateMappedSecret(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
 	resolvedSecret, err := s.lookupMappedSecret(name, entry)
 	if err == nil {
 		return resolvedSecret, nil

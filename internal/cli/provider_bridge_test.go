@@ -25,10 +25,6 @@ type SecretVersionRecord = secretprovider.SecretVersionRecord
 type CreateSecretInput = secretprovider.CreateSecretInput
 type CreateSecretVersionInput = secretprovider.CreateSecretVersionInput
 
-type SecretLister = secretprovider.SecretLister
-type SecretVersionAccessor = secretprovider.SecretVersionAccessor
-type SecretCreator = secretprovider.SecretCreator
-type SecretVersionCreator = secretprovider.SecretVersionCreator
 type SecretAPI = secretprovider.SecretAPI
 
 func OpenScalewaySecretAPI(cfg config.Config, profileOverride string) (SecretAPI, error) {

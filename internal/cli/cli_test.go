@@ -68,9 +68,6 @@ func (f *fakeSecretAPI) ListSecrets(req ListSecretsInput) ([]SecretRecord, error
 	}
 	var out []SecretRecord
 	for _, s := range f.secrets {
-		if req.ProjectID != "" && s.ProjectID != req.ProjectID {
-			continue
-		}
 		if req.Name != "" && s.Name != req.Name {
 			continue
 		}
@@ -127,7 +124,7 @@ func (f *fakeSecretAPI) CreateSecret(req CreateSecretInput) (*SecretRecord, erro
 	if req.Path != "" {
 		path = req.Path
 	}
-	s := f.AddSecret(req.ProjectID, req.Name, path, secret.SecretType(req.Type))
+	s := f.AddSecret("proj", req.Name, path, secret.SecretType(req.Type))
 	return s, nil
 }
 

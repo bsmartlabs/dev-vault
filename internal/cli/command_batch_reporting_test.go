@@ -31,10 +31,11 @@ func TestRunMappingBatchOperation_RunError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCommand: %v", err)
 	}
+	opts := parsePullOptions(parsed)
 
-	code := runMappingBatchOperation(ctx, parsed, true, mappingBatchOperation[secretsync.PullResult]{
+	code := runMappingBatchOperation(ctx, parsed, true, opts, mappingBatchOperation[secretsync.PullResult, pullOptions]{
 		mode: commandModePull,
-		run: func(service secretsync.Service, parsed *parsedCommand, targets []secretsync.MappingTarget) (batchRunResult[secretsync.PullResult], error) {
+		run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (batchRunResult[secretsync.PullResult], error) {
 			return batchRunResult[secretsync.PullResult]{}, runtimeError(errors.New("boom"))
 		},
 		callbacks: batchReportCallbacks[secretsync.PullResult]{

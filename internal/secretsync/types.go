@@ -93,8 +93,7 @@ type PushBatchResult struct {
 }
 
 type Config struct {
-	Root    string
-	Mapping map[string]mapping.Entry
+	Root string
 }
 
 type PathResolver func(rootDir string, rel string) (string, error)

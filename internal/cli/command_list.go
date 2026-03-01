@@ -76,7 +76,7 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 		}
 
 		if opts.secretType != "" {
-			parsedType, err := secretsync.ParseSecretType(opts.secretType)
+			parsedType, err := parseSecretType(opts.secretType)
 			if err != nil {
 				return usageError(fmt.Errorf("invalid --type: %w", err))
 			}

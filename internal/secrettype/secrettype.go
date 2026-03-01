@@ -8,12 +8,12 @@ import (
 )
 
 var allowed = map[string]struct{}{
-	secretcontract.TypeOpaque:        {},
-	secretcontract.TypeCertificate:   {},
-	secretcontract.TypeKeyValue:      {},
-	secretcontract.TypeBasicCreds:    {},
-	secretcontract.TypeDatabaseCreds: {},
-	secretcontract.TypeSSHKey:        {},
+	string(secretcontract.TypeOpaque):        {},
+	string(secretcontract.TypeCertificate):   {},
+	string(secretcontract.TypeKeyValue):      {},
+	string(secretcontract.TypeBasicCreds):    {},
+	string(secretcontract.TypeDatabaseCreds): {},
+	string(secretcontract.TypeSSHKey):        {},
 }
 
 func IsValid(name string) bool {
@@ -26,7 +26,7 @@ func Names() []string {
 }
 
 func ToScaleway(name string) (secret.SecretType, error) {
-	switch name {
+	switch secretcontract.Type(name) {
 	case secretcontract.TypeOpaque:
 		return secret.SecretTypeOpaque, nil
 	case secretcontract.TypeCertificate:

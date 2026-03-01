@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
@@ -40,8 +44,7 @@ func newCommandServiceWithConfig(cfg commandServiceConfig, api secretprovider.Se
 		ResolvePath: config.ResolveFile,
 	}
 	inner, err := secretsync.New(secretsync.Config{
-		Root:    cfg.Root,
-		Mapping: cfg.Mapping,
+		Root: cfg.Root,
 	}, api, syncDeps)
 	if err != nil {
 		panic(err)
@@ -60,14 +63,60 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 }
 
 func (s commandService) lookupMappedSecret(name string, entry config.MappingEntry) (*secretprovider.SecretRecord, error) {
-	return s.inner.LookupMappedSecret(name, entry)
+	req := secretprovider.ListSecretsInput{
+		Name: name,
+		Path: entry.Path,
+		Type: entry.Type,
+	}
+	respSecrets, err := s.api.ListSecrets(req)
+	if err != nil {
+		return nil, fmt.Errorf("list secrets: %w", err)
+	}
+	matches := make([]secretprovider.SecretRecord, 0, len(respSecrets))
+	for _, secretRecord := range respSecrets {
+		if secretRecord.Name == name && secretRecord.Path == entry.Path {
+			matches = append(matches, secretRecord)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, &secretLookupMissError{Name: name, Path: entry.Path}
+	}
+	if len(matches) > 1 {
+		ids := make([]string, 0, len(matches))
+		for _, secretRecord := range matches {
+			ids = append(ids, secretRecord.ID)
+		}
+		sort.Strings(ids)
+		return nil, fmt.Errorf("multiple secrets match name=%s path=%s: %s", name, entry.Path, strings.Join(ids, ","))
+	}
+	resolved := matches[0]
+	return &resolved, nil
 }
 
 func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
-	if createMissing {
-		return s.inner.LookupOrCreateMappedSecret(name, entry)
+	resolvedSecret, err := s.lookupMappedSecret(name, entry)
+	if err == nil {
+		return resolvedSecret, nil
 	}
-	return s.inner.LookupMappedSecret(name, entry)
+	var notFound *secretLookupMissError
+	if !createMissing || !errors.As(err, &notFound) {
+		if createMissing {
+			return nil, fmt.Errorf("resolve %s: %w", name, err)
+		}
+		return nil, err
+	}
+	if entry.Type == "" {
+		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
+	}
+	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
+		Name: name,
+		Type: entry.Type,
+		Path: entry.Path,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
+	}
+	return createdSecret, nil
 }
 
 func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {
@@ -89,8 +138,4 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 		names = append(names, target.Name)
 	}
 	return names, nil
-}
-
-func parseSecretType(s string) (secretprovider.SecretType, error) {
-	return secretsync.ParseSecretType(s)
 }

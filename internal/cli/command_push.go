@@ -42,17 +42,15 @@ var pushCommandDef = commandDef{
 	RunParsed: runPushParsed,
 }
 
-var pushBatchOperation = mappingBatchOperation[secretsync.PushResult]{
+var pushBatchOperation = mappingBatchOperation[secretsync.PushResult, pushOptions]{
 	mode: commandModePush,
-	preflight: func(parsed *parsedCommand, targets []secretsync.MappingTarget) error {
-		opts := parsePushOptions(parsed)
+	preflight: func(opts pushOptions, targets []secretsync.MappingTarget) error {
 		if len(targets) > 1 && !opts.yes {
 			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
 		}
 		return nil
 	},
-	run: func(service secretsync.Service, parsed *parsedCommand, targets []secretsync.MappingTarget) (batchRunResult[secretsync.PushResult], error) {
-		opts := parsePushOptions(parsed)
+	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pushOptions) (batchRunResult[secretsync.PushResult], error) {
 		result := service.PushBatch(targets, opts.pushOptions())
 		return batchRunResult[secretsync.PushResult]{
 			successes: result.Succeeded,
@@ -98,5 +96,5 @@ func parsePushOptions(parsed *parsedCommand) pushOptions {
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePushOptions(parsed)
-	return runMappingBatchOperation(ctx, parsed, opts.all, pushBatchOperation)
+	return runMappingBatchOperation(ctx, parsed, opts.all, opts, pushBatchOperation)
 }

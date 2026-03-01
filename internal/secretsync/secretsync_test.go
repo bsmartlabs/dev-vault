@@ -67,9 +67,6 @@ func (f *fakeSecretAPI) ListSecrets(req secretprovider.ListSecretsInput) ([]secr
 	}
 	var out []secretprovider.SecretRecord
 	for _, s := range f.secrets {
-		if req.ProjectID != "" && s.ProjectID != req.ProjectID {
-			continue
-		}
 		if req.Name != "" && s.Name != req.Name {
 			continue
 		}
@@ -126,7 +123,7 @@ func (f *fakeSecretAPI) CreateSecret(req secretprovider.CreateSecretInput) (*sec
 	if req.Path != "" {
 		path = req.Path
 	}
-	return f.AddSecret(req.ProjectID, req.Name, path, secret.SecretType(req.Type)), nil
+	return f.AddSecret("proj", req.Name, path, secret.SecretType(req.Type)), nil
 }
 
 func (f *fakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {
@@ -164,8 +161,8 @@ func (f *fakeSecretAPI) findSecret(id string) *secretprovider.SecretRecord {
 	return nil
 }
 
-func baseService(root string, mapping map[string]mapping.Entry, api secretprovider.SecretAPI) Service {
-	svc, err := New(Config{Root: root, Mapping: mapping}, api, Dependencies{
+func baseService(root string, _ map[string]mapping.Entry, api secretprovider.SecretAPI) Service {
+	svc, err := New(Config{Root: root}, api, Dependencies{
 		Now:      func() time.Time { return time.Unix(123, 0) },
 		Hostname: func() (string, error) { return "host", nil },
 	})
@@ -177,7 +174,7 @@ func baseService(root string, mapping map[string]mapping.Entry, api secretprovid
 
 func TestNew_DefaultsAndInjectedDeps(t *testing.T) {
 	api := newFakeSecretAPI()
-	svc, err := New(Config{Root: "/tmp", Mapping: map[string]mapping.Entry{}}, api, Dependencies{})
+	svc, err := New(Config{Root: "/tmp"}, api, Dependencies{})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
@@ -187,9 +184,7 @@ func TestNew_DefaultsAndInjectedDeps(t *testing.T) {
 	if svc.now == nil || svc.hostname == nil || svc.resolvePath == nil {
 		t.Fatalf("expected default deps to be set: %#v", svc)
 	}
-	svcInjected, err := New(Config{Root: "/project", Mapping: map[string]mapping.Entry{
-		"a-dev": {File: "a", Mode: mapping.ModePull},
-	}}, api, Dependencies{
+	svcInjected, err := New(Config{Root: "/project"}, api, Dependencies{
 		Now:      func() time.Time { return time.Unix(456, 0) },
 		Hostname: func() (string, error) { return "x", nil },
 	})
@@ -205,21 +200,12 @@ func TestNew_DefaultsAndInjectedDeps(t *testing.T) {
 }
 
 func TestNew_RejectsNilAPI(t *testing.T) {
-	_, err := New(Config{Root: "/tmp", Mapping: map[string]mapping.Entry{}}, nil, Dependencies{})
+	_, err := New(Config{Root: "/tmp"}, nil, Dependencies{})
 	if err == nil {
 		t.Fatal("expected error for nil secret api")
 	}
 	if got := err.Error(); got != "secretsync: nil secret api" {
 		t.Fatalf("unexpected error: %q", got)
-	}
-}
-
-func TestParseType(t *testing.T) {
-	if _, err := ParseSecretType("opaque"); err != nil {
-		t.Fatalf("expected valid secret type, got %v", err)
-	}
-	if _, err := ParseSecretType("invalid"); err == nil {
-		t.Fatal("expected invalid secret type error")
 	}
 }
 
@@ -268,25 +254,25 @@ func TestLookupMappedSecret(t *testing.T) {
 	svc := baseService(t.TempDir(), nil, api)
 
 	api.listErr = errors.New("boom")
-	if _, err := svc.LookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
+	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
 		t.Fatalf("expected list error, got %v", err)
 	}
 	api.listErr = nil
 
-	if _, err := svc.LookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil {
+	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"}); err == nil {
 		t.Fatal("expected not found")
 	}
 
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	if _, err := svc.LookupMappedSecret("dup-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "multiple secrets") {
+	if _, err := svc.lookupMappedSecret("dup-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "multiple secrets") {
 		t.Fatalf("expected multiple match error, got %v", err)
 	}
 
 	api = newFakeSecretAPI()
 	api.AddSecret("proj", "typed-dev", "/", secret.SecretTypeOpaque)
 	svc = baseService(t.TempDir(), nil, api)
-	got, err := svc.LookupMappedSecret("typed-dev", mapping.Entry{Path: "/", Type: "opaque"})
+	got, err := svc.lookupMappedSecret("typed-dev", mapping.Entry{Path: "/", Type: "opaque"})
 	if err != nil {
 		t.Fatalf("unexpected lookup error: %v", err)
 	}
@@ -362,23 +348,23 @@ func TestPull(t *testing.T) {
 	api := newFakeSecretAPI()
 	svc := baseService(root, nil, api)
 
-	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "", Path: "/", Format: "raw"}}}, false); firstPullBatchError(result) == nil {
+	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); firstPullBatchError(result) == nil {
 		t.Fatal("expected resolve file error")
 	}
 
-	if result := svc.PullBatch([]MappingTarget{{Name: "missing-dev", Entry: mapping.Entry{File: "out", Path: "/", Format: "raw"}}}, false); firstPullBatchError(result) == nil {
+	if result := svc.PullBatch([]MappingTarget{{Name: "missing-dev", Entry: mapping.Entry{File: "out", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); firstPullBatchError(result) == nil {
 		t.Fatal("expected lookup error")
 	}
 
 	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.accessErr = errors.New("access boom")
-	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "out", Path: "/", Format: "raw"}}}, false); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "access") {
+	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "out", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "access") {
 		t.Fatalf("expected access error, got %v", result.Summary.ErrorOrNil())
 	}
 	api.accessErr = nil
 
 	api.AddEnabledVersion(sec.ID, []byte("not-json"))
-	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "dotenv.env", Path: "/", Format: "dotenv"}}}, true); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "format dotenv") {
+	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "dotenv.env", Path: "/", Format: "dotenv", Mode: mapping.ModePull}}}, true); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "format dotenv") {
 		t.Fatalf("expected dotenv conversion error, got %v", result.Summary.ErrorOrNil())
 	}
 
@@ -386,7 +372,7 @@ func TestPull(t *testing.T) {
 	sec = api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte(`{"A":"1"}`))
 	svc = baseService(root, nil, api)
-	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "dotenv-success.env", Path: "/", Format: "dotenv"}}}, true); result.Summary.ErrorOrNil() != nil {
+	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "dotenv-success.env", Path: "/", Format: "dotenv", Mode: mapping.ModePull}}}, true); result.Summary.ErrorOrNil() != nil {
 		t.Fatalf("expected dotenv conversion success, got %v", result.Summary.ErrorOrNil())
 	}
 
@@ -399,7 +385,7 @@ func TestPull(t *testing.T) {
 	if err := os.WriteFile(existingPath, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write existing file: %v", err)
 	}
-	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "exists.txt", Path: "/", Format: "raw"}}}, false); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "file exists") {
+	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "exists.txt", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "file exists") {
 		t.Fatalf("expected exists error, got %v", result.Summary.ErrorOrNil())
 	}
 
@@ -407,11 +393,11 @@ func TestPull(t *testing.T) {
 	if err := os.WriteFile(notDir, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write blocking file: %v", err)
 	}
-	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "notdir/out.txt", Path: "/", Format: "raw"}}}, true); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "write") {
+	if result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "notdir/out.txt", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, true); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "write") {
 		t.Fatalf("expected generic write error, got %v", result.Summary.ErrorOrNil())
 	}
 
-	result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "ok.bin", Path: "/", Format: "raw"}}}, true)
+	result := svc.PullBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "ok.bin", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, true)
 	if result.Summary.ErrorOrNil() != nil {
 		t.Fatalf("unexpected pull error: %v", result.Summary.ErrorOrNil())
 	}
@@ -428,8 +414,8 @@ func TestPullBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 	svc := baseService(root, nil, api)
 
 	result := svc.PullBatch([]MappingTarget{
-		{Name: "x-dev", Entry: mapping.Entry{File: "ok.bin", Path: "/", Format: mapping.FormatRaw}},
-		{Name: "missing-dev", Entry: mapping.Entry{File: "missing.bin", Path: "/", Format: mapping.FormatRaw}},
+		{Name: "x-dev", Entry: mapping.Entry{File: "ok.bin", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
+		{Name: "missing-dev", Entry: mapping.Entry{File: "missing.bin", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
 	}, true)
 	if result.Summary.ErrorOrNil() == nil {
 		t.Fatal("expected batch error")
@@ -460,13 +446,38 @@ func TestPullBatch_AllSuccess(t *testing.T) {
 	svc := baseService(root, nil, api)
 
 	result := svc.PullBatch([]MappingTarget{
-		{Name: "x-dev", Entry: mapping.Entry{File: "ok.bin", Path: "/", Format: mapping.FormatRaw}},
+		{Name: "x-dev", Entry: mapping.Entry{File: "ok.bin", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
 	}, true)
 	if result.Summary.ErrorOrNil() != nil {
 		t.Fatalf("unexpected pull batch error: %v", result.Summary.ErrorOrNil())
 	}
 	if len(result.Succeeded) != 1 || result.Succeeded[0].Revision == 0 {
 		t.Fatalf("unexpected pull batch results: %#v", result)
+	}
+}
+
+func TestBatchTargetValidationGuards(t *testing.T) {
+	svc := baseService(t.TempDir(), nil, newFakeSecretAPI())
+
+	pullNonDev := svc.PullBatch([]MappingTarget{
+		{Name: "x-prod", Entry: mapping.Entry{File: "x", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
+	}, true)
+	if pullNonDev.Summary.ErrorOrNil() == nil {
+		t.Fatal("expected pull batch validation error for non-dev secret")
+	}
+
+	pullWrongMode := svc.PullBatch([]MappingTarget{
+		{Name: "x-dev", Entry: mapping.Entry{File: "x", Path: "/", Format: mapping.FormatRaw, Mode: mapping.ModePush}},
+	}, true)
+	if pullWrongMode.Summary.ErrorOrNil() == nil {
+		t.Fatal("expected pull batch validation error for wrong mode")
+	}
+
+	pushWrongMode := svc.PushBatch([]MappingTarget{
+		{Name: "x-dev", Entry: mapping.Entry{File: "x", Path: "/", Type: "opaque", Format: mapping.FormatRaw, Mode: mapping.ModePull}},
+	}, PushOptions{})
+	if pushWrongMode.Summary.ErrorOrNil() == nil {
+		t.Fatal("expected push batch validation error for wrong mode")
 	}
 }
 
@@ -522,33 +533,33 @@ func TestPushHelpersAndPush(t *testing.T) {
 		t.Fatalf("expected DisablePrevious=true")
 	}
 
-	if _, err := svc.LookupMappedSecret("missing-dev", mapping.Entry{Path: "/"}); err == nil {
+	if _, err := svc.lookupMappedSecret("missing-dev", mapping.Entry{Path: "/"}); err == nil {
 		t.Fatal("expected lookup error when missing")
 	}
-	if _, err := svc.LookupOrCreateMappedSecret("missing-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "create-missing requires mapping.type") {
+	if _, err := svc.lookupOrCreateMappedSecret("missing-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "create-missing requires mapping.type") {
 		t.Fatalf("expected missing type error, got %v", err)
 	}
 
 	api.listErr = errors.New("boom")
-	if _, err := svc.LookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
+	if _, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "list secrets") {
 		t.Fatalf("expected list error passthrough, got %v", err)
 	}
 	api.listErr = nil
 
 	api.createSecretErr = errors.New("create secret boom")
-	if _, err := svc.LookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "create secret") {
+	if _, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err == nil || !strings.Contains(err.Error(), "create secret") {
 		t.Fatalf("expected create secret error, got %v", err)
 	}
 	api.createSecretErr = nil
 
-	created, err := svc.LookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"})
+	created, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"})
 	if err != nil {
 		t.Fatalf("unexpected create missing success error: %v", err)
 	}
 	if created.Name != "x-dev" {
 		t.Fatalf("unexpected created secret: %#v", created)
 	}
-	existing, err := svc.LookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"})
+	existing, err := svc.lookupOrCreateMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"})
 	if err != nil {
 		t.Fatalf("unexpected existing lookup/create error: %v", err)
 	}
@@ -568,19 +579,19 @@ func TestPushHelpersAndPush(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "push.bin"), []byte("PUSH"), 0o600); err != nil {
 		t.Fatalf("write push.bin: %v", err)
 	}
-	if result := svc.PushBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "missing.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); firstPushBatchError(result) == nil {
+	if result := svc.PushBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "missing.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{}); firstPushBatchError(result) == nil {
 		t.Fatal("expected push read payload error")
 	}
-	if result := svc.PushBatch([]MappingTarget{{Name: "never-created-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPushBatchError(result).Error(), "resolve never-created-dev") {
+	if result := svc.PushBatch([]MappingTarget{{Name: "never-created-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{}); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPushBatchError(result).Error(), "resolve never-created-dev") {
 		t.Fatalf("expected push resolve error, got %v", result.Summary.ErrorOrNil())
 	}
 	api.createVerErr = errors.New("version boom")
-	if result := svc.PushBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{}); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPushBatchError(result).Error(), "create version") {
+	if result := svc.PushBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{}); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPushBatchError(result).Error(), "create version") {
 		t.Fatalf("expected create version error, got %v", result.Summary.ErrorOrNil())
 	}
 	api.createVerErr = nil
 
-	result := svc.PushBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw"}}}, PushOptions{DisablePrevious: true})
+	result := svc.PushBatch([]MappingTarget{{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: "raw", Mode: mapping.ModePush}}}, PushOptions{DisablePrevious: true})
 	if result.Summary.ErrorOrNil() != nil {
 		t.Fatalf("unexpected push success error: %v", result.Summary.ErrorOrNil())
 	}
@@ -600,8 +611,8 @@ func TestPushBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 	}
 
 	result := svc.PushBatch([]MappingTarget{
-		{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: mapping.FormatRaw}},
-		{Name: "missing-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: mapping.FormatRaw}},
+		{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: mapping.FormatRaw, Mode: mapping.ModePush}},
+		{Name: "missing-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: mapping.FormatRaw, Mode: mapping.ModePush}},
 	}, PushOptions{})
 	if result.Summary.ErrorOrNil() == nil {
 		t.Fatal("expected batch error")
@@ -635,7 +646,7 @@ func TestPushBatch_AllSuccess(t *testing.T) {
 	}
 
 	result := svc.PushBatch([]MappingTarget{
-		{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: mapping.FormatRaw}},
+		{Name: "x-dev", Entry: mapping.Entry{File: "push.bin", Path: "/", Type: "opaque", Format: mapping.FormatRaw, Mode: mapping.ModePush}},
 	}, PushOptions{})
 	if result.Summary.ErrorOrNil() != nil {
 		t.Fatalf("unexpected push batch error: %v", result.Summary.ErrorOrNil())

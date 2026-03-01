@@ -1,6 +1,6 @@
 package mapping
 
-import "github.com/bsmartlabs/dev-vault/internal/secretprovider"
+import "github.com/bsmartlabs/dev-vault/internal/secretcontract"
 
 type Format string
 
@@ -25,9 +25,9 @@ func (m Mode) AllowsPush() bool {
 }
 
 type Entry struct {
-	File   string                    `json:"file"`
-	Format Format                    `json:"format,omitempty"` // raw|dotenv
-	Path   string                    `json:"path,omitempty"`   // default "/"
-	Mode   Mode                      `json:"mode,omitempty"`   // pull|push
-	Type   secretprovider.SecretType `json:"type,omitempty"`   // expected secret type
+	File   string              `json:"file"`
+	Format Format              `json:"format,omitempty"` // raw|dotenv
+	Path   string              `json:"path,omitempty"`   // default "/"
+	Mode   Mode                `json:"mode,omitempty"`   // pull|push
+	Type   secretcontract.Type `json:"type,omitempty"`   // expected secret type
 }

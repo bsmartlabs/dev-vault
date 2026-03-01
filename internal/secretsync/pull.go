@@ -11,6 +11,17 @@ import (
 )
 
 func (s Service) PullBatch(targets []MappingTarget, overwrite bool) PullBatchResult {
+	if err := validateBatchTargets(targets, mapping.ModePull); err != nil {
+		return PullBatchResult{
+			Summary: BatchSummary{
+				Operation: "pull",
+				Failed:    1,
+				Total:     len(targets),
+			},
+			Failed: []BatchFailure{{Name: "batch", Err: err}},
+		}
+	}
+
 	succeeded, failed, summary := runBatch[PullResult](
 		targets,
 		"pull",

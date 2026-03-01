@@ -31,10 +31,8 @@ func TestScalewaySecretAPI_IntegrationListOpaque(t *testing.T) {
 	}
 
 	_, err = api.ListSecrets(secretprovider.ListSecretsInput{
-		Region:    region,
-		ProjectID: projectID,
-		Path:      "/",
-		Type:      secretprovider.SecretTypeOpaque,
+		Path: "/",
+		Type: secretprovider.SecretTypeOpaque,
 	})
 	if err != nil {
 		t.Fatalf("list secrets via secret api: %v", err)
