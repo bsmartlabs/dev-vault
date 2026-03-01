@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
@@ -34,7 +35,14 @@ func TestSecretTypesContract_CanonicalPolicy(t *testing.T) {
 		}
 	}
 
-	runtimeTypes := supportedSecretTypes()
+	runtimeTypes := []secretprovider.SecretType{
+		secretprovider.SecretTypeOpaque,
+		secretprovider.SecretTypeCertificate,
+		secretprovider.SecretTypeKeyValue,
+		secretprovider.SecretTypeBasicCredentials,
+		secretprovider.SecretTypeDatabaseCredentials,
+		secretprovider.SecretTypeSSHKey,
+	}
 	if len(runtimeTypes) != len(canonical) {
 		t.Fatalf("runtime supported types size mismatch: got %d want %d", len(runtimeTypes), len(canonical))
 	}

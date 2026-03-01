@@ -7,14 +7,10 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/fsx"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
+	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
 func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullResult, error) {
-	lookupIndex, err := buildSecretLookupIndex(s.api)
-	if err != nil {
-		return nil, fmt.Errorf("build secret lookup index: %w", err)
-	}
-
 	results := make([]pullResult, 0, len(targets))
 	for _, target := range targets {
 		outPath, err := config.ResolveFile(s.cfg.Root, target.Entry.File)
@@ -22,9 +18,9 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 			return nil, fmt.Errorf("mapping %s: resolve file: %w", target.Name, err)
 		}
 
-		resolvedSecret, err := s.resolveMappedSecret(target.Name, target.Entry, false, lookupIndex)
+		resolvedSecret, err := s.lookupMappedSecret(target.Name, target.Entry)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("resolve %s: %w", target.Name, err)
 		}
 
 		access, err := s.api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{
@@ -37,7 +33,7 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 
 		payload := access.Data
 		if target.Entry.Format == "dotenv" {
-			converted, err := jsonToDotenv(payload)
+			converted, err := secretworkflow.JSONToDotenv(payload)
 			if err != nil {
 				return nil, fmt.Errorf("format dotenv %s: %w", target.Name, err)
 			}

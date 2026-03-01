@@ -22,10 +22,9 @@ func printMainUsage(w io.Writer) {
 	fmt.Fprintln(w, "  --profile <name>  Scaleway profile override (uses ~/.config/scw/config.yaml)")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
-	fmt.Fprintln(w, "  version")
-	fmt.Fprintln(w, "  list")
-	fmt.Fprintln(w, "  pull")
-	fmt.Fprintln(w, "  push")
+	for _, name := range commandNames() {
+		fmt.Fprintf(w, "  %s\n", name)
+	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Hard safety constraints:")
 	fmt.Fprintln(w, "  - Refuses to operate on secret names that do not end with '-dev'.")

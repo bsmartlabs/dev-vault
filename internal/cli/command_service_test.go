@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -43,11 +44,107 @@ func TestCommandService_ResolvePushSecret_InvalidMappingType(t *testing.T) {
 	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{
 		Path: "/",
 		Type: "not-a-valid-type",
-	}, true, nil)
+	}, true)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "invalid mapping.type") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCommandService_LookupMappedSecret_ListError(t *testing.T) {
+	api := newFakeSecretAPI()
+	api.listErr = errors.New("boom")
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
+		Now:      time.Now,
+		Hostname: func() (string, error) { return "host", nil },
+	})
+
+	_, err := svc.lookupMappedSecret("x-dev", config.MappingEntry{Path: "/"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "list secrets") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCommandService_ResolveMappedSecret_NoCreateMissing(t *testing.T) {
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
+		Now:      time.Now,
+		Hostname: func() (string, error) { return "host", nil },
+	})
+
+	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{Path: "/"}, false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "secret not found") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCommandService_List_ListError(t *testing.T) {
+	api := newFakeSecretAPI()
+	api.listErr = errors.New("boom")
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
+		Now:      time.Now,
+		Hostname: func() (string, error) { return "host", nil },
+	})
+
+	_, err := svc.list(listQuery{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCommandService_List_InvalidType(t *testing.T) {
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
+		Now:      time.Now,
+		Hostname: func() (string, error) { return "host", nil },
+	})
+
+	_, err := svc.list(listQuery{Type: "not-a-type"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "invalid --type") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCommandService_ResolveMappedSecret_CreateMissingRequiresType(t *testing.T) {
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, newFakeSecretAPI(), Dependencies{
+		Now:      time.Now,
+		Hostname: func() (string, error) { return "host", nil },
+	})
+
+	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{Path: "/"}, true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "create-missing requires mapping.type") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCommandService_ResolveMappedSecret_ListErrorWithCreateMissing(t *testing.T) {
+	api := newFakeSecretAPI()
+	api.listErr = errors.New("boom")
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, Dependencies{
+		Now:      time.Now,
+		Hostname: func() (string, error) { return "host", nil },
+	})
+
+	_, err := svc.resolveMappedSecret("x-dev", config.MappingEntry{Path: "/", Type: "opaque"}, true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "list secrets") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

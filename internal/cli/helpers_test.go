@@ -7,7 +7,16 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
+
+func jsonToDotenvForTest(payload []byte) ([]byte, error) {
+	return secretworkflow.JSONToDotenv(payload)
+}
+
+func dotenvToJSONForTest(payload []byte) ([]byte, error) {
+	return secretworkflow.DotenvToJSON(payload)
+}
 
 func TestHelpersFile_BasicSmoke(t *testing.T) {
 	var flags stringSliceFlag
@@ -46,7 +55,7 @@ func TestHelpersFile_BasicSmoke(t *testing.T) {
 		t.Fatal("expected parseSecretType to fail for unknown type")
 	}
 
-	dotenvPayload, err := jsonToDotenv([]byte(`{"A":"1","B":2}`))
+	dotenvPayload, err := jsonToDotenvForTest([]byte(`{"A":"1","B":2}`))
 	if err != nil {
 		t.Fatalf("jsonToDotenv: %v", err)
 	}
@@ -54,7 +63,7 @@ func TestHelpersFile_BasicSmoke(t *testing.T) {
 		t.Fatalf("expected A entry in dotenv payload, got %q", string(dotenvPayload))
 	}
 
-	jsonPayload, err := dotenvToJSON([]byte("C=3\n"))
+	jsonPayload, err := dotenvToJSONForTest([]byte("C=3\n"))
 	if err != nil {
 		t.Fatalf("dotenvToJSON: %v", err)
 	}

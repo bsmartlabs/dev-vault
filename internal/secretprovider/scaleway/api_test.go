@@ -105,6 +105,33 @@ func TestScalewaySecretAPI_ListSecrets(t *testing.T) {
 			t.Fatalf("unexpected output: %#v", out)
 		}
 	})
+
+	t.Run("SuccessWithoutTypeFilter", func(t *testing.T) {
+		api := &API{api: &fakeScalewaySDK{
+			listFn: func(req *secret.ListSecretsRequest, _ ...scw.RequestOption) (*secret.ListSecretsResponse, error) {
+				if req.Type != "" {
+					t.Fatalf("expected empty type filter, got %q", req.Type)
+				}
+				return &secret.ListSecretsResponse{
+					Secrets: []*secret.Secret{
+						{ID: "s1", Name: "name-dev", Path: "/", ProjectID: "p", Type: secret.SecretTypeOpaque},
+					},
+				}, nil
+			},
+		}}
+		out, err := api.ListSecrets(secretprovider.ListSecretsInput{
+			Region:    "fr-par",
+			ProjectID: "p",
+			Name:      "name-dev",
+			Path:      "/",
+		})
+		if err != nil {
+			t.Fatalf("ListSecrets: %v", err)
+		}
+		if len(out) != 1 {
+			t.Fatalf("unexpected output: %#v", out)
+		}
+	})
 }
 
 func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {

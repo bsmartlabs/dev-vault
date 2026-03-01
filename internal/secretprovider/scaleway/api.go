@@ -66,16 +66,18 @@ func (s *API) ListSecrets(req secretprovider.ListSecretsInput) ([]secretprovider
 	if err != nil {
 		return nil, fmt.Errorf("parse region %q: %w", req.Region, err)
 	}
-	secretType, err := toScalewaySecretType(req.Type)
-	if err != nil {
-		return nil, err
-	}
 
 	listReq := &secret.ListSecretsRequest{
 		Region:               region,
 		ProjectID:            scw.StringPtr(req.ProjectID),
 		ScheduledForDeletion: false,
-		Type:                 secretType,
+	}
+	if req.Type != "" {
+		secretType, err := toScalewaySecretType(req.Type)
+		if err != nil {
+			return nil, err
+		}
+		listReq.Type = secretType
 	}
 	if req.Name != "" {
 		listReq.Name = scw.StringPtr(req.Name)

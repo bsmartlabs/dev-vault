@@ -236,7 +236,7 @@ func TestHelpersAndBranches(t *testing.T) {
 	}
 
 	// jsonToDotenv marshals non-string values as JSON.
-	out, err := jsonToDotenv([]byte(`{"A":"x","B":1}`))
+	out, err := jsonToDotenvForTest([]byte(`{"A":"x","B":1}`))
 	if err != nil {
 		t.Fatalf("jsonToDotenv: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestHelpersAndBranches(t *testing.T) {
 	}
 
 	// dotenvToJSON error.
-	if _, err := dotenvToJSON([]byte("NOPE")); err == nil {
+	if _, err := dotenvToJSONForTest([]byte("NOPE")); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -304,7 +304,8 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	_, err := resolveSecretByNameAndPathFromIndex(api, "dup-dev", "/")
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
+	_, err := svc.lookupMappedSecret("dup-dev", config.MappingEntry{Path: "/"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -312,8 +313,9 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 
 func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 	api := newFakeSecretAPI()
-	_, err := resolveSecretByNameAndPathFromIndex(api, "missing-dev", "/")
-	var nf *notFoundError
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
+	_, err := svc.lookupMappedSecret("missing-dev", config.MappingEntry{Path: "/"})
+	var nf *secretLookupMissError
 	if !errors.As(err, &nf) {
 		t.Fatalf("expected notFoundError, got %v", err)
 	}
@@ -323,7 +325,8 @@ func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 func TestListSecretsByTypes_Error(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.listErr = errors.New("boom")
-	_, err := listSecretsByTypes(api, ListSecretsInput{ProjectID: "p"}, []SecretType{SecretTypeOpaque})
+	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
+	_, err := svc.lookupMappedSecret("x-dev", config.MappingEntry{Path: "/"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -471,9 +474,9 @@ func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
-	// listSecretsByTypes should call ListSecrets once per type.
-	if api.listCalls < len(supportedSecretTypes()) {
-		t.Fatalf("expected >= %d list calls, got %d", len(supportedSecretTypes()), api.listCalls)
+	// List command should use a single filtered API query for untyped lists.
+	if api.listCalls != 1 {
+		t.Fatalf("expected 1 list call, got %d", api.listCalls)
 	}
 }
 

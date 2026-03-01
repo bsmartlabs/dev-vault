@@ -8,14 +8,11 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
+	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
 func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushResult, error) {
 	desc := s.pushDescription(opts.Description)
-	lookupIndex, err := buildSecretLookupIndex(s.api)
-	if err != nil {
-		return nil, fmt.Errorf("build secret lookup index: %w", err)
-	}
 
 	results := make([]pushResult, 0, len(targets))
 	for _, target := range targets {
@@ -23,7 +20,7 @@ func (s commandService) push(targets []mappingTarget, opts pushOptions) ([]pushR
 		if err != nil {
 			return nil, err
 		}
-		resolvedSecret, err := s.resolveMappedSecret(target.Name, target.Entry, opts.CreateMissing, lookupIndex)
+		resolvedSecret, err := s.resolveMappedSecret(target.Name, target.Entry, opts.CreateMissing)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +62,7 @@ func (s commandService) readPushPayload(name string, entry config.MappingEntry) 
 		return nil, fmt.Errorf("push %s: read %s: %w", name, inPath, err)
 	}
 	if entry.Format == "dotenv" {
-		converted, err := dotenvToJSON(raw)
+		converted, err := secretworkflow.DotenvToJSON(raw)
 		if err != nil {
 			return nil, fmt.Errorf("format dotenv %s: %w", name, err)
 		}
@@ -87,16 +84,13 @@ func createSecretVersionInput(secretID string, payload []byte, description strin
 	return req
 }
 
-func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool, lookupIndex map[string][]secretprovider.SecretRecord) (*secretprovider.SecretRecord, error) {
-	resolvedSecret, err := resolveSecretFromIndex(lookupIndex, name, entry.Path)
+func (s commandService) resolveMappedSecret(name string, entry config.MappingEntry, createMissing bool) (*secretprovider.SecretRecord, error) {
+	resolvedSecret, err := s.lookupMappedSecret(name, entry)
 	if err == nil {
-		if entry.Type != "" && resolvedSecret.Type != secretprovider.SecretType(entry.Type) {
-			return nil, fmt.Errorf("secret %s: type mismatch (expected %s got %s)", name, entry.Type, resolvedSecret.Type)
-		}
 		return resolvedSecret, nil
 	}
 
-	var notFound *notFoundError
+	var notFound *secretLookupMissError
 	if !errors.As(err, &notFound) || !createMissing {
 		return nil, fmt.Errorf("resolve %s: %w", name, err)
 	}
@@ -104,19 +98,13 @@ func (s commandService) resolveMappedSecret(name string, entry config.MappingEnt
 		return nil, fmt.Errorf("push %s: create-missing requires mapping.type", name)
 	}
 
-	secretType, err := parseSecretType(entry.Type)
-	if err != nil {
-		return nil, fmt.Errorf("push %s: invalid mapping.type %q: %w", name, entry.Type, err)
-	}
 	createdSecret, err := s.api.CreateSecret(secretprovider.CreateSecretInput{
 		Name: name,
-		Type: secretType,
+		Type: secretprovider.SecretType(entry.Type),
 		Path: entry.Path,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("push %s: create secret: %w", name, err)
 	}
-	key := secretLookupKey(createdSecret.Name, createdSecret.Path)
-	lookupIndex[key] = append(lookupIndex[key], *createdSecret)
 	return createdSecret, nil
 }

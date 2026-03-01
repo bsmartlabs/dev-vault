@@ -10,24 +10,24 @@ import (
 )
 
 func (s commandService) list(query listQuery) ([]listRecord, error) {
-	req := secretprovider.ListSecretsInput{
-		Region:    s.cfg.Region,
-		ProjectID: s.cfg.ProjectID,
-	}
+	req := secretprovider.ListSecretsInput{}
 	if query.Path != "" {
 		req.Path = query.Path
 	}
 
-	secretTypes := supportedSecretTypes()
+	var (
+		respSecrets []secretprovider.SecretRecord
+		err         error
+	)
 	if query.Type != "" {
 		st, err := parseSecretType(query.Type)
 		if err != nil {
 			return nil, usageError(fmt.Errorf("invalid --type: %w", err))
 		}
-		secretTypes = []secretprovider.SecretType{st}
+		req.Type = st
 	}
 
-	respSecrets, err := listSecretsByTypes(s.api, req, secretTypes)
+	respSecrets, err = s.api.ListSecrets(req)
 	if err != nil {
 		return nil, runtimeError(err)
 	}
@@ -35,9 +35,6 @@ func (s commandService) list(query listQuery) ([]listRecord, error) {
 	filtered := make([]listRecord, 0, len(respSecrets))
 	for _, secretRecord := range respSecrets {
 		if !config.IsDevSecretName(secretRecord.Name) {
-			continue
-		}
-		if query.Path != "" && secretRecord.Path != query.Path {
 			continue
 		}
 		if len(query.NameContains) > 0 {

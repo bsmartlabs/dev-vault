@@ -83,39 +83,24 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	switch cmd {
 	case "help":
 		if len(rest) > 1 {
-			switch rest[1] {
-			case "list":
-				printListUsage(stdout)
-				return 0
-			case "pull":
-				printPullUsage(stdout)
-				return 0
-			case "push":
-				printPushUsage(stdout)
-				return 0
-			case "version":
-				printVersionUsage(stdout)
-				return 0
-			default:
+			usagePrinter, ok := usageForCommand(rest[1])
+			if !ok {
 				fmt.Fprintf(stderr, "unknown command for help: %s\n", rest[1])
 				printMainUsage(stderr)
 				return 2
 			}
+			usagePrinter(stdout)
+			return 0
 		}
 		printMainUsage(stdout)
 		return 0
-	case "version":
-		fmt.Fprintf(stdout, "dev-vault %s (commit=%s date=%s)\n", deps.Version, deps.Commit, deps.Date)
-		return 0
-	case "list":
-		return runList(ctx, rest[1:])
-	case "pull":
-		return runPull(ctx, rest[1:])
-	case "push":
-		return runPush(ctx, rest[1:])
 	default:
-		fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
-		printMainUsage(stderr)
-		return 2
+		route, ok := routeForCommand(cmd)
+		if !ok {
+			fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
+			printMainUsage(stderr)
+			return 2
+		}
+		return route.run(ctx, rest[1:])
 	}
 }
