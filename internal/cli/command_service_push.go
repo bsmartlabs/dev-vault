@@ -61,7 +61,7 @@ func (s commandService) readPushPayload(name string, entry config.MappingEntry) 
 	if err != nil {
 		return nil, fmt.Errorf("push %s: read %s: %w", name, inPath, err)
 	}
-	if entry.Format == "dotenv" {
+	if entry.Format == config.MappingFormatDotenv {
 		converted, err := secretworkflow.DotenvToJSON(raw)
 		if err != nil {
 			return nil, fmt.Errorf("format dotenv %s: %w", name, err)

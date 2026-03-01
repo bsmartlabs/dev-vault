@@ -21,9 +21,9 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 	isAllowedMode := func(entry config.MappingEntry) bool {
 		switch mode {
 		case "pull":
-			return entry.Mode == "pull" || entry.Mode == "both"
+			return entry.Mode.AllowsPull()
 		case "push":
-			return entry.Mode == "push" || entry.Mode == "both"
+			return entry.Mode.AllowsPush()
 		default:
 			return false
 		}

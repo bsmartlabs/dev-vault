@@ -186,7 +186,7 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("load: %v", err)
 		}
 		ent := loaded.Cfg.Mapping["a-dev"]
-		if ent.Format != "raw" || ent.Path != "/" || ent.Mode != "both" {
+		if ent.Format != MappingFormatRaw || ent.Path != "/" || ent.Mode != MappingModeBoth {
 			t.Fatalf("defaults not applied: %+v", ent)
 		}
 	})
@@ -202,7 +202,7 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("load: %v", err)
 		}
 		ent := loaded.Cfg.Mapping["a-dev"]
-		if ent.Mode != "both" {
+		if ent.Mode != MappingModeBoth {
 			t.Fatalf("expected mode both, got: %+v", ent)
 		}
 		if len(loaded.Warnings) == 0 || !strings.Contains(loaded.Warnings[0], "mode=sync") {
@@ -341,4 +341,25 @@ func TestResolveFile(t *testing.T) {
 			t.Fatalf("expected path under root, got %s", p)
 		}
 	})
+}
+
+func TestMappingMode_Allows(t *testing.T) {
+	cases := []struct {
+		mode       MappingMode
+		pull, push bool
+	}{
+		{mode: MappingModePull, pull: true, push: false},
+		{mode: MappingModePush, pull: false, push: true},
+		{mode: MappingModeBoth, pull: true, push: true},
+		{mode: MappingModeLegacy, pull: false, push: false},
+	}
+
+	for _, tc := range cases {
+		if tc.mode.AllowsPull() != tc.pull {
+			t.Fatalf("AllowsPull mismatch for %q", tc.mode)
+		}
+		if tc.mode.AllowsPush() != tc.push {
+			t.Fatalf("AllowsPush mismatch for %q", tc.mode)
+		}
+	}
 }

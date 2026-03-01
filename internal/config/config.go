@@ -31,12 +31,36 @@ type configDeps struct {
 	readFile func(string) ([]byte, error)
 }
 
+type MappingFormat string
+
+const (
+	MappingFormatRaw    MappingFormat = "raw"
+	MappingFormatDotenv MappingFormat = "dotenv"
+)
+
+type MappingMode string
+
+const (
+	MappingModePull   MappingMode = "pull"
+	MappingModePush   MappingMode = "push"
+	MappingModeBoth   MappingMode = "both"
+	MappingModeLegacy MappingMode = "sync"
+)
+
+func (m MappingMode) AllowsPull() bool {
+	return m == MappingModePull || m == MappingModeBoth
+}
+
+func (m MappingMode) AllowsPush() bool {
+	return m == MappingModePush || m == MappingModeBoth
+}
+
 type MappingEntry struct {
-	File   string `json:"file"`
-	Format string `json:"format,omitempty"` // raw|dotenv
-	Path   string `json:"path,omitempty"`   // default "/"
-	Mode   string `json:"mode,omitempty"`   // pull|push|both (default: both). "sync" is accepted as legacy alias for "both".
-	Type   string `json:"type,omitempty"`   // expected secret type
+	File   string        `json:"file"`
+	Format MappingFormat `json:"format,omitempty"` // raw|dotenv
+	Path   string        `json:"path,omitempty"`   // default "/"
+	Mode   MappingMode   `json:"mode,omitempty"`   // pull|push|both (default: both). "sync" is accepted as legacy alias for "both".
+	Type   string        `json:"type,omitempty"`   // expected secret type
 }
 
 type Config struct {
@@ -186,10 +210,10 @@ func (c *Config) normalizeAndValidate() ([]string, error) {
 		}
 
 		if entry.Format == "" {
-			entry.Format = "raw"
+			entry.Format = MappingFormatRaw
 		}
 		switch entry.Format {
-		case "raw", "dotenv":
+		case MappingFormatRaw, MappingFormatDotenv:
 		default:
 			return nil, fmt.Errorf("mapping %q: invalid format %q", name, entry.Format)
 		}
@@ -202,15 +226,15 @@ func (c *Config) normalizeAndValidate() ([]string, error) {
 		}
 
 		if entry.Mode == "" {
-			entry.Mode = "both"
+			entry.Mode = MappingModeBoth
 		}
-		if entry.Mode == "sync" {
+		if entry.Mode == MappingModeLegacy {
 			// Back-compat: older manifests used "sync" to mean "both".
 			warnings = append(warnings, fmt.Sprintf("mapping %q uses legacy mode=sync; use mode=both (sync will be removed in a future major release)", name))
-			entry.Mode = "both"
+			entry.Mode = MappingModeBoth
 		}
 		switch entry.Mode {
-		case "pull", "push", "both":
+		case MappingModePull, MappingModePush, MappingModeBoth:
 		default:
 			return nil, fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}

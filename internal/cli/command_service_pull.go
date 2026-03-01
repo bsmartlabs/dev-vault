@@ -32,7 +32,7 @@ func (s commandService) pull(targets []mappingTarget, overwrite bool) ([]pullRes
 		}
 
 		payload := access.Data
-		if target.Entry.Format == "dotenv" {
+		if target.Entry.Format == config.MappingFormatDotenv {
 			converted, err := secretworkflow.JSONToDotenv(payload)
 			if err != nil {
 				return nil, fmt.Errorf("format dotenv %s: %w", target.Name, err)
