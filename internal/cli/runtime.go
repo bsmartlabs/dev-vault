@@ -33,6 +33,14 @@ func (r commandRuntime) executeWithConfigLoader(loader configLoader, run func(lo
 	})
 }
 
+func (r commandRuntime) executeWithConfigPolicy(policy commandConfigPolicy, run func(loaded *config.Loaded, service secretsync.Service) error) int {
+	loader, err := configLoaderForPolicy(policy)
+	if err != nil {
+		return r.writeStderrError(runtimeError(err))
+	}
+	return r.executeWithConfigLoader(loader, run)
+}
+
 func (r commandRuntime) runWithLoaded(loader configLoader, run func(loaded *config.Loaded) error) int {
 	loaded, err := loader(r.parsed.configPath, r.ctx.deps)
 	if err != nil {
@@ -70,15 +78,20 @@ func (r commandRuntime) writeStderrError(err error) int {
 }
 
 func (r commandRuntime) runMappingCommand(
+	policy commandConfigPolicy,
 	mode mapping.Mode,
 	all bool,
-	preflight func(targets []secretsync.MappingTarget) error,
-	execute func(service secretsync.Service, targets []secretsync.MappingTarget) error,
+	preflight func(targets []mapping.Target) error,
+	execute func(service secretsync.Service, targets []mapping.Target) error,
 ) int {
-	return r.runWithLoaded(loadConfig, func(loaded *config.Loaded) error {
-		targets, err := selectMappingTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
+	loader, err := configLoaderForPolicy(policy)
+	if err != nil {
+		return r.writeStderrError(runtimeError(err))
+	}
+	return r.runWithLoaded(loader, func(loaded *config.Loaded) error {
+		targets, err := mapping.SelectTargetsForMode(loaded.Cfg.Mapping, all, r.parsed.fs.Args(), mode)
 		if err != nil {
-			return err
+			return usageError(err)
 		}
 		if preflight != nil {
 			if err := preflight(targets); err != nil {
@@ -91,6 +104,17 @@ func (r commandRuntime) runMappingCommand(
 		}
 		return execute(service, targets)
 	})
+}
+
+func configLoaderForPolicy(policy commandConfigPolicy) (configLoader, error) {
+	switch policy {
+	case commandConfigValidated:
+		return loadConfig, nil
+	case commandConfigProjectOnly:
+		return loadProjectConfig, nil
+	default:
+		return nil, fmt.Errorf("unsupported command config policy: %d", policy)
+	}
 }
 
 func loadConfig(configPath string, deps Dependencies) (*config.Loaded, error) {

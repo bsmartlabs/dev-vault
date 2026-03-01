@@ -37,6 +37,7 @@ var listCommandDef = commandDef{
 			"dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value",
 		},
 	},
+	Config:    commandConfigProjectOnly,
 	RunParsed: runListParsed,
 }
 
@@ -118,7 +119,7 @@ func runListParsed(ctx commandContext, parsed *parsedCommand) int {
 		return runtime.writeStderrError(err)
 	}
 
-	return runtime.executeWithConfigLoader(loadProjectConfig, func(_ *config.Loaded, service secretsync.Service) error {
+	return runtime.executeWithConfigPolicy(commandConfigProjectOnly, func(_ *config.Loaded, service secretsync.Service) error {
 		filtered, err := service.List(query)
 		if err != nil {
 			return err

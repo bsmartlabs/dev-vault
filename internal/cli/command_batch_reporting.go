@@ -1,46 +1,20 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
-type batchReportCallbacks[T any] struct {
-	SuccessLine func(T) string
-	FailureLine func(secretsync.BatchFailure) string
-}
-
-type mappingBatchOperation[T any, O any] struct {
-	mode      mapping.Mode
-	preflight func(opts O, targets []secretsync.MappingTarget) error
-	run       func(service secretsync.Service, targets []secretsync.MappingTarget, opts O) (secretsync.BatchResult[T], error)
-	callbacks batchReportCallbacks[T]
-}
-
-func (op mappingBatchOperation[T, O]) validate() error {
-	if op.run == nil {
-		return errors.New("batch operation run callback is required")
-	}
-	if op.callbacks.SuccessLine == nil {
-		return errors.New("batch operation success callback is required")
-	}
-	if op.callbacks.FailureLine == nil {
-		return errors.New("batch operation failure callback is required")
-	}
-	return nil
-}
-
-func reportBatchResults[T any](result secretsync.BatchResult[T], runErr error, ctx commandContext, callbacks batchReportCallbacks[T]) error {
+func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResult, runErr error) error {
 	for _, item := range result.Succeeded {
-		if _, err := fmt.Fprintln(ctx.stdout, callbacks.SuccessLine(item)); err != nil {
+		if _, err := fmt.Fprintf(ctx.stdout, "pulled %s -> %s (rev=%d type=%s)\n", item.Name, item.File, item.Revision, item.Type); err != nil {
 			return outputError(err)
 		}
 	}
 	for _, failure := range result.Failed {
-		if _, err := fmt.Fprintln(ctx.stderr, callbacks.FailureLine(failure)); err != nil {
+		if _, err := fmt.Fprintf(ctx.stderr, "failed pull %s: %v\n", failure.Name, failure.Err); err != nil {
 			return outputError(err)
 		}
 	}
@@ -50,24 +24,52 @@ func reportBatchResults[T any](result secretsync.BatchResult[T], runErr error, c
 	return nil
 }
 
-func runMappingBatchOperation[T any, O any](ctx commandContext, parsed *parsedCommand, all bool, opts O, op mappingBatchOperation[T, O]) int {
-	if err := op.validate(); err != nil {
-		return newCommandRuntime(ctx, parsed).writeStderrError(runtimeError(err))
-	}
-
-	var preflight func(targets []secretsync.MappingTarget) error
-	if op.preflight != nil {
-		preflight = func(targets []secretsync.MappingTarget) error {
-			return op.preflight(opts, targets)
+func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResult, runErr error) error {
+	for _, item := range result.Succeeded {
+		if _, err := fmt.Fprintf(ctx.stdout, "pushed %s (rev=%d)\n", item.Name, item.Revision); err != nil {
+			return outputError(err)
 		}
 	}
+	for _, failure := range result.Failed {
+		if _, err := fmt.Fprintf(ctx.stderr, "failed push %s: %v\n", failure.Name, failure.Err); err != nil {
+			return outputError(err)
+		}
+	}
+	if runErr != nil {
+		return runErr
+	}
+	return nil
+}
+
+func runPullBatch(ctx commandContext, parsed *parsedCommand, policy commandConfigPolicy, opts pullOptions) int {
 	return newCommandRuntime(ctx, parsed).runMappingCommand(
-		op.mode,
-		all,
+		policy,
+		mapping.ModePull,
+		opts.all,
+		nil,
+		func(service secretsync.Service, targets []mapping.Target) error {
+			result, err := service.PullBatch(targets, opts.overwrite)
+			return reportPullBatchResults(ctx, result, err)
+		},
+	)
+}
+
+func runPushBatch(ctx commandContext, parsed *parsedCommand, policy commandConfigPolicy, opts pushOptions) int {
+	preflight := func(targets []mapping.Target) error {
+		if len(targets) > 1 && !opts.yes {
+			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
+		}
+		return nil
+	}
+
+	return newCommandRuntime(ctx, parsed).runMappingCommand(
+		policy,
+		mapping.ModePush,
+		opts.all,
 		preflight,
-		func(service secretsync.Service, targets []secretsync.MappingTarget) error {
-			result, err := op.run(service, targets, opts)
-			return reportBatchResults(result, err, ctx, op.callbacks)
+		func(service secretsync.Service, targets []mapping.Target) error {
+			result, err := service.PushBatch(targets, opts.pushOptions())
+			return reportPushBatchResults(ctx, result, err)
 		},
 	)
 }

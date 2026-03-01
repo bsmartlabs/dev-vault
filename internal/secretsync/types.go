@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
@@ -24,11 +23,6 @@ type ListRecord struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
 	Type string `json:"type"`
-}
-
-type MappingTarget struct {
-	Name  string
-	Entry mapping.Entry
 }
 
 type PullResult struct {

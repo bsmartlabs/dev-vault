@@ -5,6 +5,7 @@ import "fmt"
 var versionCommandDef = commandDef{
 	Name:    "version",
 	Summary: "Print build version information",
+	Config:  commandConfigNone,
 	Doc: commandDoc{
 		Synopsis: "dev-vault version",
 		Description: []string{

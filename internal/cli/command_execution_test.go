@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
+	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
 func TestDefaultDependencies(t *testing.T) {
@@ -268,5 +270,36 @@ func TestOpenScalewaySecretAPIWrapper(t *testing.T) {
 	}, "")
 	if err == nil {
 		t.Fatalf("expected wrapper to propagate open error")
+	}
+}
+
+func TestConfigPolicyContracts(t *testing.T) {
+	if _, err := configLoaderForPolicy(commandConfigNone); err == nil {
+		t.Fatal("expected unsupported policy error for commandConfigNone")
+	}
+
+	var errBuf bytes.Buffer
+	runtime := commandRuntime{
+		ctx: commandContext{
+			stdout: &bytes.Buffer{},
+			stderr: &errBuf,
+			deps: baseDeps(func(cfg config.Config, profile string) (SecretAPI, error) {
+				return newFakeSecretAPI(), nil
+			}),
+		},
+	}
+	if code := runtime.executeWithConfigPolicy(commandConfigNone, func(loaded *config.Loaded, service secretsync.Service) error { return nil }); code != 1 {
+		t.Fatalf("expected runtime error exit code, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "unsupported command config policy") {
+		t.Fatalf("unexpected stderr: %q", errBuf.String())
+	}
+
+	errBuf.Reset()
+	if code := runtime.runMappingCommand(commandConfigNone, mapping.ModePull, true, nil, func(service secretsync.Service, targets []mapping.Target) error { return nil }); code != 1 {
+		t.Fatalf("expected runtime error exit code, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "unsupported command config policy") {
+		t.Fatalf("unexpected stderr: %q", errBuf.String())
 	}
 }

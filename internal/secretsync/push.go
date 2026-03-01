@@ -10,15 +10,15 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s Service) PushBatch(targets []MappingTarget, opts PushOptions) (PushBatchResult, error) {
+func (s Service) PushBatch(targets []mapping.Target, opts PushOptions) (PushBatchResult, error) {
 	desc := s.pushDescription(opts.Description)
 	succeeded, failed, summary := runBatch[PushResult](
 		targets,
 		"push",
-		func(target MappingTarget) (PushResult, error) {
+		func(target mapping.Target) (PushResult, error) {
 			return s.pushOne(target, opts, desc)
 		},
-		func(target MappingTarget, err error) BatchFailure {
+		func(target mapping.Target, err error) BatchFailure {
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
@@ -69,7 +69,7 @@ func createSecretVersionInput(secretID string, payload []byte, description strin
 	return req
 }
 
-func (s Service) pushOne(target MappingTarget, opts PushOptions, desc string) (PushResult, error) {
+func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string) (PushResult, error) {
 	payload, err := s.readPushPayload(target.Name, target.Entry)
 	if err != nil {
 		return PushResult{}, err

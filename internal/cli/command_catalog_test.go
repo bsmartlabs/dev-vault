@@ -2,49 +2,30 @@ package cli
 
 import "testing"
 
-func TestNewCommandCatalog(t *testing.T) {
-	valid := commandDef{
-		Name:      "ok",
-		RunParsed: func(commandContext, *parsedCommand) int { return 0 },
-	}
-	state := newCommandCatalog(valid)
-	if len(state.ordered) != 1 {
-		t.Fatalf("expected one command, got %d", len(state.ordered))
-	}
-	if _, ok := state.byName["ok"]; !ok {
-		t.Fatal("expected command to be indexed by name")
-	}
-}
-
-func TestNewCommandCatalog_PanicsOnInvalidDefs(t *testing.T) {
-	assertPanics := func(t *testing.T, name string, run func()) {
-		t.Helper()
-		defer func() {
-			if recover() == nil {
-				t.Fatalf("%s: expected panic", name)
-			}
-		}()
-		run()
+func TestCommandCatalog_Lookups(t *testing.T) {
+	defs := commandDefs()
+	if len(defs) != 4 {
+		t.Fatalf("expected 4 commands, got %d", len(defs))
 	}
 
-	validRun := func(commandContext, *parsedCommand) int { return 0 }
+	names := make(map[string]struct{}, len(defs))
+	for _, def := range defs {
+		if def.Name == "" {
+			t.Fatal("command name must not be empty")
+		}
+		if def.RunParsed == nil {
+			t.Fatalf("command %q has nil RunParsed", def.Name)
+		}
+		if _, exists := names[def.Name]; exists {
+			t.Fatalf("duplicate command definition: %q", def.Name)
+		}
+		names[def.Name] = struct{}{}
+	}
 
-	assertPanics(t, "EmptyName", func() {
-		_ = newCommandCatalog(commandDef{
-			RunParsed: validRun,
-		})
-	})
-
-	assertPanics(t, "MissingRunParsed", func() {
-		_ = newCommandCatalog(commandDef{
-			Name: "missing",
-		})
-	})
-
-	assertPanics(t, "DuplicateName", func() {
-		_ = newCommandCatalog(
-			commandDef{Name: "dup", RunParsed: validRun},
-			commandDef{Name: "dup", RunParsed: validRun},
-		)
-	})
+	if _, ok := commandForName("pull"); !ok {
+		t.Fatal("expected pull command to exist")
+	}
+	if _, ok := commandForName("missing"); ok {
+		t.Fatal("expected missing command lookup to fail")
+	}
 }

@@ -1,11 +1,6 @@
 package cli
 
-import (
-	"fmt"
-
-	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/secretsync"
-)
+import "github.com/bsmartlabs/dev-vault/internal/secretsync"
 
 var pushCommandDef = commandDef{
 	Name:    "push",
@@ -40,28 +35,8 @@ var pushCommandDef = commandDef{
 			"dev-vault push --config .scw.json --all --yes --disable-previous",
 		},
 	},
+	Config:    commandConfigValidated,
 	RunParsed: runPushParsed,
-}
-
-var pushBatchOperation = mappingBatchOperation[secretsync.PushResult, pushOptions]{
-	mode: mapping.ModePush,
-	preflight: func(opts pushOptions, targets []secretsync.MappingTarget) error {
-		if len(targets) > 1 && !opts.yes {
-			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))
-		}
-		return nil
-	},
-	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pushOptions) (secretsync.BatchResult[secretsync.PushResult], error) {
-		return service.PushBatch(targets, opts.pushOptions())
-	},
-	callbacks: batchReportCallbacks[secretsync.PushResult]{
-		SuccessLine: func(item secretsync.PushResult) string {
-			return fmt.Sprintf("pushed %s (rev=%d)", item.Name, item.Revision)
-		},
-		FailureLine: func(failure secretsync.BatchFailure) string {
-			return fmt.Sprintf("failed push %s: %v", failure.Name, failure.Err)
-		},
-	},
 }
 
 type pushOptions struct {
@@ -92,5 +67,5 @@ func parsePushOptions(parsed *parsedCommand) pushOptions {
 
 func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePushOptions(parsed)
-	return runMappingBatchOperation(ctx, parsed, opts.all, opts, pushBatchOperation)
+	return runPushBatch(ctx, parsed, commandConfigValidated, opts)
 }

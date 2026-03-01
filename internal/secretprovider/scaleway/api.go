@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
-	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
@@ -176,5 +176,20 @@ func (s *API) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (
 }
 
 func toScalewaySecretType(name secretprovider.SecretType) (secret.SecretType, error) {
-	return secrettype.ToScaleway(string(name))
+	switch secretcontract.Type(name) {
+	case secretcontract.TypeOpaque:
+		return secret.SecretTypeOpaque, nil
+	case secretcontract.TypeCertificate:
+		return secret.SecretTypeCertificate, nil
+	case secretcontract.TypeKeyValue:
+		return secret.SecretTypeKeyValue, nil
+	case secretcontract.TypeBasicCreds:
+		return secret.SecretTypeBasicCredentials, nil
+	case secretcontract.TypeDatabaseCreds:
+		return secret.SecretTypeDatabaseCredentials, nil
+	case secretcontract.TypeSSHKey:
+		return secret.SecretTypeSSHKey, nil
+	default:
+		return "", fmt.Errorf("invalid secret type %q", name)
+	}
 }

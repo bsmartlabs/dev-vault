@@ -1,11 +1,6 @@
 package secrettype
 
-import (
-	"fmt"
-
-	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
-)
+import "github.com/bsmartlabs/dev-vault/internal/secretcontract"
 
 type Name string
 
@@ -34,23 +29,4 @@ func IsValid(name string) bool {
 
 func Names() []string {
 	return secretcontract.Names()
-}
-
-func ToScaleway(name string) (secret.SecretType, error) {
-	switch secretcontract.Type(name) {
-	case secretcontract.TypeOpaque:
-		return secret.SecretTypeOpaque, nil
-	case secretcontract.TypeCertificate:
-		return secret.SecretTypeCertificate, nil
-	case secretcontract.TypeKeyValue:
-		return secret.SecretTypeKeyValue, nil
-	case secretcontract.TypeBasicCreds:
-		return secret.SecretTypeBasicCredentials, nil
-	case secretcontract.TypeDatabaseCreds:
-		return secret.SecretTypeDatabaseCredentials, nil
-	case secretcontract.TypeSSHKey:
-		return secret.SecretTypeSSHKey, nil
-	default:
-		return "", fmt.Errorf("unsupported secret type mapping for %q", name)
-	}
 }

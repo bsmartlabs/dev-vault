@@ -39,3 +39,8 @@ type Entry struct {
 	Mode   Mode            `json:"mode,omitempty"`   // pull|push
 	Type   secrettype.Name `json:"type,omitempty"`   // expected secret type
 }
+
+type Target struct {
+	Name  string
+	Entry Entry
+}

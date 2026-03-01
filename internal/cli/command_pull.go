@@ -1,12 +1,5 @@
 package cli
 
-import (
-	"fmt"
-
-	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/secretsync"
-)
-
 var pullCommandDef = commandDef{
 	Name:    "pull",
 	Summary: "Pull mapped -dev secrets to local files",
@@ -34,22 +27,8 @@ var pullCommandDef = commandDef{
 			"dev-vault pull bweb-env-bsmart-dev --config .scw.json --overwrite",
 		},
 	},
+	Config:    commandConfigValidated,
 	RunParsed: runPullParsed,
-}
-
-var pullBatchOperation = mappingBatchOperation[secretsync.PullResult, pullOptions]{
-	mode: mapping.ModePull,
-	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (secretsync.BatchResult[secretsync.PullResult], error) {
-		return service.PullBatch(targets, opts.overwrite)
-	},
-	callbacks: batchReportCallbacks[secretsync.PullResult]{
-		SuccessLine: func(item secretsync.PullResult) string {
-			return fmt.Sprintf("pulled %s -> %s (rev=%d type=%s)", item.Name, item.File, item.Revision, item.Type)
-		},
-		FailureLine: func(failure secretsync.BatchFailure) string {
-			return fmt.Sprintf("failed pull %s: %v", failure.Name, failure.Err)
-		},
-	},
 }
 
 type pullOptions struct {
@@ -66,5 +45,5 @@ func parsePullOptions(parsed *parsedCommand) pullOptions {
 
 func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
 	opts := parsePullOptions(parsed)
-	return runMappingBatchOperation(ctx, parsed, opts.all, opts, pullBatchOperation)
+	return runPullBatch(ctx, parsed, commandConfigValidated, opts)
 }

@@ -10,14 +10,14 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/secretworkflow"
 )
 
-func (s Service) PullBatch(targets []MappingTarget, overwrite bool) (PullBatchResult, error) {
+func (s Service) PullBatch(targets []mapping.Target, overwrite bool) (PullBatchResult, error) {
 	succeeded, failed, summary := runBatch[PullResult](
 		targets,
 		"pull",
-		func(target MappingTarget) (PullResult, error) {
+		func(target mapping.Target) (PullResult, error) {
 			return s.pullOne(target, overwrite)
 		},
-		func(target MappingTarget, err error) BatchFailure {
+		func(target mapping.Target, err error) BatchFailure {
 			return BatchFailure{Name: target.Name, Err: err}
 		},
 	)
@@ -25,7 +25,7 @@ func (s Service) PullBatch(targets []MappingTarget, overwrite bool) (PullBatchRe
 	return result, result.Summary.ErrorOrNil()
 }
 
-func (s Service) pullOne(target MappingTarget, overwrite bool) (PullResult, error) {
+func (s Service) pullOne(target mapping.Target, overwrite bool) (PullResult, error) {
 	outPath, err := s.resolvePath(s.cfg.Root, target.Entry.File)
 	if err != nil {
 		return PullResult{}, fmt.Errorf("mapping %s: resolve file: %w", target.Name, err)

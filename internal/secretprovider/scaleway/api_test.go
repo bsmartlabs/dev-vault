@@ -264,8 +264,18 @@ func TestScalewaySecretAPI_CreateSecretVersion(t *testing.T) {
 }
 
 func TestToScalewaySecretType(t *testing.T) {
-	if _, err := toScalewaySecretType("opaque"); err != nil {
-		t.Fatalf("opaque should be supported: %v", err)
+	cases := []secretprovider.SecretType{
+		"opaque",
+		"certificate",
+		"key_value",
+		"basic_credentials",
+		"database_credentials",
+		"ssh_key",
+	}
+	for _, typ := range cases {
+		if _, err := toScalewaySecretType(typ); err != nil {
+			t.Fatalf("%s should be supported: %v", typ, err)
+		}
 	}
 	if _, err := toScalewaySecretType("not-valid"); err == nil {
 		t.Fatal("expected unsupported mapping error")

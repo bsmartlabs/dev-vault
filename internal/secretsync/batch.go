@@ -1,10 +1,12 @@
 package secretsync
 
+import "github.com/bsmartlabs/dev-vault/internal/mapping"
+
 func runBatch[R any](
-	targets []MappingTarget,
+	targets []mapping.Target,
 	operation string,
-	runOne func(MappingTarget) (R, error),
-	toFailure func(MappingTarget, error) BatchFailure,
+	runOne func(mapping.Target) (R, error),
+	toFailure func(mapping.Target, error) BatchFailure,
 ) ([]R, []BatchFailure, BatchSummary) {
 	succeeded := make([]R, 0, len(targets))
 	failedItems := make([]BatchFailure, 0, len(targets))

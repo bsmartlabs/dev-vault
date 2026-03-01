@@ -130,7 +130,7 @@ func selectMappingTargets(entries map[string]mapping.Entry, all bool, positional
 	default:
 		typedMode = mapping.Mode("")
 	}
-	targets, err := selectMappingTargetsForMode(entries, all, positional, typedMode)
+	targets, err := mapping.SelectTargetsForMode(entries, all, positional, typedMode)
 	if err != nil {
 		return nil, err
 	}
