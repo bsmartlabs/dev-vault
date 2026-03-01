@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
@@ -34,7 +35,7 @@ func TestRunMappingBatchOperation_RunError(t *testing.T) {
 	opts := parsePullOptions(parsed)
 
 	code := runMappingBatchOperation(ctx, parsed, true, opts, mappingBatchOperation[secretsync.PullResult, pullOptions]{
-		mode: commandModePull,
+		mode: mapping.ModePull,
 		run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (batchRunResult[secretsync.PullResult], error) {
 			return batchRunResult[secretsync.PullResult]{}, runtimeError(errors.New("boom"))
 		},

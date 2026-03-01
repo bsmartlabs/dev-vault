@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
@@ -18,7 +19,7 @@ type batchRunResult[T any] struct {
 }
 
 type mappingBatchOperation[T any, O any] struct {
-	mode      commandMode
+	mode      mapping.Mode
 	preflight func(opts O, targets []secretsync.MappingTarget) error
 	run       func(service secretsync.Service, targets []secretsync.MappingTarget, opts O) (batchRunResult[T], error)
 	callbacks batchReportCallbacks[T]

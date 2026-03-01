@@ -232,12 +232,8 @@ func TestHelpersAndBranches(t *testing.T) {
 	if _, err := selectMappingTargets(mapping, false, []string{"missing-dev"}, "pull"); err == nil {
 		t.Fatalf("expected error")
 	}
-	selected, err := selectMappingTargets(mapping, false, []string{"c-dev"}, "pull")
-	if err != nil {
-		t.Fatalf("expected selection success, got %v", err)
-	}
-	if len(selected) != 1 || selected[0] != "c-dev" {
-		t.Fatalf("unexpected selected targets: %#v", selected)
+	if _, err := selectMappingTargets(mapping, false, []string{"c-dev"}, "pull"); err == nil {
+		t.Fatalf("expected error")
 	}
 
 	// jsonToDotenv rejects non-string values.

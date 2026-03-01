@@ -119,17 +119,17 @@ func (s commandService) resolveMappedSecret(name string, entry mapping.Entry, cr
 	return createdSecret, nil
 }
 
-func selectMappingTargets(mapping map[string]mapping.Entry, all bool, positional []string, mode string) ([]string, error) {
-	var typedMode commandMode
+func selectMappingTargets(entries map[string]mapping.Entry, all bool, positional []string, mode string) ([]string, error) {
+	var typedMode mapping.Mode
 	switch mode {
 	case "pull":
-		typedMode = commandModePull
+		typedMode = mapping.ModePull
 	case "push":
-		typedMode = commandModePush
+		typedMode = mapping.ModePush
 	default:
-		typedMode = commandMode(0)
+		typedMode = mapping.Mode("")
 	}
-	targets, err := selectMappingTargetsForMode(mapping, all, positional, typedMode)
+	targets, err := selectMappingTargetsForMode(entries, all, positional, typedMode)
 	if err != nil {
 		return nil, err
 	}

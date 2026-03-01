@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
@@ -43,7 +44,7 @@ var pushCommandDef = commandDef{
 }
 
 var pushBatchOperation = mappingBatchOperation[secretsync.PushResult, pushOptions]{
-	mode: commandModePush,
+	mode: mapping.ModePush,
 	preflight: func(opts pushOptions, targets []secretsync.MappingTarget) error {
 		if len(targets) > 1 && !opts.yes {
 			return usageError(fmt.Errorf("refusing to push multiple secrets without --yes"))

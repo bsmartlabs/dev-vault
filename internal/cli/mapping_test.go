@@ -48,25 +48,25 @@ func TestSelectMappingTargets_DedupesExplicitTargetsPreservingOrder(t *testing.T
 	}
 }
 
-func TestCommandModeHelpers(t *testing.T) {
+func TestMappingModeHelpers(t *testing.T) {
 	pullEntry := mapping.Entry{Mode: mapping.ModePull}
 	pushEntry := mapping.Entry{Mode: mapping.ModePush}
-	if commandModePull.String() != "pull" {
-		t.Fatalf("unexpected pull mode string: %q", commandModePull.String())
+	if string(mapping.ModePull) != "pull" {
+		t.Fatalf("unexpected pull mode string: %q", mapping.ModePull)
 	}
-	if commandModePush.String() != "push" {
-		t.Fatalf("unexpected push mode string: %q", commandModePush.String())
+	if string(mapping.ModePush) != "push" {
+		t.Fatalf("unexpected push mode string: %q", mapping.ModePush)
 	}
-	if commandMode(0).String() != "unknown" {
-		t.Fatalf("unexpected unknown mode string: %q", commandMode(0).String())
+	if string(mapping.Mode("")) != "" {
+		t.Fatalf("unexpected empty mode string: %q", mapping.Mode(""))
 	}
-	if !commandModePull.allows(pullEntry) {
+	if !pullEntry.Mode.AllowsPull() {
 		t.Fatalf("pull mode should allow mapping mode pull")
 	}
-	if !commandModePush.allows(pushEntry) {
+	if !pushEntry.Mode.AllowsPush() {
 		t.Fatalf("push mode should allow mapping mode push")
 	}
-	if commandMode(0).allows(pullEntry) {
+	if mapping.Mode("").AllowsPull() {
 		t.Fatalf("unknown mode should not allow mapping entries")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
@@ -48,7 +49,7 @@ func (r commandRuntime) writeStderrError(err error) int {
 }
 
 func (r commandRuntime) runMappingCommand(
-	mode commandMode,
+	mode mapping.Mode,
 	all bool,
 	preflight func(targets []secretsync.MappingTarget) error,
 	execute func(service secretsync.Service, targets []secretsync.MappingTarget) error,

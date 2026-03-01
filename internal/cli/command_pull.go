@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
 
@@ -37,7 +38,7 @@ var pullCommandDef = commandDef{
 }
 
 var pullBatchOperation = mappingBatchOperation[secretsync.PullResult, pullOptions]{
-	mode: commandModePull,
+	mode: mapping.ModePull,
 	run: func(service secretsync.Service, targets []secretsync.MappingTarget, opts pullOptions) (batchRunResult[secretsync.PullResult], error) {
 		result := service.PullBatch(targets, opts.overwrite)
 		return batchRunResult[secretsync.PullResult]{
