@@ -122,7 +122,7 @@ func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 				return nil, errors.New("boom")
 			},
 		}}
-		_, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: secretprovider.SecretRevisionLatestEnabled})
+		_, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: secretprovider.RevisionLatestEnabled})
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -131,7 +131,7 @@ func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		api := &API{api: &fakeScalewaySDK{
 			accessFn: func(req *secret.AccessSecretVersionRequest, _ ...scw.RequestOption) (*secret.AccessSecretVersionResponse, error) {
-				if req.Revision != string(secretprovider.SecretRevisionLatestEnabled) {
+				if req.Revision != string(secretprovider.RevisionLatestEnabled) {
 					t.Fatalf("unexpected revision: %s", req.Revision)
 				}
 				return &secret.AccessSecretVersionResponse{
@@ -142,7 +142,7 @@ func TestScalewaySecretAPI_AccessSecretVersion(t *testing.T) {
 				}, nil
 			},
 		}}
-		out, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: secretprovider.SecretRevisionLatestEnabled})
+		out, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{Region: "fr-par", SecretID: "s1", Revision: secretprovider.RevisionLatestEnabled})
 		if err != nil {
 			t.Fatalf("AccessSecretVersion: %v", err)
 		}

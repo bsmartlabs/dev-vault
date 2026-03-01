@@ -34,7 +34,7 @@ func runPush(ctx commandContext, argv []string) int {
 		return code
 	}
 
-	return runMappingCommand(ctx, parsed, mappingCommandSpec{
+	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
 		mode: "push",
 		all:  all,
 		preflight: func(targets []mappingTarget) error {

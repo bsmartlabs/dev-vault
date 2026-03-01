@@ -10,7 +10,6 @@ import (
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
-	scwprovider "github.com/bsmartlabs/dev-vault/internal/secretprovider/scaleway"
 )
 
 type Dependencies struct {
@@ -25,12 +24,12 @@ type Dependencies struct {
 	Getwd    func() (string, error)
 }
 
-func DefaultDependencies(version, commit, date string) Dependencies {
+func DefaultDependencies(version, commit, date string, openSecretAPI func(cfg config.Config, profileOverride string) (secretprovider.SecretAPI, error)) Dependencies {
 	return Dependencies{
 		Version:       version,
 		Commit:        commit,
 		Date:          date,
-		OpenSecretAPI: scwprovider.Open,
+		OpenSecretAPI: openSecretAPI,
 		Now:           time.Now,
 		Hostname:      os.Hostname,
 		Getwd:         os.Getwd,

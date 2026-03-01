@@ -2,27 +2,18 @@ package secrettype
 
 import (
 	"fmt"
-	"sort"
 
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
-const (
-	NameOpaque              = "opaque"
-	NameCertificate         = "certificate"
-	NameKeyValue            = "key_value"
-	NameBasicCredentials    = "basic_credentials"
-	NameDatabaseCredentials = "database_credentials"
-	NameSSHKey              = "ssh_key"
-)
-
 var allowed = map[string]struct{}{
-	NameOpaque:              {},
-	NameCertificate:         {},
-	NameKeyValue:            {},
-	NameBasicCredentials:    {},
-	NameDatabaseCredentials: {},
-	NameSSHKey:              {},
+	secretcontract.TypeOpaque:        {},
+	secretcontract.TypeCertificate:   {},
+	secretcontract.TypeKeyValue:      {},
+	secretcontract.TypeBasicCreds:    {},
+	secretcontract.TypeDatabaseCreds: {},
+	secretcontract.TypeSSHKey:        {},
 }
 
 func IsValid(name string) bool {
@@ -31,27 +22,22 @@ func IsValid(name string) bool {
 }
 
 func Names() []string {
-	out := make([]string, 0, len(allowed))
-	for k := range allowed {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	return secretcontract.Names()
 }
 
 func ToScaleway(name string) (secret.SecretType, error) {
 	switch name {
-	case NameOpaque:
+	case secretcontract.TypeOpaque:
 		return secret.SecretTypeOpaque, nil
-	case NameCertificate:
+	case secretcontract.TypeCertificate:
 		return secret.SecretTypeCertificate, nil
-	case NameKeyValue:
+	case secretcontract.TypeKeyValue:
 		return secret.SecretTypeKeyValue, nil
-	case NameBasicCredentials:
+	case secretcontract.TypeBasicCreds:
 		return secret.SecretTypeBasicCredentials, nil
-	case NameDatabaseCredentials:
+	case secretcontract.TypeDatabaseCreds:
 		return secret.SecretTypeDatabaseCredentials, nil
-	case NameSSHKey:
+	case secretcontract.TypeSSHKey:
 		return secret.SecretTypeSSHKey, nil
 	default:
 		return "", fmt.Errorf("unsupported secret type mapping for %q", name)

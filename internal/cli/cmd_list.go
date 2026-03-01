@@ -50,7 +50,7 @@ func runList(ctx commandContext, argv []string) int {
 		re = compiled
 	}
 
-	return withLoadedService(ctx, parsed, func(_ *config.Loaded, service commandService) error {
+	return newCommandRuntime(ctx, parsed).execute(func(_ *config.Loaded, service commandService) error {
 		filtered, err := service.list(listQuery{
 			NameContains: contains,
 			NameRegex:    re,

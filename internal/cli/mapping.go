@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
@@ -50,7 +49,7 @@ func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, posi
 			continue
 		}
 		seen[name] = struct{}{}
-		if !strings.HasSuffix(name, "-dev") {
+		if !config.IsDevSecretName(name) {
 			return nil, usageError(fmt.Errorf("refusing non-dev secret name: %s", name))
 		}
 		entry, ok := mapping[name]

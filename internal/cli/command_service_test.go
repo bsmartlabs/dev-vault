@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 )
 
 func TestCommandServiceModule_NewServiceWiresDeps(t *testing.T) {
@@ -44,7 +43,7 @@ func TestCommandService_ResolvePushSecret_InvalidMappingType(t *testing.T) {
 	_, err := svc.resolvePushSecret("x-dev", config.MappingEntry{
 		Path: "/",
 		Type: "not-a-valid-type",
-	}, true, map[string][]secretprovider.SecretRecord{})
+	}, true, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}

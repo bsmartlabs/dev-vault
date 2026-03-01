@@ -11,7 +11,9 @@ import (
 )
 
 func TestDefaultDependencies(t *testing.T) {
-	deps := DefaultDependencies("v1", "c1", "d1")
+	deps := DefaultDependencies("v1", "c1", "d1", func(cfg config.Config, profileOverride string) (SecretAPI, error) {
+		return nil, nil
+	})
 	if deps.Version != "v1" || deps.Commit != "c1" || deps.Date != "d1" {
 		t.Fatalf("unexpected deps: %#v", deps)
 	}

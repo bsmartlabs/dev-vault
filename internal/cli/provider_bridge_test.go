@@ -14,9 +14,9 @@ const (
 	SecretTypeKeyValue    = secretprovider.SecretTypeKeyValue
 )
 
-type SecretRevision = secretprovider.SecretRevision
+type RevisionSelector = secretprovider.RevisionSelector
 
-const SecretRevisionLatestEnabled = secretprovider.SecretRevisionLatestEnabled
+const RevisionLatestEnabled = secretprovider.RevisionLatestEnabled
 
 type SecretRecord = secretprovider.SecretRecord
 type ListSecretsInput = secretprovider.ListSecretsInput

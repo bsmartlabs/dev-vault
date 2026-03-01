@@ -1,21 +1,21 @@
 package secretprovider
 
-import "github.com/bsmartlabs/dev-vault/internal/secrettype"
+import "github.com/bsmartlabs/dev-vault/internal/secretcontract"
 
 type SecretType string
 
 const (
-	SecretTypeOpaque              SecretType = secrettype.NameOpaque
-	SecretTypeCertificate         SecretType = secrettype.NameCertificate
-	SecretTypeKeyValue            SecretType = secrettype.NameKeyValue
-	SecretTypeBasicCredentials    SecretType = secrettype.NameBasicCredentials
-	SecretTypeDatabaseCredentials SecretType = secrettype.NameDatabaseCredentials
-	SecretTypeSSHKey              SecretType = secrettype.NameSSHKey
+	SecretTypeOpaque              SecretType = secretcontract.TypeOpaque
+	SecretTypeCertificate         SecretType = secretcontract.TypeCertificate
+	SecretTypeKeyValue            SecretType = secretcontract.TypeKeyValue
+	SecretTypeBasicCredentials    SecretType = secretcontract.TypeBasicCreds
+	SecretTypeDatabaseCredentials SecretType = secretcontract.TypeDatabaseCreds
+	SecretTypeSSHKey              SecretType = secretcontract.TypeSSHKey
 )
 
-type SecretRevision string
+type RevisionSelector string
 
-const SecretRevisionLatestEnabled SecretRevision = "latest_enabled"
+const RevisionLatestEnabled RevisionSelector = secretcontract.RevisionLatestEnabled
 
 type SecretRecord struct {
 	ID        string
@@ -36,7 +36,7 @@ type ListSecretsInput struct {
 type AccessSecretVersionInput struct {
 	Region   string
 	SecretID string
-	Revision SecretRevision
+	Revision RevisionSelector
 }
 
 type SecretVersionRecord struct {

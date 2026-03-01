@@ -96,7 +96,7 @@ func (f *fakeSecretAPI) AccessSecretVersion(req AccessSecretVersionInput) (*Secr
 	versions := f.versions[req.SecretID]
 	var chosen *fakeVersion
 	switch req.Revision {
-	case SecretRevisionLatestEnabled:
+	case RevisionLatestEnabled:
 		for i := range versions {
 			v := versions[i]
 			if v.enabled {

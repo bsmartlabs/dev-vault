@@ -21,7 +21,7 @@ func runPull(ctx commandContext, argv []string) int {
 		return code
 	}
 
-	return runMappingCommand(ctx, parsed, mappingCommandSpec{
+	return newCommandRuntime(ctx, parsed).executeMapping(mappingCommandSpec{
 		mode: "pull",
 		all:  all,
 		execute: func(service commandService, targets []mappingTarget) error {

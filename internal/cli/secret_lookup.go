@@ -68,14 +68,6 @@ func resolveSecretFromIndex(index map[string][]secretprovider.SecretRecord, name
 	return &matches[0], nil
 }
 
-func resolveSecretByNameAndPath(api secretprovider.SecretLister, scope secretProjectScope, name, path string) (*secretprovider.SecretRecord, error) {
-	index, err := buildSecretLookupIndex(api, scope)
-	if err != nil {
-		return nil, err
-	}
-	return resolveSecretFromIndex(index, name, path)
-}
-
 func listSecretsByTypes(api secretprovider.SecretLister, base secretprovider.ListSecretsInput, types []secretprovider.SecretType) ([]secretprovider.SecretRecord, error) {
 	var out []secretprovider.SecretRecord
 	for _, t := range types {

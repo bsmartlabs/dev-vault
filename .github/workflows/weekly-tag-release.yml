@@ -15,9 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  tag:
-    # Safety: keep scheduled tagging disabled by default. Enable by setting the repo variable:
-    # DEV_VAULT_ENABLE_SCHEDULED_RELEASES=true
+  gitleaks:
     if: github.event_name != 'schedule' || vars.DEV_VAULT_ENABLE_SCHEDULED_RELEASES == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -41,6 +39,17 @@ jobs:
           curl -fsSL -o "$tmp/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${version}_linux_${arch}.tar.gz"
           tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp"
           "$tmp/gitleaks" detect --redact --verbose
+
+  tag:
+    # Safety: keep scheduled tagging disabled by default. Enable by setting the repo variable:
+    # DEV_VAULT_ENABLE_SCHEDULED_RELEASES=true
+    if: github.event_name != 'schedule' || vars.DEV_VAULT_ENABLE_SCHEDULED_RELEASES == 'true'
+    needs: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v6
         with:

@@ -304,7 +304,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 	api := newFakeSecretAPI()
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
 	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	_, err := resolveSecretByNameAndPath(api, secretProjectScope{ProjectID: "proj", Region: "fr-par"}, "dup-dev", "/")
+	_, err := resolveSecretByNameAndPathFromIndex(api, secretProjectScope{ProjectID: "proj", Region: "fr-par"}, "dup-dev", "/")
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -312,7 +312,7 @@ func TestResolveSecretByNameAndPath_MultipleMatches(t *testing.T) {
 
 func TestResolveSecretByNameAndPath_NotFound(t *testing.T) {
 	api := newFakeSecretAPI()
-	_, err := resolveSecretByNameAndPath(api, secretProjectScope{ProjectID: "proj", Region: "fr-par"}, "missing-dev", "/")
+	_, err := resolveSecretByNameAndPathFromIndex(api, secretProjectScope{ProjectID: "proj", Region: "fr-par"}, "missing-dev", "/")
 	var nf *notFoundError
 	if !errors.As(err, &nf) {
 		t.Fatalf("expected notFoundError, got %v", err)

@@ -5,8 +5,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
+
+func resolveSecretByNameAndPathFromIndex(api secretprovider.SecretLister, scope secretProjectScope, name, path string) (*secretprovider.SecretRecord, error) {
+	index, err := buildSecretLookupIndex(api, scope)
+	if err != nil {
+		return nil, err
+	}
+	return resolveSecretFromIndex(index, name, path)
+}
 
 func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 	msg := (&notFoundError{name: "x-dev", path: "/"}).Error()
@@ -17,12 +26,12 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 	fake := newFakeSecretAPI()
 	s := fake.AddSecret("project", "x-dev", "/", secret.SecretTypeOpaque)
 
-	found, err := resolveSecretByNameAndPath(fake, secretProjectScope{
+	found, err := resolveSecretByNameAndPathFromIndex(fake, secretProjectScope{
 		Region:    "fr-par",
 		ProjectID: "project",
 	}, "x-dev", "/")
 	if err != nil {
-		t.Fatalf("resolveSecretByNameAndPath: %v", err)
+		t.Fatalf("resolveSecretByNameAndPathFromIndex: %v", err)
 	}
 	if found.ID != s.ID {
 		t.Fatalf("resolved wrong secret id: got %q want %q", found.ID, s.ID)
@@ -43,7 +52,7 @@ func TestSecretLookupFile_BasicSmoke(t *testing.T) {
 func TestResolveSecretByNameAndPath_ListError(t *testing.T) {
 	fake := newFakeSecretAPI()
 	fake.listErr = errors.New("boom")
-	_, err := resolveSecretByNameAndPath(fake, secretProjectScope{
+	_, err := resolveSecretByNameAndPathFromIndex(fake, secretProjectScope{
 		Region:    "fr-par",
 		ProjectID: "project",
 	}, "x-dev", "/")

@@ -54,6 +54,17 @@ type Loaded struct {
 	Warnings []string
 }
 
+func IsDevSecretName(name string) bool {
+	return strings.HasSuffix(name, "-dev")
+}
+
+func ValidateDevSecretName(name string) error {
+	if IsDevSecretName(name) {
+		return nil
+	}
+	return fmt.Errorf("mapping key %q must end with -dev", name)
+}
+
 func FindConfigPath(startDir string) (string, error) {
 	return findConfigPath(startDir, defaultConfigDeps)
 }
@@ -162,8 +173,8 @@ func (c *Config) normalizeAndValidate() ([]string, error) {
 	}
 
 	for name, entry := range c.Mapping {
-		if !strings.HasSuffix(name, "-dev") {
-			return nil, fmt.Errorf("mapping key %q must end with -dev", name)
+		if err := ValidateDevSecretName(name); err != nil {
+			return nil, err
 		}
 
 		entry.File = strings.TrimSpace(entry.File)
