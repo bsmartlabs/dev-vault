@@ -217,6 +217,32 @@ func TestRun_GlobalHelpFlag(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+}
+
+func TestRun_GlobalHelpLongFlag(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+}
+
+func TestRun_GlobalHelpViaFlagSetPath(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--config", "x", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
 	if !strings.Contains(errBuf.String(), "Usage:") {
 		t.Fatalf("expected usage in stderr, got: %s", errBuf.String())
 	}
@@ -341,6 +367,19 @@ func TestRun_NoCommand(t *testing.T) {
 	}
 	if !strings.Contains(errBuf.String(), "Usage:") {
 		t.Fatalf("expected usage on stderr")
+	}
+}
+
+func TestRun_EmptyArgv(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 2 {
+		t.Fatalf("expected 2, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "Usage:") {
+		t.Fatalf("expected usage on stderr, got: %s", errBuf.String())
 	}
 }
 

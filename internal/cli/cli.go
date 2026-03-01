@@ -40,6 +40,14 @@ func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 		fmt.Fprintln(stderr, "internal error: missing dependencies")
 		return 1
 	}
+	if len(args) == 0 {
+		printMainUsage(stderr)
+		return 2
+	}
+	if len(args) > 1 && (args[1] == "-h" || args[1] == "--help") {
+		printMainUsage(stdout)
+		return 0
+	}
 
 	global := flag.NewFlagSet("dev-vault", flag.ContinueOnError)
 	global.SetOutput(stderr)
