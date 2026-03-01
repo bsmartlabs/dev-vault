@@ -1,60 +1,14 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	"github.com/bsmartlabs/dev-vault/internal/dotenv"
 	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
-
-type stringSliceFlag []string
-
-func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
-
-func (s *stringSliceFlag) Set(v string) error {
-	*s = append(*s, v)
-	return nil
-}
-
-func reorderFlags(argv []string, takesValue map[string]bool) []string {
-	// Go's standard flag package stops parsing when it sees the first non-flag argument.
-	// For a better CLI UX, accept flags after positional args by reordering them.
-	var flags []string
-	var positional []string
-
-	normalize := func(tok string) string {
-		tok = strings.TrimLeft(tok, "-")
-		if i := strings.IndexByte(tok, '='); i >= 0 {
-			tok = tok[:i]
-		}
-		return tok
-	}
-
-	for i := 0; i < len(argv); i++ {
-		tok := argv[i]
-		if tok == "--" {
-			positional = append(positional, argv[i+1:]...)
-			break
-		}
-		if strings.HasPrefix(tok, "-") && tok != "-" {
-			flags = append(flags, tok)
-			name := normalize(tok)
-			if takesValue[name] && !strings.Contains(tok, "=") && i+1 < len(argv) {
-				flags = append(flags, argv[i+1])
-				i++
-			}
-			continue
-		}
-		positional = append(positional, tok)
-	}
-
-	return append(flags, positional...)
-}
 
 func selectMappingTargets(mapping map[string]config.MappingEntry, all bool, positional []string, mode string) ([]string, error) {
 	if all && len(positional) > 0 {
@@ -124,33 +78,10 @@ func parseSecretType(s string) (secret.SecretType, error) {
 	}
 }
 
-func jsonToDotenv(payload []byte) ([]byte, error) {
-	var m map[string]any
-	if err := json.Unmarshal(payload, &m); err != nil {
-		return nil, fmt.Errorf("expected JSON object: %w", err)
-	}
-	env := make(map[string]string, len(m))
-	for k, v := range m {
-		switch vv := v.(type) {
-		case string:
-			env[k] = vv
-		default:
-			// Values come from json.Unmarshal into interface{}, so they are always JSON-marshalable.
-			env[k] = string(mustJSONMarshal(v))
-		}
-	}
-	return dotenv.Render(env), nil
-}
-
-func mustJSONMarshal(v any) []byte {
-	b, _ := json.Marshal(v)
-	return b
-}
-
-func dotenvToJSON(payload []byte) ([]byte, error) {
-	env, err := dotenv.Parse(payload)
+func mustParseSecretType(s string) secret.SecretType {
+	st, err := parseSecretType(s)
 	if err != nil {
-		return nil, err
+		panic(fmt.Sprintf("invalid secret type %q after config validation", s))
 	}
-	return json.Marshal(env)
+	return st
 }

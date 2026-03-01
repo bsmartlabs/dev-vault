@@ -198,6 +198,7 @@ func baseDeps(open func(cfg config.Config, profileOverride string) (SecretAPI, e
 		OpenSecretAPI: open,
 		Now:           func() time.Time { return time.Unix(123, 0) },
 		Hostname:      func() (string, error) { return "host", nil },
+		Getwd:         os.Getwd,
 	}
 }
 
@@ -1007,12 +1008,12 @@ func TestHelpersAndBranches(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 
-		// selectMappingTargets default-mode and various errors.
-		mapping := map[string]config.MappingEntry{
-			"a-dev": {File: "a", Mode: "both"},
-			"b-dev": {File: "b", Mode: "pull"},
-			"c-dev": {File: "c", Mode: "push"},
-		}
+	// selectMappingTargets default-mode and various errors.
+	mapping := map[string]config.MappingEntry{
+		"a-dev": {File: "a", Mode: "both"},
+		"b-dev": {File: "b", Mode: "pull"},
+		"c-dev": {File: "c", Mode: "push"},
+	}
 	if _, err := selectMappingTargets(mapping, true, []string{"a-dev"}, "pull"); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -1256,16 +1257,13 @@ func TestReorderFlags(t *testing.T) {
 }
 
 func TestLoadAndOpenAPI_GetwdError(t *testing.T) {
-	old := getwdFn
-	getwdFn = func() (string, error) { return "", errors.New("boom") }
-	defer func() { getwdFn = old }()
-
-	var errBuf bytes.Buffer
-	_, _, ok := loadAndOpenAPI("", "", &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
-	}))
-	if ok {
-		t.Fatalf("expected failure")
+	})
+	deps.Getwd = func() (string, error) { return "", errors.New("boom") }
+	_, _, err := loadAndOpenAPI("", "", deps)
+	if err == nil {
+		t.Fatalf("expected error")
 	}
 }
 
@@ -1281,32 +1279,29 @@ func TestLoadAndOpenAPI_Success(t *testing.T) {
 
 	api := newFakeSecretAPI()
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	var errBuf bytes.Buffer
-	loaded, gotAPI, ok := loadAndOpenAPI(cfgPath, "", &errBuf, deps)
-	if !ok || loaded == nil || gotAPI == nil {
-		t.Fatalf("expected success, got ok=%v loaded=%v api=%v err=%s", ok, loaded, gotAPI, errBuf.String())
+	loaded, gotAPI, err := loadAndOpenAPI(cfgPath, "", deps)
+	if err != nil || loaded == nil || gotAPI == nil {
+		t.Fatalf("expected success, got err=%v loaded=%v api=%v", err, loaded, gotAPI)
 	}
 }
 
 func TestLoadAndOpenAPI_ConfigError(t *testing.T) {
-	var errBuf bytes.Buffer
-	_, _, ok := loadAndOpenAPI("/nope.json", "", &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	_, _, err := loadAndOpenAPI("/nope.json", "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	}))
-	if ok {
-		t.Fatalf("expected failure")
+	if err == nil {
+		t.Fatalf("expected error")
 	}
 }
 
 func TestLoadAndOpenAPI_OpenError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x"}}}`)
-	var errBuf bytes.Buffer
-	_, _, ok := loadAndOpenAPI(cfgPath, "", &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	_, _, err := loadAndOpenAPI(cfgPath, "", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, errors.New("boom")
 	}))
-	if ok {
-		t.Fatalf("expected failure")
+	if err == nil {
+		t.Fatalf("expected error")
 	}
 }
 
@@ -1355,6 +1350,7 @@ func TestRunPush_DefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T)
 		OpenSecretAPI: func(cfg config.Config, s string) (SecretAPI, error) { return api, nil },
 		Now:           func() time.Time { return time.Unix(0, 0) },
 		Hostname:      func() (string, error) { return "", errors.New("nope") },
+		Getwd:         os.Getwd,
 	}
 
 	api.createVerErr = errors.New("boom")
@@ -1481,8 +1477,8 @@ func TestListCommand_UsesAllTypesWhenNoTypeFilter(t *testing.T) {
 		t.Fatalf("expected 0, got %d", code)
 	}
 	// listSecretsByTypes should call ListSecrets once per type.
-	if api.listCalls < len(allSecretTypes) {
-		t.Fatalf("expected >= %d list calls, got %d", len(allSecretTypes), api.listCalls)
+	if api.listCalls < len(supportedSecretTypes()) {
+		t.Fatalf("expected >= %d list calls, got %d", len(supportedSecretTypes()), api.listCalls)
 	}
 }
 

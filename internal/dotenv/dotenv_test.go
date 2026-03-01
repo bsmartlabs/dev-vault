@@ -43,6 +43,8 @@ func TestParse_Errors(t *testing.T) {
 		{"InvalidKey", "1BAD=x", "invalid key"},
 		{"UnterminatedSingle", "A='x", "unterminated"},
 		{"UnterminatedDouble", `A="x`, "unterminated"},
+		{"TrailingAfterSingleQuoted", "A='x' trailing", "trailing"},
+		{"TrailingAfterDoubleQuoted", `A="x" trailing`, "trailing"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -34,3 +34,12 @@ func TestUsageFunctions_BasicSmoke(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintMainUsage_ExplicitNamesMustRespectMode(t *testing.T) {
+	var buf bytes.Buffer
+	printMainUsage(&buf)
+	out := buf.String()
+	if !strings.Contains(out, "must satisfy mapping.mode") {
+		t.Fatalf("expected main usage to mention explicit names must satisfy mapping.mode, got %q", out)
+	}
+}

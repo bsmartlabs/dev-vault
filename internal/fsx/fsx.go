@@ -69,9 +69,11 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode, overwrite bool)
 		if rmErr := removeFn(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 			return fmt.Errorf("remove existing: %w", rmErr)
 		}
-		if err := renameFn(tmpName, path); err == nil {
+		if retryErr := renameFn(tmpName, path); retryErr == nil {
 			cleanup = false
 			return nil
+		} else {
+			return fmt.Errorf("rename temp to dest after overwrite (first attempt: %v): %w", renameErr, retryErr)
 		}
 	}
 

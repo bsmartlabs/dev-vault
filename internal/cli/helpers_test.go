@@ -45,6 +45,15 @@ func TestHelpersFile_BasicSmoke(t *testing.T) {
 	if _, err := parseSecretType("not-a-type"); err == nil {
 		t.Fatal("expected parseSecretType to fail for unknown type")
 	}
+	if got := mustParseSecretType("opaque"); got == "" {
+		t.Fatal("expected mustParseSecretType to return non-empty value")
+	}
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected mustParseSecretType panic for invalid type")
+		}
+	}()
+	_ = mustParseSecretType("still-not-valid")
 
 	dotenvPayload, err := jsonToDotenv([]byte(`{"A":"1","B":2}`))
 	if err != nil {

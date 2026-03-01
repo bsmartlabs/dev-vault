@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,15 @@ type Loaded struct {
 	Path string
 	Root string
 	Cfg  Config
+}
+
+var validMappingTypes = map[string]struct{}{
+	"opaque":               {},
+	"certificate":          {},
+	"key_value":            {},
+	"basic_credentials":    {},
+	"database_credentials": {},
+	"ssh_key":              {},
 }
 
 func FindConfigPath(startDir string) (string, error) {
@@ -102,6 +112,14 @@ func Load(startDir, explicitPath string) (*Loaded, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("decode config json: %w", err)
+	}
+	// Reject trailing JSON tokens after the single top-level config object.
+	var trailing any
+	if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return nil, errors.New("decode config json: trailing data after top-level JSON object")
+		}
+		return nil, fmt.Errorf("decode config json: trailing data after top-level JSON object: %w", err)
 	}
 
 	if err := cfg.normalizeAndValidate(); err != nil {
@@ -172,6 +190,11 @@ func (c *Config) normalizeAndValidate() error {
 		}
 
 		entry.Type = strings.TrimSpace(entry.Type)
+		if entry.Type != "" {
+			if _, ok := validMappingTypes[entry.Type]; !ok {
+				return fmt.Errorf("mapping %q: invalid type %q", name, entry.Type)
+			}
+		}
 
 		c.Mapping[name] = entry
 	}

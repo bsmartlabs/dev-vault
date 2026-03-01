@@ -107,6 +107,38 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
+	t.Run("TrailingJSONRejected", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, DefaultConfigName)
+		payload := `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}{"extra":true}`
+		if err := os.WriteFile(cfgPath, []byte(payload), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		_, err := Load(dir, cfgPath)
+		if err == nil {
+			t.Fatalf("expected error")
+		}
+		if !strings.Contains(err.Error(), "trailing data") {
+			t.Fatalf("expected trailing data error, got %v", err)
+		}
+	})
+
+	t.Run("TrailingJSONSyntaxErrorRejected", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, DefaultConfigName)
+		payload := `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}{`
+		if err := os.WriteFile(cfgPath, []byte(payload), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		_, err := Load(dir, cfgPath)
+		if err == nil {
+			t.Fatalf("expected error")
+		}
+		if !strings.Contains(err.Error(), "trailing data") {
+			t.Fatalf("expected trailing data error, got %v", err)
+		}
+	})
+
 	t.Run("ValidationErrors", func(t *testing.T) {
 		cases := []struct {
 			name    string
@@ -124,6 +156,7 @@ func TestLoad(t *testing.T) {
 			{"BadFormat", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","format":"nope"}}}`, "invalid format"},
 			{"BadPath", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","path":"nope"}}}`, "path must start"},
 			{"BadMode", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"nope"}}}`, "invalid mode"},
+			{"BadType", `{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","type":"nope"}}}`, "invalid type"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -143,37 +176,37 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
-		t.Run("DefaultsApplied", func(t *testing.T) {
-			dir := t.TempDir()
-			cfgPath := filepath.Join(dir, DefaultConfigName)
-			if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
-				t.Fatalf("write config: %v", err)
-			}
-			loaded, err := Load(dir, cfgPath)
-			if err != nil {
-				t.Fatalf("load: %v", err)
-			}
-			ent := loaded.Cfg.Mapping["a-dev"]
-			if ent.Format != "raw" || ent.Path != "/" || ent.Mode != "both" {
-				t.Fatalf("defaults not applied: %+v", ent)
-			}
-		})
+	t.Run("DefaultsApplied", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, DefaultConfigName)
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x"}}}`), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		loaded, err := Load(dir, cfgPath)
+		if err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		ent := loaded.Cfg.Mapping["a-dev"]
+		if ent.Format != "raw" || ent.Path != "/" || ent.Mode != "both" {
+			t.Fatalf("defaults not applied: %+v", ent)
+		}
+	})
 
-		t.Run("LegacySyncAliasNormalizesToBoth", func(t *testing.T) {
-			dir := t.TempDir()
-			cfgPath := filepath.Join(dir, DefaultConfigName)
-			if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"sync"}}}`), 0o644); err != nil {
-				t.Fatalf("write config: %v", err)
-			}
-			loaded, err := Load(dir, cfgPath)
-			if err != nil {
-				t.Fatalf("load: %v", err)
-			}
-			ent := loaded.Cfg.Mapping["a-dev"]
-			if ent.Mode != "both" {
-				t.Fatalf("expected mode both, got: %+v", ent)
-			}
-		})
+	t.Run("LegacySyncAliasNormalizesToBoth", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, DefaultConfigName)
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"sync"}}}`), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		loaded, err := Load(dir, cfgPath)
+		if err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		ent := loaded.Cfg.Mapping["a-dev"]
+		if ent.Mode != "both" {
+			t.Fatalf("expected mode both, got: %+v", ent)
+		}
+	})
 
 	t.Run("DiscoverySuccess", func(t *testing.T) {
 		root := t.TempDir()

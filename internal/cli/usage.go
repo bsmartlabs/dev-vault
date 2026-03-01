@@ -34,7 +34,7 @@ func printMainUsage(w io.Writer) {
 	fmt.Fprintln(w, "  - mapping.mode defaults to both.")
 	fmt.Fprintln(w, "  - pull --all includes mapping entries with mapping.mode in {pull, both}.")
 	fmt.Fprintln(w, "  - push --all includes mapping entries with mapping.mode in {push, both}.")
-	fmt.Fprintln(w, "  - If you do not use --all, you can ignore mapping.mode entirely.")
+	fmt.Fprintf(w, "  - %s\n", explicitModePolicySentence)
 	fmt.Fprintln(w, "  - Note: mapping.mode='sync' is accepted as a legacy alias for 'both'.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Examples:")

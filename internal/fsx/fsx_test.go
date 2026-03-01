@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -181,6 +182,36 @@ func TestAtomicWriteFile_ErrorsViaInjection(t *testing.T) {
 
 		if err := AtomicWriteFile(dest, []byte("x"), 0o600, true); err == nil {
 			t.Fatalf("expected error")
+		}
+	})
+
+	t.Run("RenameFallbackReturnsSecondRenameError", func(t *testing.T) {
+		dir := t.TempDir()
+		dest := filepath.Join(dir, "out.txt")
+
+		oldRename := renameFn
+		oldRemove := removeFn
+		defer func() {
+			renameFn = oldRename
+			removeFn = oldRemove
+		}()
+
+		attempt := 0
+		renameFn = func(string, string) error {
+			attempt++
+			if attempt == 1 {
+				return errors.New("first rename failed")
+			}
+			return errors.New("second rename failed")
+		}
+		removeFn = func(string) error { return nil }
+
+		err := AtomicWriteFile(dest, []byte("x"), 0o600, true)
+		if err == nil {
+			t.Fatalf("expected error")
+		}
+		if !strings.Contains(err.Error(), "second rename failed") {
+			t.Fatalf("expected second rename failure in error, got %v", err)
 		}
 	})
 }

@@ -92,30 +92,54 @@ func parseValue(raw string) (string, error) {
 		return "", nil
 	}
 	if raw[0] == '"' {
-		return parseDoubleQuoted(raw)
+		v, consumed, err := parseDoubleQuotedWithConsumed(raw)
+		if err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(raw[consumed:]) != "" {
+			return "", errors.New("trailing characters after quoted value")
+		}
+		return v, nil
 	}
 	if raw[0] == '\'' {
-		return parseSingleQuoted(raw)
+		v, consumed, err := parseSingleQuotedWithConsumed(raw)
+		if err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(raw[consumed:]) != "" {
+			return "", errors.New("trailing characters after quoted value")
+		}
+		return v, nil
 	}
 	return strings.TrimSpace(raw), nil
 }
 
 func parseSingleQuoted(raw string) (string, error) {
+	val, _, err := parseSingleQuotedWithConsumed(raw)
+	return val, err
+}
+
+func parseSingleQuotedWithConsumed(raw string) (string, int, error) {
 	if len(raw) < 2 || raw[0] != '\'' {
-		return "", errors.New("not single quoted")
+		return "", 0, errors.New("not single quoted")
 	}
 	// Find ending quote.
 	for i := 1; i < len(raw); i++ {
 		if raw[i] == '\'' {
-			return raw[1:i], nil
+			return raw[1:i], i + 1, nil
 		}
 	}
-	return "", errors.New("unterminated single-quoted value")
+	return "", 0, errors.New("unterminated single-quoted value")
 }
 
 func parseDoubleQuoted(raw string) (string, error) {
+	val, _, err := parseDoubleQuotedWithConsumed(raw)
+	return val, err
+}
+
+func parseDoubleQuotedWithConsumed(raw string) (string, int, error) {
 	if len(raw) < 2 || raw[0] != '"' {
-		return "", errors.New("not double quoted")
+		return "", 0, errors.New("not double quoted")
 	}
 	var b strings.Builder
 	escaped := false
@@ -145,12 +169,12 @@ func parseDoubleQuoted(raw string) (string, error) {
 		case '\\':
 			escaped = true
 		case '"':
-			return b.String(), nil
+			return b.String(), i + 1, nil
 		default:
 			b.WriteByte(ch)
 		}
 	}
-	return "", errors.New("unterminated double-quoted value")
+	return "", 0, errors.New("unterminated double-quoted value")
 }
 
 func escapeDoubleQuoted(s string) string {

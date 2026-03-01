@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 
@@ -11,23 +10,31 @@ import (
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
-func loadAndOpenAPI(configPath, profileOverride string, stderr io.Writer, deps Dependencies) (*config.Loaded, SecretAPI, bool) {
-	wd, err := getwdFn()
+func supportedSecretTypes() []secret.SecretType {
+	return []secret.SecretType{
+		secret.SecretTypeOpaque,
+		secret.SecretTypeCertificate,
+		secret.SecretTypeKeyValue,
+		secret.SecretTypeBasicCredentials,
+		secret.SecretTypeDatabaseCredentials,
+		secret.SecretTypeSSHKey,
+	}
+}
+
+func loadAndOpenAPI(configPath, profileOverride string, deps Dependencies) (*config.Loaded, SecretAPI, error) {
+	wd, err := deps.Getwd()
 	if err != nil {
-		fmt.Fprintf(stderr, "getwd: %v\n", err)
-		return nil, nil, false
+		return nil, nil, fmt.Errorf("getwd: %w", err)
 	}
 	loaded, err := config.Load(wd, configPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "load config: %v\n", err)
-		return nil, nil, false
+		return nil, nil, fmt.Errorf("load config: %w", err)
 	}
 	api, err := deps.OpenSecretAPI(loaded.Cfg, profileOverride)
 	if err != nil {
-		fmt.Fprintf(stderr, "open scaleway api: %v\n", err)
-		return nil, nil, false
+		return nil, nil, fmt.Errorf("open scaleway api: %w", err)
 	}
-	return loaded, api, true
+	return loaded, api, nil
 }
 
 type notFoundError struct {
@@ -47,7 +54,7 @@ func resolveSecretByNameAndPath(api SecretAPI, cfg config.Config, name, path str
 		Path:                 scw.StringPtr(path),
 		ScheduledForDeletion: false,
 	}
-	respSecrets, err := listSecretsByTypes(api, &req, allSecretTypes)
+	respSecrets, err := listSecretsByTypes(api, &req, supportedSecretTypes())
 	if err != nil {
 		return nil, err
 	}
