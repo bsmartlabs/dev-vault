@@ -24,8 +24,7 @@ func TestDefaultDependencies(t *testing.T) {
 }
 
 func TestLoadAndOpenAPIConfigDiscoveryError(t *testing.T) {
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
-	_, err := loadConfig("", deps)
+	_, err := loadConfigForPolicy("", commandConfigValidated)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -35,9 +34,7 @@ func TestLoadConfigAbsolutePath(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
-
-	loaded, err := loadConfig(cfgPath, deps)
+	loaded, err := loadConfigForPolicy(cfgPath, commandConfigValidated)
 	if err != nil {
 		t.Fatalf("loadConfig absolute path: %v", err)
 	}
@@ -47,10 +44,7 @@ func TestLoadConfigAbsolutePath(t *testing.T) {
 }
 
 func TestLoadConfigAbsolutePathLoadError(t *testing.T) {
-	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-		return nil, nil
-	})
-	_, err := loadConfig("/no/such/config.json", deps)
+	_, err := loadConfigForPolicy("/no/such/config.json", commandConfigValidated)
 	if err == nil {
 		t.Fatal("expected load error")
 	}
@@ -60,16 +54,13 @@ func TestLoadConfigRelativePathBranches(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		root := t.TempDir()
 		writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		})
 		old, _ := os.Getwd()
 		defer func() { _ = os.Chdir(old) }()
 		if err := os.Chdir(root); err != nil {
 			t.Fatalf("chdir: %v", err)
 		}
 
-		loaded, err := loadConfig(config.DefaultConfigName, deps)
+		loaded, err := loadConfigForPolicy(config.DefaultConfigName, commandConfigValidated)
 		if err != nil {
 			t.Fatalf("loadConfig relative success: %v", err)
 		}
@@ -80,15 +71,12 @@ func TestLoadConfigRelativePathBranches(t *testing.T) {
 
 	t.Run("LoadError", func(t *testing.T) {
 		root := t.TempDir()
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		})
 		old, _ := os.Getwd()
 		defer func() { _ = os.Chdir(old) }()
 		if err := os.Chdir(root); err != nil {
 			t.Fatalf("chdir: %v", err)
 		}
-		if _, err := loadConfig("missing.json", deps); err == nil {
+		if _, err := loadConfigForPolicy("missing.json", commandConfigValidated); err == nil {
 			t.Fatal("expected load error for missing relative config")
 		}
 	})
@@ -106,7 +94,7 @@ func TestLoadAndOpenAPISuccess(t *testing.T) {
 
 	api := newFakeSecretAPI()
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
-	loaded, err := loadConfig(cfgPath, deps)
+	loaded, err := loadConfigForPolicy(cfgPath, commandConfigValidated)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
@@ -117,9 +105,7 @@ func TestLoadAndOpenAPISuccess(t *testing.T) {
 }
 
 func TestLoadAndOpenAPIConfigError(t *testing.T) {
-	_, err := loadConfig("/nope.json", baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-		return nil, nil
-	}))
+	_, err := loadConfigForPolicy("/nope.json", commandConfigValidated)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -131,7 +117,7 @@ func TestLoadAndOpenAPIOpenError(t *testing.T) {
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, errors.New("boom")
 	})
-	loaded, err := loadConfig(cfgPath, deps)
+	loaded, err := loadConfigForPolicy(cfgPath, commandConfigValidated)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
@@ -145,9 +131,8 @@ func TestLoadProjectConfigBranches(t *testing.T) {
 	t.Run("AbsolutePath", func(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par"}`)
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
 
-		loaded, err := loadProjectConfig(cfgPath, deps)
+		loaded, err := loadConfigForPolicy(cfgPath, commandConfigProjectOnly)
 		if err != nil {
 			t.Fatalf("loadProjectConfig absolute path: %v", err)
 		}
@@ -157,32 +142,25 @@ func TestLoadProjectConfigBranches(t *testing.T) {
 	})
 
 	t.Run("DiscoveryError", func(t *testing.T) {
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil })
-		if _, err := loadProjectConfig("", deps); err == nil {
+		if _, err := loadConfigForPolicy("", commandConfigProjectOnly); err == nil {
 			t.Fatal("expected discovery error")
 		}
 	})
 
 	t.Run("AbsolutePathLoadError", func(t *testing.T) {
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		})
-		if _, err := loadProjectConfig("/no/such/project-config.json", deps); err == nil {
+		if _, err := loadConfigForPolicy("/no/such/project-config.json", commandConfigProjectOnly); err == nil {
 			t.Fatal("expected load error")
 		}
 	})
 
 	t.Run("RelativePathLoadError", func(t *testing.T) {
 		root := t.TempDir()
-		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-			return nil, nil
-		})
 		old, _ := os.Getwd()
 		defer func() { _ = os.Chdir(old) }()
 		if err := os.Chdir(root); err != nil {
 			t.Fatalf("chdir: %v", err)
 		}
-		if _, err := loadProjectConfig("missing.json", deps); err == nil {
+		if _, err := loadConfigForPolicy("missing.json", commandConfigProjectOnly); err == nil {
 			t.Fatal("expected load error")
 		}
 	})
@@ -269,11 +247,10 @@ func TestOpenScalewaySecretAPIWrapper(t *testing.T) {
 }
 
 func TestConfigPolicyContracts(t *testing.T) {
-	loader, err := configLoaderForPolicy(commandConfigProjectOnly)
-	if err != nil || loader == nil {
-		t.Fatal("expected project-only loader")
+	if _, err := loadConfigForPolicy("", commandConfigProjectOnly); err == nil {
+		t.Fatal("expected discovery error for project-only policy")
 	}
-	if _, err := configLoaderForPolicy(commandConfigPolicy(999)); err == nil {
+	if _, err := loadConfigForPolicy("", commandConfigPolicy(999)); err == nil {
 		t.Fatal("expected unsupported policy error")
 	}
 }

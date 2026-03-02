@@ -21,9 +21,6 @@ type commandRuntime struct {
 	parsed *parsedCommand
 }
 
-type configLoader func(configPath string, deps Dependencies) (*config.Loaded, error)
-type projectConfigLoader func(startDir, explicitPath string) (*config.Loaded, error)
-
 type runtimeResources struct {
 	loaded  *config.Loaded
 	service secretsync.Service
@@ -34,11 +31,7 @@ func newCommandRuntime(ctx commandContext, parsed *parsedCommand) commandRuntime
 }
 
 func (r commandRuntime) loadWithPolicy(policy commandConfigPolicy) (*config.Loaded, error) {
-	loader, err := configLoaderForPolicy(policy)
-	if err != nil {
-		return nil, runtimeError(err)
-	}
-	loaded, err := loader(r.parsed.configPath, r.ctx.deps)
+	loaded, err := loadConfigForPolicy(r.parsed.configPath, policy)
 	if err != nil {
 		return nil, runtimeError(err)
 	}
@@ -104,31 +97,23 @@ func (r commandRuntime) selectMappingTargets(
 	return targets, nil
 }
 
-func configLoaderForPolicy(policy commandConfigPolicy) (configLoader, error) {
+func loadConfigForPolicy(configPath string, policy commandConfigPolicy) (*config.Loaded, error) {
 	switch policy {
 	case commandConfigProjectOnly:
-		return loadProjectConfig, nil
+		loaded, err := config.LoadProject(".", configPath)
+		if err != nil {
+			return nil, fmt.Errorf("load config: %w", err)
+		}
+		return loaded, nil
 	case commandConfigValidated:
-		return loadConfig, nil
+		loaded, err := config.Load(".", configPath)
+		if err != nil {
+			return nil, fmt.Errorf("load config: %w", err)
+		}
+		return loaded, nil
 	default:
 		return nil, fmt.Errorf("internal error: unsupported command config policy %d", policy)
 	}
-}
-
-func loadConfig(configPath string, deps Dependencies) (*config.Loaded, error) {
-	return loadConfigWithLoader(configPath, deps, config.Load)
-}
-
-func loadProjectConfig(configPath string, deps Dependencies) (*config.Loaded, error) {
-	return loadConfigWithLoader(configPath, deps, config.LoadProject)
-}
-
-func loadConfigWithLoader(configPath string, deps Dependencies, loader projectConfigLoader) (*config.Loaded, error) {
-	loaded, err := loader(".", configPath)
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-	return loaded, nil
 }
 
 func openAPIForLoaded(loaded *config.Loaded, profileOverride string, deps Dependencies) (secretprovider.SecretAPI, error) {
