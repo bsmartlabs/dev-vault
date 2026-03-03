@@ -1,8 +1,27 @@
 # dev-vault
 
-`dev-vault` is a Go CLI for pulling and pushing Scaleway Secret Manager secrets to disk for local development workflows.
+`dev-vault` is a Go CLI that syncs Scaleway Secret Manager `*-dev` secrets with files in a local project.
 
-It is configured per-project via a committed `.scw.json` manifest that maps secret names (must end with `-dev`) to files relative to the project root.
+It is designed for development workflows where teams need deterministic pull/push operations driven by a committed project manifest (`.scw.json`), without ever printing secret payloads.
+
+## What It Does
+
+- Pulls secrets from Scaleway into local files (`pull`).
+- Pushes local files as new secret versions in Scaleway (`push`).
+- Lists `*-dev` secret metadata in a project (`list`).
+- Enforces strict safety invariants:
+  - secret names must end with `-dev`
+  - file paths must stay inside project root
+  - payload values are never printed
+
+## Why It Exists
+
+`dev-vault` keeps local dev secret handling explicit and reviewable:
+
+- Secret/file mappings are versioned in code (`.scw.json`).
+- Bulk operations are controlled with `mapping.mode`.
+- Dotenv conversion is deterministic (stable output ordering).
+- CI validates behavior with 100% statement coverage.
 
 ## Install
 
@@ -19,18 +38,38 @@ brew install dev-vault
 go install github.com/bsmartlabs/dev-vault/cmd/dev-vault@latest
 ```
 
-## Auth
+## Authentication
 
-Authentication is done via the Scaleway Go SDK (no dependency on the `scw` CLI binary). Credentials can come from:
+`dev-vault` uses the Scaleway Go SDK directly (no `scw` CLI dependency).
 
-- Environment variables (e.g. `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`)
-- `~/.config/scw/config.yaml` profiles (set `profile` in `.scw.json` or use `--profile`)
+Credentials can come from:
 
-Note: `.scw.json` is JSON and is the only required config file for `dev-vault`. The YAML file above is the standard Scaleway profile config used by Scaleway tooling/SDKs.
+- Environment variables (for example `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`)
+- Scaleway profiles in `~/.config/scw/config.yaml`
+
+Profile resolution precedence:
+
+1. `--profile <name>` CLI flag
+2. `.scw.json` `profile`
+3. SDK environment/default behavior
+
+## How It Works
+
+1. Resolve config:
+   - use `--config <path>` if provided
+   - otherwise search upward from cwd for `.scw.json`
+2. Validate policy:
+   - `pull`/`push`: require a valid `mapping`
+   - `list`: only requires project fields (`organization_id`, `project_id`, `region`)
+3. Select targets:
+   - explicit names, or `--all` filtered by `mapping.mode`
+4. Sync:
+   - `pull`: read latest enabled version and write atomically to disk
+   - `push`: read local file and create a new secret version
+5. Report:
+   - print only metadata/status and exit with contract-based status code
 
 ## `.scw.json` (v1)
-
-`dev-vault` searches upward from the current directory for `.scw.json` (or you can pass `--config <path>`).
 
 Example:
 
@@ -57,35 +96,63 @@ Example:
 }
 ```
 
-Notes:
+Rules:
 
-- `mapping` keys are Scaleway secret names and must end with `-dev` (hard enforced).
-- `file` paths are relative to the directory containing `.scw.json` and cannot escape the project root.
-- `mode` is required and must be either `pull` or `push`.
-- Secret payloads are never printed.
+- Config filename is fixed: `.scw.json`.
+- `mapping` keys are Scaleway secret names and must end with `-dev`.
+- `mapping[*].file` must be relative and cannot escape project root.
+- `mapping[*].mode` is required: `pull` or `push`.
+- `mapping[*].format` defaults to `raw` (`raw` or `dotenv`).
+- `mapping[*].path` defaults to `/`.
+- `mapping[*].type` is optional, but required when using `push --create-missing`.
+- Unknown JSON fields and trailing JSON data are rejected.
 
-## Safety Constraints
-
-- Refuses to operate on any secret that does not end with `-dev`.
-- Never prints secret payloads to stdout/stderr.
-
-## Commands
+## Command Reference
 
 ```bash
 dev-vault version
 dev-vault list [--name-contains <s> ...] [--name-regex <re>] [--path <p>] [--type <t>] [--json]
 dev-vault pull (--all | <secret-dev> ...) [--overwrite]
 dev-vault push (--all | <secret-dev> ...) [--yes] [--disable-previous] [--description <s>] [--create-missing]
+dev-vault help [command]
 ```
+
+Notes:
+
+- Global flags can be passed before or after the command:
+  - `dev-vault --config .scw.json pull x-dev`
+  - `dev-vault pull --config .scw.json x-dev`
+- `list` always filters by secret name suffix `-dev`.
+- `pull --all` includes only entries where `mapping.mode=pull`.
+- `push --all` includes only entries where `mapping.mode=push`.
+- `push` requires `--yes` when pushing more than one secret.
+- `push --create-missing` creates missing secrets using `mapping.type` and `mapping.path`.
+
+## Behavior Guarantees
+
+- Secret payloads are never printed to stdout/stderr.
+- `pull` writes atomically and applies mode `0600` on Unix.
+- `pull` reads revision selector `latest_enabled`.
+- Dotenv handling:
+  - pull: JSON object payload -> deterministic `.env`
+  - push: `.env` -> JSON object payload
+
+## Exit Codes
+
+- `0`: success
+- `1`: runtime/output/internal error
+- `2`: usage/argument/validation error
+
+Batch commands (`pull`/`push`) can be partially successful; if at least one target fails, command exits non-zero and reports failures by secret name.
 
 ## Development
 
-Unit tests are fully mocked (no Scaleway network calls).
+Unit tests are mocked by default (no live Scaleway calls).
 
 Provider compatibility gate:
 
-- Contract policy and test layout are documented in [docs/contracts/provider-compatibility.md](docs/contracts/provider-compatibility.md).
-- Optional live integration gate (read-only provider conformance checks):
+- Contract policy and test layout: [docs/contracts/provider-compatibility.md](docs/contracts/provider-compatibility.md)
+- Optional live read-only integration gate:
 
 ```bash
 DEV_VAULT_TEST_PROJECT_ID=<project-id> \
@@ -100,25 +167,34 @@ Default quality-gate order:
 2. `go tool cover -func=coverage.out | tail -n 1` (must be `100.0%`)
 3. `make test-contracts` (or `scripts/test-provider-contract.sh`)
 
-The provider contract gate requires live credentials. To skip it explicitly in contributor/local flows, set `ALLOW_CONTRACT_SKIP=1`.
-
-Tests require 100% statement coverage:
+To skip provider live contracts explicitly in local/contributor flows:
 
 ```bash
-go test ./... -coverprofile=coverage.out
-go tool cover -func=coverage.out | tail -n 1
+ALLOW_CONTRACT_SKIP=1 make test-contracts
 ```
 
-CI runs on PRs and on pushes to `main`, and includes a multi-arch build smoke test.
+## CI
 
-To test GitHub Actions locally with `act`:
+CI runs on:
+
+- `pull_request`
+- `push` to `main`
+
+Pipeline gates:
+
+- gitleaks scan
+- `go test` with 100.0% statement coverage enforcement
+- provider contract checks
+- multi-arch build smoke test (`linux/darwin/windows`, `amd64/arm64` where applicable)
+
+Run GitHub Actions locally with `act`:
 
 ```bash
 act -W .github/workflows/ci.yml -j test
 act -W .github/workflows/ci.yml -j build
 ```
 
-On Apple Silicon, you may need:
+On Apple Silicon:
 
 ```bash
 act -W .github/workflows/ci.yml -j test --container-architecture linux/arm64

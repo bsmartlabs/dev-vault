@@ -25,4 +25,4 @@ DEV_VAULT_TEST_REGION=fr-par \
 scripts/test-provider-contract.sh
 ```
 
-The gate is skipped automatically when required env vars are not set.
+If required env vars are missing, the gate fails unless you explicitly set `ALLOW_CONTRACT_SKIP=1`.
