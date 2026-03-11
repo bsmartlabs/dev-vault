@@ -59,14 +59,45 @@ func TestRunPullRawAndErrors(t *testing.T) {
 	})
 
 	t.Run("FileExists", func(t *testing.T) {
-		// Seed output file so pull errors without --overwrite.
-		if err := os.WriteFile(filepath.Join(root, "out.bin"), []byte("x"), 0o644); err != nil {
-			t.Fatalf("seed: %v", err)
-		}
+		api2 := newFakeSecretAPI()
+		sec2 := api2.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		api2.AddEnabledVersion(sec2.ID, []byte("first"))
+		deps2 := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api2, nil })
+		cfgPath2 := writeConfig(t, root, `{
+	  "organization_id":"org",
+	  "project_id":"proj",
+	  "region":"fr-par",
+	  "mapping":{
+	    "foo-dev":{"file":"nested/path/out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}
+	  }
+	}`)
+
 		var out, errBuf bytes.Buffer
-		code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev"}, &out, &errBuf, deps)
-		if code != 1 {
-			t.Fatalf("expected 1, got %d", code)
+		code := Run([]string{"dev-vault", "--config", cfgPath2, "pull", "foo-dev"}, &out, &errBuf, deps2)
+		if code != 0 {
+			t.Fatalf("expected 0 on initial nested pull, got %d (%s)", code, errBuf.String())
+		}
+		got, err := os.ReadFile(filepath.Join(root, "nested", "path", "out.bin"))
+		if err != nil {
+			t.Fatalf("read nested output: %v", err)
+		}
+		if string(got) != "first" {
+			t.Fatalf("unexpected first payload: %q", string(got))
+		}
+
+		api2.AddEnabledVersion(sec2.ID, []byte("second"))
+		out.Reset()
+		errBuf.Reset()
+		code = Run([]string{"dev-vault", "--config", cfgPath2, "pull", "foo-dev"}, &out, &errBuf, deps2)
+		if code != 0 {
+			t.Fatalf("expected 0 when overwriting existing target by default, got %d (%s)", code, errBuf.String())
+		}
+		got, err = os.ReadFile(filepath.Join(root, "nested", "path", "out.bin"))
+		if err != nil {
+			t.Fatalf("read overwritten output: %v", err)
+		}
+		if string(got) != "second" {
+			t.Fatalf("unexpected overwritten payload: %q", string(got))
 		}
 	})
 

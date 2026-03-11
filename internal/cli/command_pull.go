@@ -17,7 +17,7 @@ var pullCommandDef = commandDef{
 	Summary: "Pull mapped -dev secrets to local files",
 	Flags: []commandFlagDef{
 		{Name: pullFlagAll, Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull"},
-		{Name: pullFlagOverwrite, Kind: commandFlagBool, Help: "Overwrite existing files"},
+		{Name: pullFlagOverwrite, Kind: commandFlagBool, Help: "Overwrite existing files (default behavior)"},
 	},
 	Doc: commandDoc{
 		Synopsis: "dev-vault [--config <path>] [--profile <name>] pull (--all | <secret-dev> ...) [options]",
@@ -26,6 +26,7 @@ var pullCommandDef = commandDef{
 			"Secrets must exist in mapping and names must end with '-dev'.",
 			"Pull reads the latest enabled secret version (Scaleway revision selector: latest_enabled).",
 			"Pull writes files atomically and chmods them to 0600 (on Unix).",
+			"Pull overwrites existing targets and creates missing parent directories.",
 			"Never prints secret payloads.",
 			"",
 			"Formats:",
@@ -33,10 +34,10 @@ var pullCommandDef = commandDef{
 			"  - mapping.format=dotenv expects a JSON object payload and renders deterministic .env output.",
 		},
 		Examples: []string{
-			"dev-vault pull bweb-env-bsmart-dev --overwrite",
-			"dev-vault pull --all --overwrite",
-			"dev-vault pull --config .scw.json bweb-env-bsmart-dev --overwrite",
-			"dev-vault pull bweb-env-bsmart-dev --config .scw.json --overwrite",
+			"dev-vault pull bweb-env-bsmart-dev",
+			"dev-vault pull --all",
+			"dev-vault pull --config .scw.json bweb-env-bsmart-dev",
+			"dev-vault pull bweb-env-bsmart-dev --config .scw.json",
 		},
 	},
 	Config:           commandConfigValidated,
@@ -53,7 +54,7 @@ type pullOptions struct {
 func decodePullParsed(parsed *parsedCommand, values parsedFlagValues) {
 	parsed.pullOptions = pullOptions{
 		all:       boolFlagValue(values, pullFlagAll),
-		overwrite: boolFlagValue(values, pullFlagOverwrite),
+		overwrite: true,
 	}
 }
 

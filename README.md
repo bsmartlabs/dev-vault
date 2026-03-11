@@ -112,7 +112,7 @@ Rules:
 ```bash
 dev-vault version
 dev-vault list [--name-contains <s> ...] [--name-regex <re>] [--path <p>] [--type <t>] [--json]
-dev-vault pull (--all | <secret-dev> ...) [--overwrite]
+dev-vault pull (--all | <secret-dev> ...)
 dev-vault push (--all | <secret-dev> ...) [--yes] [--disable-previous] [--description <s>] [--create-missing]
 dev-vault help [command]
 ```
@@ -127,11 +127,13 @@ Notes:
 - `push --all` includes only entries where `mapping.mode=push`.
 - `push` requires `--yes` when pushing more than one secret.
 - `push --create-missing` creates missing secrets using `mapping.type` and `mapping.path`.
+- `pull` overwrites existing targets and creates missing parent directories.
 
 ## Behavior Guarantees
 
 - Secret payloads are never printed to stdout/stderr.
 - `pull` writes atomically and applies mode `0600` on Unix.
+- `pull` overwrites an existing target path by default.
 - `pull` reads revision selector `latest_enabled`.
 - Dotenv handling:
   - pull: JSON object payload -> deterministic `.env`
