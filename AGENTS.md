@@ -55,15 +55,19 @@ This file documents project conventions and hard constraints for contributors an
   - `go test` with 100.0% statement coverage enforced
   - multi-arch build smoke test (`linux/darwin/windows`, `amd64/arm64` where applicable)
 
-## Homebrew Tap Update
-Publishing is done on Git tags (`v*`) via GoReleaser, and the release workflow attempts to update the Homebrew tap formula.
+## Package Repo Update
+Publishing is done on Git tags (`v*`) via GoReleaser. The release workflow updates the Homebrew formula and Scoop manifest in `bsmartlabs/homebrew-dev-tools`.
+
+- `Formula/` — Homebrew tap (macOS): `brew tap bsmartlabs/dev-tools && brew install dev-vault`
+- `bucket/` — Scoop bucket (Windows): `scoop bucket add bsmartlabs https://github.com/bsmartlabs/homebrew-dev-tools && scoop install dev-vault`
+- `.deb`/`.rpm` packages are published directly to GitHub Releases via nfpm.
 
 Tap update requires `HOMEBREW_TAP_GITHUB_TOKEN` to have write access to `bsmartlabs/homebrew-dev-tools`.
 
-Manual tap update can be done with `scripts/update-homebrew-formula.sh` after a GitHub release exists with `checksums.txt`:
+Manual update can be done with `scripts/update-package-repos.sh` after a GitHub release exists with `checksums.txt`:
 
 ```bash
-scripts/update-homebrew-formula.sh \
+scripts/update-package-repos.sh \
   --repo bsmartlabs/dev-vault \
   --tag v1.2.3 \
   --tap bsmartlabs/homebrew-dev-tools \

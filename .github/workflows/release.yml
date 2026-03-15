@@ -79,7 +79,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Homebrew tap formula
+      - name: Update package repos (Homebrew + Scoop)
         continue-on-error: true
         env:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
@@ -89,8 +89,8 @@ jobs:
             echo "HOMEBREW_TAP_GITHUB_TOKEN not set; skipping tap update."
             exit 0
           fi
-          chmod +x scripts/update-homebrew-formula.sh
-          scripts/update-homebrew-formula.sh \
+          chmod +x scripts/update-package-repos.sh
+          scripts/update-package-repos.sh \
             --repo bsmartlabs/dev-vault \
             --tag "${GITHUB_REF_NAME}" \
             --tap bsmartlabs/homebrew-dev-tools \
