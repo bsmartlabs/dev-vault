@@ -13,6 +13,7 @@ func TestSelectTargetsForMode(t *testing.T) {
 		"a-dev": {Mode: mapping.ModePull, File: "a"},
 		"b-dev": {Mode: mapping.ModePush, File: "b"},
 		"c-dev": {Mode: mapping.ModePull, File: "c"},
+		"d-dev": {Mode: mapping.ModeSkip, File: "d"},
 	}
 
 	t.Run("AllAndPositionalIsRejected", func(t *testing.T) {
@@ -80,6 +81,35 @@ func TestSelectTargetsForMode(t *testing.T) {
 	t.Run("ModeMismatchReturnsError", func(t *testing.T) {
 		_, err := SelectTargetsForMode(entries, false, []string{"b-dev"}, mapping.ModePull)
 		if err == nil || !strings.Contains(err.Error(), "cannot be used with pull") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("SkipModeIsExcludedFromAll", func(t *testing.T) {
+		gotPull, err := SelectTargetsForMode(entries, true, nil, mapping.ModePull)
+		if err != nil {
+			t.Fatalf("SelectTargetsForMode pull --all: %v", err)
+		}
+		for _, target := range gotPull {
+			if target.Name == "d-dev" {
+				t.Fatal("skip mode entry should not be selected by pull --all")
+			}
+		}
+
+		gotPush, err := SelectTargetsForMode(entries, true, nil, mapping.ModePush)
+		if err != nil {
+			t.Fatalf("SelectTargetsForMode push --all: %v", err)
+		}
+		for _, target := range gotPush {
+			if target.Name == "d-dev" {
+				t.Fatal("skip mode entry should not be selected by push --all")
+			}
+		}
+	})
+
+	t.Run("ExplicitSkipModeReturnsModeMismatch", func(t *testing.T) {
+		_, err := SelectTargetsForMode(entries, false, []string{"d-dev"}, mapping.ModePull)
+		if err == nil || !strings.Contains(err.Error(), "mode=skip") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

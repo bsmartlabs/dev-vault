@@ -102,6 +102,7 @@ Rules:
 - `mapping` keys are Scaleway secret names and must end with `-dev`.
 - `mapping[*].file` must be relative and cannot escape project root.
 - `mapping[*].mode` is required: `pull` or `push`.
+- `mapping[*].mode` is required: `pull`, `push`, or `skip`.
 - `mapping[*].format` defaults to `raw` (`raw` or `dotenv`).
 - `mapping[*].path` defaults to `/`.
 - `mapping[*].type` is optional, but required when using `push --create-missing`.
@@ -125,6 +126,7 @@ Notes:
 - `list` always filters by secret name suffix `-dev`.
 - `pull --all` includes only entries where `mapping.mode=pull`.
 - `push --all` includes only entries where `mapping.mode=push`.
+- `mapping.mode=skip` is ignored by both `pull --all` and `push --all`.
 - `push` requires `--yes` when pushing more than one secret.
 - `push --create-missing` creates missing secrets using `mapping.type` and `mapping.path`.
 - `pull` overwrites existing targets and creates missing parent directories.

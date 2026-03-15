@@ -38,6 +38,7 @@ This file documents project conventions and hard constraints for contributors an
 - `mapping[*].mode`:
   - `pull`: only eligible for `pull --all`.
   - `push`: only eligible for `push --all`.
+  - `skip`: tracked in config but excluded from `pull --all` and `push --all`.
   - Required: every mapping entry must set `mode`.
 
 ## CI Local Runs (GitHub Actions via `act`)

@@ -51,11 +51,15 @@ func TestSelectMappingTargetsDedupesExplicitTargetsPreservingOrder(t *testing.T)
 func TestMappingModeHelpers(t *testing.T) {
 	pullEntry := mapping.Entry{Mode: mapping.ModePull}
 	pushEntry := mapping.Entry{Mode: mapping.ModePush}
+	skipEntry := mapping.Entry{Mode: mapping.ModeSkip}
 	if string(mapping.ModePull) != "pull" {
 		t.Fatalf("unexpected pull mode string: %q", mapping.ModePull)
 	}
 	if string(mapping.ModePush) != "push" {
 		t.Fatalf("unexpected push mode string: %q", mapping.ModePush)
+	}
+	if string(mapping.ModeSkip) != "skip" {
+		t.Fatalf("unexpected skip mode string: %q", mapping.ModeSkip)
 	}
 	if string(mapping.Mode("")) != "" {
 		t.Fatalf("unexpected empty mode string: %q", mapping.Mode(""))
@@ -65,6 +69,9 @@ func TestMappingModeHelpers(t *testing.T) {
 	}
 	if !pushEntry.Mode.AllowsPush() {
 		t.Fatalf("push mode should allow mapping mode push")
+	}
+	if !skipEntry.Mode.AllowsSkip() {
+		t.Fatalf("skip mode should allow mapping mode skip")
 	}
 	if mapping.Mode("").AllowsPull() {
 		t.Fatalf("unknown mode should not allow mapping entries")

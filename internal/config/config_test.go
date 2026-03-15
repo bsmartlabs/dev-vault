@@ -205,6 +205,21 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
+	t.Run("SkipModeIsAccepted", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, DefaultConfigName)
+		if err := os.WriteFile(cfgPath, []byte(`{"organization_id":"o","project_id":"p","region":"fr-par","mapping":{"a-dev":{"file":"x","mode":"skip"}}}`), 0o644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		loaded, err := Load(dir, cfgPath)
+		if err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		if loaded.Cfg.Mapping["a-dev"].Mode != mapping.ModeSkip {
+			t.Fatalf("expected mode skip, got %q", loaded.Cfg.Mapping["a-dev"].Mode)
+		}
+	})
+
 	t.Run("DefaultsApplied", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, DefaultConfigName)
@@ -320,13 +335,16 @@ func TestLoadProject(t *testing.T) {
 
 func TestMappingMode_Allows(t *testing.T) {
 	cases := []struct {
-		mode       mapping.Mode
-		pull, push bool
+		mode             mapping.Mode
+		pull, push       bool
+		supportedCommand bool
+		supportedMapping bool
 	}{
-		{mode: mapping.ModePull, pull: true, push: false},
-		{mode: mapping.ModePush, pull: false, push: true},
-		{mode: mapping.Mode(""), pull: false, push: false},
-		{mode: mapping.Mode("nope"), pull: false, push: false},
+		{mode: mapping.ModePull, pull: true, push: false, supportedCommand: true, supportedMapping: true},
+		{mode: mapping.ModePush, pull: false, push: true, supportedCommand: true, supportedMapping: true},
+		{mode: mapping.ModeSkip, pull: false, push: false, supportedCommand: false, supportedMapping: true},
+		{mode: mapping.Mode(""), pull: false, push: false, supportedCommand: false, supportedMapping: false},
+		{mode: mapping.Mode("nope"), pull: false, push: false, supportedCommand: false, supportedMapping: false},
 	}
 
 	for _, tc := range cases {
@@ -336,8 +354,11 @@ func TestMappingMode_Allows(t *testing.T) {
 		if tc.mode.AllowsPush() != tc.push {
 			t.Fatalf("AllowsPush mismatch for %q", tc.mode)
 		}
-		if tc.mode.IsSupportedCommandMode() != (tc.mode == mapping.ModePull || tc.mode == mapping.ModePush) {
+		if tc.mode.IsSupportedCommandMode() != tc.supportedCommand {
 			t.Fatalf("IsSupportedCommandMode mismatch for %q", tc.mode)
+		}
+		if tc.mode.IsSupportedMappingMode() != tc.supportedMapping {
+			t.Fatalf("IsSupportedMappingMode mismatch for %q", tc.mode)
 		}
 	}
 	if !mapping.ModePull.AllowsCommand(mapping.ModePull) || mapping.ModePull.AllowsCommand(mapping.ModePush) {

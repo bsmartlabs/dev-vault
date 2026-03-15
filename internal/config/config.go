@@ -186,11 +186,9 @@ func (c *Config) normalizeAndValidate() error {
 		}
 
 		if entry.Mode == "" {
-			return fmt.Errorf("mapping %q: missing required field: mode (expected pull|push)", name)
+			return fmt.Errorf("mapping %q: missing required field: mode (expected pull|push|skip)", name)
 		}
-		switch entry.Mode {
-		case mapping.ModePull, mapping.ModePush:
-		default:
+		if !entry.Mode.IsSupportedMappingMode() {
 			return fmt.Errorf("mapping %q: invalid mode %q", name, entry.Mode)
 		}
 
