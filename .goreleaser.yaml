@@ -36,6 +36,7 @@ archives:
 nfpms:
   - id: dev-vault
     package_name: dev-vault
+    maintainer: bsmartlabs <dev@bsmartlabs.com>
     vendor: bsmartlabs
     homepage: https://github.com/bsmartlabs/dev-vault
     description: Scaleway Secret Manager CLI to sync -dev secrets to disk for local development
