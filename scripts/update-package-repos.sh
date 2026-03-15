@@ -172,7 +172,7 @@ fi
 git config user.name "bsmartbot"
 git config user.email "bsmartbot@users.noreply.github.com"
 
-git add "Formula/dev-vault.rb" "bucket/dev-vault.json"
+git add Formula/dev-vault.rb bucket/dev-vault.json
 git commit -m "dev-vault ${tag}"
 git push origin HEAD:main
 popd >/dev/null
