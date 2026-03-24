@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 func TestCommandErrorHelpers(t *testing.T) {
@@ -89,7 +88,7 @@ func TestRunListTableWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	var errBuf bytes.Buffer
@@ -120,9 +119,9 @@ func TestRunPullAndRunPushOutputWriteFailure(t *testing.T) {
 	}
 
 	api := newFakeSecretAPI()
-	pullSecret := api.AddSecret("proj", "x-pull-dev", "/", secret.SecretTypeOpaque)
+	pullSecret := api.AddSecret("proj", "x-pull-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(pullSecret.ID, []byte("DATA"))
-	pushSecret := api.AddSecret("proj", "x-push-dev", "/", secret.SecretTypeOpaque)
+	pushSecret := api.AddSecret("proj", "x-push-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(pushSecret.ID, []byte("DATA"))
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
@@ -132,7 +131,7 @@ func TestRunPullAndRunPushOutputWriteFailure(t *testing.T) {
 		stderr:     &pullErr,
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"x-pull-dev", "--overwrite"})
+	}, []string{"x-pull-dev"})
 	if pullCode != 1 {
 		t.Fatalf("expected pull exit 1, got %d stderr=%s", pullCode, pullErr.String())
 	}
@@ -170,9 +169,9 @@ func TestRunPullAndPushReportPartialBatchFailures(t *testing.T) {
 	}
 
 	api := newFakeSecretAPI()
-	aPull := api.AddSecret("proj", "a-pull-dev", "/", secret.SecretTypeOpaque)
+	aPull := api.AddSecret("proj", "a-pull-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(aPull.ID, []byte("A"))
-	aPush := api.AddSecret("proj", "a-push-dev", "/", secret.SecretTypeOpaque)
+	aPush := api.AddSecret("proj", "a-push-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(aPush.ID, []byte("A"))
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
@@ -182,7 +181,7 @@ func TestRunPullAndPushReportPartialBatchFailures(t *testing.T) {
 		stderr:     &pullErr,
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"--all", "--overwrite"})
+	}, []string{"--all"})
 	if pullCode != 1 {
 		t.Fatalf("expected pull exit 1, got %d stderr=%s", pullCode, pullErr.String())
 	}
@@ -233,7 +232,7 @@ func TestRunPullAndPushSingleFailureUsesBatchErrorContract(t *testing.T) {
 		stderr:     &pullErr,
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"single-pull-dev", "--overwrite"})
+	}, []string{"single-pull-dev"})
 	if pullCode != 1 {
 		t.Fatalf("expected pull exit 1, got %d stderr=%s", pullCode, pullErr.String())
 	}
@@ -283,9 +282,9 @@ func TestRunPullAndPushPartialFailureStderrWriteError(t *testing.T) {
 	}
 
 	api := newFakeSecretAPI()
-	aPull := api.AddSecret("proj", "a-pull-dev", "/", secret.SecretTypeOpaque)
+	aPull := api.AddSecret("proj", "a-pull-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(aPull.ID, []byte("A"))
-	aPush := api.AddSecret("proj", "a-push-dev", "/", secret.SecretTypeOpaque)
+	aPush := api.AddSecret("proj", "a-push-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(aPush.ID, []byte("A"))
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
@@ -294,7 +293,7 @@ func TestRunPullAndPushPartialFailureStderrWriteError(t *testing.T) {
 		stderr:     &failingWriter{},
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"--all", "--overwrite"})
+	}, []string{"--all"})
 	if pullCode != 1 {
 		t.Fatalf("expected pull exit 1, got %d", pullCode)
 	}
@@ -322,7 +321,7 @@ func TestRunPullAllowsDashPrefixedPositionalAfterSentinel(t *testing.T) {
 	}`)
 
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "--config-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "--config-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DASH"))
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
@@ -332,7 +331,7 @@ func TestRunPullAllowsDashPrefixedPositionalAfterSentinel(t *testing.T) {
 		stderr:     &errBuf,
 		configPath: cfgPath,
 		deps:       deps,
-	}, []string{"--overwrite", "--", "--config-dev"})
+	}, []string{"--", "--config-dev"})
 	if code != 0 {
 		t.Fatalf("expected pull exit 0, got %d stderr=%s", code, errBuf.String())
 	}

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 func TestRunPullRawAndErrors(t *testing.T) {
@@ -26,7 +25,7 @@ func TestRunPullRawAndErrors(t *testing.T) {
 	cfgPath := writeConfig(t, root, cfg)
 
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte{0, 1, 2})
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -60,7 +59,7 @@ func TestRunPullRawAndErrors(t *testing.T) {
 
 	t.Run("FileExists", func(t *testing.T) {
 		api2 := newFakeSecretAPI()
-		sec2 := api2.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		sec2 := api2.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 		api2.AddEnabledVersion(sec2.ID, []byte("first"))
 		deps2 := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api2, nil })
 		cfgPath2 := writeConfig(t, root, `{
@@ -109,7 +108,7 @@ func TestRunPullRawAndErrors(t *testing.T) {
 		// Update mapping in-place by pointing to notadir/out.bin using a new config.
 		cfgPath2 := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"notadir/out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 		var out, errBuf bytes.Buffer
-		code := Run([]string{"dev-vault", "--config", cfgPath2, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)
+		code := Run([]string{"dev-vault", "--config", cfgPath2, "pull", "foo-dev"}, &out, &errBuf, deps)
 		if code != 1 {
 			t.Fatalf("expected 1, got %d", code)
 		}
@@ -119,7 +118,7 @@ func TestRunPullRawAndErrors(t *testing.T) {
 		api.AccessErr = errors.New("boom")
 		defer func() { api.AccessErr = nil }()
 		var out, errBuf bytes.Buffer
-		code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)
+		code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev"}, &out, &errBuf, deps)
 		if code != 1 {
 			t.Fatalf("expected 1, got %d", code)
 		}
@@ -150,7 +149,7 @@ func TestRunPullSelectionErrorsAndLoadError(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 		api := newFakeSecretAPI()
-		sec := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		sec := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 		api.AddEnabledVersion(sec.ID, []byte{1})
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
@@ -165,7 +164,7 @@ func TestRunPullSelectionErrorsAndLoadError(t *testing.T) {
 		root := t.TempDir()
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"foo-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 		api := newFakeSecretAPI()
-		sec := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		sec := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 		api.AddEnabledVersion(sec.ID, []byte{1})
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
@@ -195,13 +194,13 @@ func TestRunPullDotenvAndTypeMismatch(t *testing.T) {
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "kv-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte(`{"A":1}`))
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev", "--overwrite"}, &out, &errBuf, deps)
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
 	}
@@ -212,13 +211,13 @@ func TestRunPullDotenvSuccess(t *testing.T) {
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeKeyValue)
+	sec := api.AddSecret("proj", "kv-dev", "/", SecretTypeKeyValue)
 	api.AddEnabledVersion(sec.ID, []byte(`{"A":"x","B":"1"}`))
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev", "--overwrite"}, &out, &errBuf, deps)
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev"}, &out, &errBuf, deps)
 	if code != 0 {
 		t.Fatalf("expected 0, got %d (%s)", code, errBuf.String())
 	}
@@ -236,12 +235,12 @@ func TestRunPullDotenvFormatError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"kv-dev":{"file":"kv.env","format":"dotenv","path":"/","mode":"pull","type":"key_value"}}}`)
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "kv-dev", "/", secret.SecretTypeKeyValue)
+	sec := api.AddSecret("proj", "kv-dev", "/", SecretTypeKeyValue)
 	api.AddEnabledVersion(sec.ID, []byte("not-json"))
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev", "--overwrite"}, &out, &errBuf, deps)
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "kv-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
 	}
@@ -251,10 +250,10 @@ func TestRunPullMappingResolveError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "x-dev", "--overwrite"}, &out, &errBuf, deps)
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "x-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
 	}
@@ -264,11 +263,11 @@ func TestRunPullResolveMultipleMatches(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"dup-dev":{"file":"out.bin","format":"raw","path":"/","mode":"pull","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "dup-dev", "/", SecretTypeOpaque)
+	api.AddSecret("proj", "dup-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "dup-dev", "--overwrite"}, &out, &errBuf, deps)
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "dup-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
 	}
@@ -281,7 +280,7 @@ func TestRunPullListErrorViaResolve(t *testing.T) {
 	api.ListErr = errors.New("boom")
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev", "--overwrite"}, &out, &errBuf, deps)
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "foo-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected 1, got %d", code)
 	}

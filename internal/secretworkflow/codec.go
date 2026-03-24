@@ -26,7 +26,7 @@ func JSONToDotenv(payload []byte) ([]byte, error) {
 func DotenvToJSON(payload []byte) ([]byte, error) {
 	env, err := dotenv.Parse(payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse dotenv: %w", err)
 	}
 	return json.Marshal(env)
 }

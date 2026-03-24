@@ -11,3 +11,4 @@ coverage*.html
 # Desloppify generated artifacts
 .desloppify/
 scorecard.png
+.claude/

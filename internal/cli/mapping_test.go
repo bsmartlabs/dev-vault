@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
-	"github.com/bsmartlabs/dev-vault/internal/secrettype"
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 )
 
 func TestMappingModuleSmoke(t *testing.T) {
@@ -20,7 +20,7 @@ func TestMappingModuleSmoke(t *testing.T) {
 		t.Fatalf("parseSecretType opaque: %v", err)
 	}
 
-	for _, name := range secrettype.Names() {
+	for _, name := range secretcontract.Names() {
 		if _, err := parseSecretType(name); err != nil {
 			t.Fatalf("expected parseSecretType to accept canonical type %q: %v", name, err)
 		}

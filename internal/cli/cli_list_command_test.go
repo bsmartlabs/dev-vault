@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 func TestRunListMoreBranches(t *testing.T) {
@@ -47,8 +46,8 @@ func TestRunListMoreBranches(t *testing.T) {
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 		api := newFakeSecretAPI()
-		api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
-		api.AddSecret("proj", "b-dev", "/", secret.SecretTypeOpaque)
+		api.AddSecret("proj", "a-dev", "/", SecretTypeOpaque)
+		api.AddSecret("proj", "b-dev", "/", SecretTypeOpaque)
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 		var out, errBuf bytes.Buffer
@@ -66,8 +65,8 @@ func TestRunListMoreBranches(t *testing.T) {
 		cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 		api := newFakeSecretAPI()
-		api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
-		api.AddSecret("proj", "b-dev", "/", secret.SecretTypeKeyValue)
+		api.AddSecret("proj", "a-dev", "/", SecretTypeOpaque)
+		api.AddSecret("proj", "b-dev", "/", SecretTypeKeyValue)
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 		var out, errBuf bytes.Buffer
@@ -121,8 +120,8 @@ func TestListCommandUsesAllTypesWhenNoTypeFilter(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "b-dev", "/", secret.SecretTypeKeyValue)
+	api.AddSecret("proj", "a-dev", "/", SecretTypeOpaque)
+	api.AddSecret("proj", "b-dev", "/", SecretTypeKeyValue)
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
@@ -143,7 +142,7 @@ func TestRunListLoadAndOpenViaDiscovery(t *testing.T) {
 	}
 	writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "a-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	old, _ := os.Getwd()

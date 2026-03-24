@@ -5,18 +5,17 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 func TestNewConstructors(t *testing.T) {
 	seq := NewFakeSecretAPI()
-	s1 := seq.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
+	s1 := seq.AddSecret("proj", "a-dev", "/", secretprovider.SecretTypeOpaque)
 	if s1.ID != "sec-1" {
 		t.Fatalf("expected sequential ID, got %q", s1.ID)
 	}
 
 	det := NewDeterministicFakeSecretAPI()
-	s2 := det.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
+	s2 := det.AddSecret("proj", "a-dev", "/", secretprovider.SecretTypeOpaque)
 	if s2.ID != "sec-a-dev-proj" {
 		t.Fatalf("expected deterministic ID, got %q", s2.ID)
 	}
@@ -30,9 +29,9 @@ func TestListSecretsFiltersAndErrors(t *testing.T) {
 	}
 	api.ListErr = nil
 
-	api.AddSecret("proj", "a-dev", "/a", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "b-dev", "/b", secret.SecretTypeKeyValue)
-	api.AddSecret("proj", "c-dev", "/c", secret.SecretTypeCertificate)
+	api.AddSecret("proj", "a-dev", "/a", secretprovider.SecretTypeOpaque)
+	api.AddSecret("proj", "b-dev", "/b", secretprovider.SecretTypeKeyValue)
+	api.AddSecret("proj", "c-dev", "/c", secretprovider.SecretTypeCertificate)
 
 	got, err := api.ListSecrets(secretprovider.ListSecretsInput{
 		Name: "a-dev",
@@ -62,7 +61,7 @@ func TestListSecretsFiltersAndErrors(t *testing.T) {
 
 func TestAccessSecretVersionBranches(t *testing.T) {
 	api := NewFakeSecretAPI()
-	secRec := api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
+	secRec := api.AddSecret("proj", "a-dev", "/", secretprovider.SecretTypeOpaque)
 
 	api.AccessErr = errors.New("boom")
 	if _, err := api.AccessSecretVersion(secretprovider.AccessSecretVersionInput{SecretID: secRec.ID, Revision: secretprovider.RevisionLatestEnabled}); err == nil {

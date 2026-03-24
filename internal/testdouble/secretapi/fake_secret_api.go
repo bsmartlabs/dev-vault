@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 type FakeVersion struct {
@@ -47,14 +46,14 @@ func NewDeterministicFakeSecretAPI() *FakeSecretAPI {
 	return api
 }
 
-func (f *FakeSecretAPI) AddSecret(projectID, name, path string, typ secret.SecretType) *secretprovider.SecretRecord {
+func (f *FakeSecretAPI) AddSecret(projectID, name, path string, typ secretprovider.SecretType) *secretprovider.SecretRecord {
 	id := f.secretIDFor(projectID, name, f.Secrets)
 	s := secretprovider.SecretRecord{
 		ID:        id,
 		ProjectID: projectID,
 		Name:      name,
 		Path:      path,
-		Type:      secretprovider.SecretType(typ),
+		Type:      typ,
 	}
 	f.Secrets = append(f.Secrets, s)
 	return &f.Secrets[len(f.Secrets)-1]
@@ -133,7 +132,7 @@ func (f *FakeSecretAPI) CreateSecret(req secretprovider.CreateSecretInput) (*sec
 	if req.Path != "" {
 		path = req.Path
 	}
-	return f.AddSecret("proj", req.Name, path, secret.SecretType(req.Type)), nil
+	return f.AddSecret("proj", req.Name, path, req.Type), nil
 }
 
 func (f *FakeSecretAPI) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (*secretprovider.SecretVersionRecord, error) {

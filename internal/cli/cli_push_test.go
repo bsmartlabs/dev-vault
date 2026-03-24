@@ -14,7 +14,6 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 func TestRunPushRawAndDotenvAndCreateMissing(t *testing.T) {
@@ -42,8 +41,8 @@ func TestRunPushRawAndDotenvAndCreateMissing(t *testing.T) {
 	}
 
 	api := newFakeSecretAPI()
-	foo := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
-	bar := api.AddSecret("proj", "bar-dev", "/", secret.SecretTypeKeyValue)
+	foo := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
+	bar := api.AddSecret("proj", "bar-dev", "/", SecretTypeKeyValue)
 	_ = foo
 	_ = bar
 
@@ -143,7 +142,7 @@ func TestRunPushMoreBranches(t *testing.T) {
 			t.Fatalf("write in.bin: %v", err)
 		}
 		api := newFakeSecretAPI()
-		api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "push"}, &out, &errBuf, deps)
@@ -159,7 +158,7 @@ func TestRunPushMoreBranches(t *testing.T) {
 			t.Fatalf("write in.bin: %v", err)
 		}
 		api := newFakeSecretAPI()
-		api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 		var out, errBuf bytes.Buffer
 		code := Run([]string{"dev-vault", "--config", cfgPath, "push", "--all", "foo-dev"}, &out, &errBuf, deps)
@@ -175,7 +174,7 @@ func TestRunPushMoreBranches(t *testing.T) {
 			t.Fatalf("write in.bin: %v", err)
 		}
 		api := newFakeSecretAPI()
-		foo := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+		foo := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 		deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 		var out, errBuf bytes.Buffer
@@ -308,37 +307,6 @@ func TestReorderFlags(t *testing.T) {
 	})
 }
 
-func TestResolveSecretByNameAndPathMultipleMatches(t *testing.T) {
-	api := newFakeSecretAPI()
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
-	_, err := svc.lookupMappedSecret("dup-dev", mapping.Entry{Path: "/"})
-	if err == nil {
-		t.Fatalf("expected error")
-	}
-}
-
-func TestResolveSecretByNameAndPathNotFound(t *testing.T) {
-	api := newFakeSecretAPI()
-	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
-	_, err := svc.lookupMappedSecret("missing-dev", mapping.Entry{Path: "/"})
-	var nf *secretLookupMissError
-	if !errors.As(err, &nf) {
-		t.Fatalf("expected notFoundError, got %v", err)
-	}
-	_ = nf.Error()
-}
-
-func TestListSecretsByTypesError(t *testing.T) {
-	api := newFakeSecretAPI()
-	api.ListErr = errors.New("boom")
-	svc := newCommandServiceWithConfig(commandServiceConfig{}, api, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }))
-	_, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/"})
-	if err == nil {
-		t.Fatalf("expected error")
-	}
-}
 
 func TestRunPushDefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T) {
 	root := t.TempDir()
@@ -348,7 +316,7 @@ func TestRunPushDefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T) 
 	}
 
 	api := newFakeSecretAPI()
-	foo := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+	foo := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 	_ = foo
 
 	deps := Dependencies{
@@ -419,7 +387,7 @@ func TestRunPushFileReadError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"missing.bin","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev", "--description", "desc"}, &out, &errBuf, deps)
@@ -432,7 +400,7 @@ func TestRunPushMappingResolveError(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"../oops","format":"raw","path":"/","mode":"push","type":"opaque"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev", "--description", "desc"}, &out, &errBuf, deps)
@@ -449,7 +417,7 @@ func TestRunPushDisablePrevious(t *testing.T) {
 	}
 
 	api := newFakeSecretAPI()
-	foo := api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+	foo := api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	// Push twice: second disables previous.
@@ -496,7 +464,7 @@ func TestRunPushDotenvParseError(t *testing.T) {
 		t.Fatalf("write in.env: %v", err)
 	}
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeKeyValue)
+	api.AddSecret("proj", "foo-dev", "/", SecretTypeKeyValue)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "foo-dev", "--description", "desc"}, &out, &errBuf, deps)
@@ -512,7 +480,7 @@ func TestRunPushTypeMismatch(t *testing.T) {
 		t.Fatalf("write in.bin: %v", err)
 	}
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "foo-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "foo-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "foo-dev", "--description", "desc"}, &out, &errBuf, deps)

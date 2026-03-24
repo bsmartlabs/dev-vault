@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 type failAfterFirstWrite struct {
@@ -390,7 +389,7 @@ func TestRunSubcommandConfigFlag(t *testing.T) {
 `)
 
 	api := newFakeSecretAPI()
-	api.AddSecret("11111111-1111-1111-1111-111111111111", "bweb-env-bsmart-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("11111111-1111-1111-1111-111111111111", "bweb-env-bsmart-dev", "/", SecretTypeOpaque)
 
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		if cfg.ProjectID != "11111111-1111-1111-1111-111111111111" {
@@ -418,9 +417,9 @@ func TestRunListJSONAndTableAndErrors(t *testing.T) {
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "a-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "b-dev", "/", secret.SecretTypeKeyValue)
-	api.AddSecret("proj", "c-prod", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "a-dev", "/", SecretTypeOpaque)
+	api.AddSecret("proj", "b-dev", "/", SecretTypeKeyValue)
+	api.AddSecret("proj", "c-prod", "/", SecretTypeOpaque)
 
 	open := func(cfg config.Config, s string) (SecretAPI, error) { return api, nil }
 	deps := baseDeps(open)

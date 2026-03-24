@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 type failAfterWriter struct {
@@ -99,7 +98,7 @@ func TestRunListTableRowWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 
 	writer := &failAfterWriter{okWrites: 1}
@@ -123,7 +122,7 @@ func TestRuntimeExecuteErrorWriteFailureStillReturnsExitCode(t *testing.T) {
 	}
 
 	api := newFakeSecretAPI()
-	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	api.CreateVerErr = errors.New("version boom")
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
@@ -143,7 +142,7 @@ func TestRunListModeCleanupLeavesListPathClean(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := writeConfig(t, root, `{"organization_id":"org","project_id":"proj","region":"fr-par","mapping":{"x-dev":{"file":"x","mode":"pull"}}}`)
 	api := newFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", SecretTypeOpaque)
 	deps := baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return api, nil })
 	code := runList(commandContext{
 		stdout:     &bytes.Buffer{},

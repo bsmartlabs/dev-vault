@@ -48,7 +48,7 @@ func (s Service) List(query ListQuery) ([]ListRecord, error) {
 			ID:   secretRecord.ID,
 			Name: secretRecord.Name,
 			Path: secretRecord.Path,
-			Type: string(secretRecord.Type),
+			Type: secretRecord.Type,
 		})
 	}
 

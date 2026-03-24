@@ -12,7 +12,6 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	testsecretapi "github.com/bsmartlabs/dev-vault/internal/testdouble/secretapi"
-	secret "github.com/scaleway/scaleway-sdk-go/api/secret/v1beta1"
 )
 
 func newDeterministicFakeSecretAPI() *deterministicFakeSecretAPI {
@@ -123,14 +122,14 @@ func TestLookupMappedSecret(t *testing.T) {
 		t.Fatal("expected not found")
 	}
 
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "dup-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "dup-dev", "/", secretprovider.SecretTypeOpaque)
+	api.AddSecret("proj", "dup-dev", "/", secretprovider.SecretTypeOpaque)
 	if _, err := svc.lookupMappedSecret("dup-dev", mapping.Entry{Path: "/"}); err == nil || !strings.Contains(err.Error(), "multiple secrets") {
 		t.Fatalf("expected multiple match error, got %v", err)
 	}
 
 	api = newDeterministicFakeSecretAPI()
-	api.AddSecret("proj", "typed-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "typed-dev", "/", secretprovider.SecretTypeOpaque)
 	svc = baseService(t.TempDir(), nil, api)
 	got, err := svc.lookupMappedSecret("typed-dev", mapping.Entry{Path: "/", Type: "opaque"})
 	if err != nil {
@@ -155,9 +154,9 @@ func TestList(t *testing.T) {
 	}
 
 	api = newDeterministicFakeSecretAPI()
-	api.AddSecret("proj", "zzz-dev", "/a", secret.SecretTypeOpaque)
-	api.AddSecret("proj", "aaa-dev", "/a", secret.SecretTypeKeyValue)
-	api.AddSecret("proj", "plain-prod", "/a", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "zzz-dev", "/a", secretprovider.SecretTypeOpaque)
+	api.AddSecret("proj", "aaa-dev", "/a", secretprovider.SecretTypeKeyValue)
+	api.AddSecret("proj", "plain-prod", "/a", secretprovider.SecretTypeOpaque)
 	svc = baseService(t.TempDir(), nil, api)
 
 	re, err := regexp.Compile(`^a.*-dev$`)
@@ -216,7 +215,7 @@ func TestPull(t *testing.T) {
 		t.Fatal("expected lookup error")
 	}
 
-	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	api.AccessErr = errors.New("access boom")
 	if result := svc.PullBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "out", Path: "/", Format: "raw", Mode: mapping.ModePull}}}, false); result.Summary.ErrorOrNil() == nil || !strings.Contains(firstPullBatchError(result).Error(), "access") {
 		t.Fatalf("expected access error, got %v", result.Summary.ErrorOrNil())
@@ -229,7 +228,7 @@ func TestPull(t *testing.T) {
 	}
 
 	api = newDeterministicFakeSecretAPI()
-	sec = api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	sec = api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte(`{"A":"1"}`))
 	svc = baseService(root, nil, api)
 	if result := svc.PullBatch([]mapping.Target{{Name: "x-dev", Entry: mapping.Entry{File: "dotenv-success.env", Path: "/", Format: "dotenv", Mode: mapping.ModePull}}}, true); result.Summary.ErrorOrNil() != nil {
@@ -237,7 +236,7 @@ func TestPull(t *testing.T) {
 	}
 
 	api = newDeterministicFakeSecretAPI()
-	sec = api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	sec = api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	svc = baseService(root, nil, api)
 
@@ -269,7 +268,7 @@ func TestPull(t *testing.T) {
 func TestPullBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 	root := t.TempDir()
 	api := newDeterministicFakeSecretAPI()
-	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	svc := baseService(root, nil, api)
 
@@ -302,7 +301,7 @@ func TestPullBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 func TestPullBatch_AllSuccess(t *testing.T) {
 	root := t.TempDir()
 	api := newDeterministicFakeSecretAPI()
-	sec := api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	sec := api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	api.AddEnabledVersion(sec.ID, []byte("DATA"))
 	svc := baseService(root, nil, api)
 
@@ -360,15 +359,6 @@ func TestPushHelpersAndPush(t *testing.T) {
 		t.Fatalf("unexpected raw payload: %q err=%v", payload, err)
 	}
 
-	req := createSecretVersionInput("sec", []byte("X"), "desc", false)
-	if req.DisablePrevious != nil {
-		t.Fatalf("expected nil DisablePrevious when false")
-	}
-	req = createSecretVersionInput("sec", []byte("X"), "desc", true)
-	if req.DisablePrevious == nil || !*req.DisablePrevious {
-		t.Fatalf("expected DisablePrevious=true")
-	}
-
 	if _, err := svc.lookupMappedSecret("missing-dev", mapping.Entry{Path: "/"}); err == nil {
 		t.Fatal("expected lookup error when missing")
 	}
@@ -402,14 +392,14 @@ func TestPushHelpersAndPush(t *testing.T) {
 	if existing.Name != "x-dev" {
 		t.Fatalf("unexpected existing secret: %#v", existing)
 	}
-	if _, err := svc.resolveExistingSecretForPush("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err != nil {
-		t.Fatalf("resolveExistingSecretForPush: %v", err)
+	if _, err := svc.lookupMappedSecret("x-dev", mapping.Entry{Path: "/", Type: "opaque"}); err != nil {
+		t.Fatalf("lookupMappedSecret: %v", err)
 	}
-	if _, err := svc.resolveOrCreateSecretForPush("y-dev", mapping.Entry{Path: "/", Type: "opaque"}); err != nil {
-		t.Fatalf("resolveOrCreateSecretForPush: %v", err)
+	if _, err := svc.lookupOrCreateMappedSecret("y-dev", mapping.Entry{Path: "/", Type: "opaque"}); err != nil {
+		t.Fatalf("lookupOrCreateMappedSecret: %v", err)
 	}
-	if _, err := svc.resolveOrCreateSecretForPush("z-dev", mapping.Entry{Path: "/"}); err == nil {
-		t.Fatal("expected resolveOrCreateSecretForPush create-missing validation error")
+	if _, err := svc.lookupOrCreateMappedSecret("z-dev", mapping.Entry{Path: "/"}); err == nil {
+		t.Fatal("expected lookupOrCreateMappedSecret create-missing validation error")
 	}
 
 	if err := os.WriteFile(filepath.Join(root, "push.bin"), []byte("PUSH"), 0o600); err != nil {
@@ -450,7 +440,7 @@ func TestPushHelpersAndPush(t *testing.T) {
 func TestPushBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 	root := t.TempDir()
 	api := newDeterministicFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	svc := baseService(root, nil, api)
 
 	if err := os.WriteFile(filepath.Join(root, "push.bin"), []byte("PUSH"), 0o600); err != nil {
@@ -486,7 +476,7 @@ func TestPushBatch_ReturnsPerTargetOutcomes(t *testing.T) {
 func TestPushBatch_AllSuccess(t *testing.T) {
 	root := t.TempDir()
 	api := newDeterministicFakeSecretAPI()
-	api.AddSecret("proj", "x-dev", "/", secret.SecretTypeOpaque)
+	api.AddSecret("proj", "x-dev", "/", secretprovider.SecretTypeOpaque)
 	svc := baseService(root, nil, api)
 
 	if err := os.WriteFile(filepath.Join(root, "push.bin"), []byte("PUSH"), 0o600); err != nil {

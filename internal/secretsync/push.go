@@ -56,19 +56,6 @@ func (s Service) readPushPayload(name string, entry mapping.Entry) ([]byte, erro
 	return raw, nil
 }
 
-func createSecretVersionInput(secretID string, payload []byte, description string, disablePrevious bool) secretprovider.CreateSecretVersionInput {
-	req := secretprovider.CreateSecretVersionInput{
-		SecretID:    secretID,
-		Data:        payload,
-		Description: &description,
-	}
-	if disablePrevious {
-		disablePreviousValue := true
-		req.DisablePrevious = &disablePreviousValue
-	}
-	return req
-}
-
 func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string) (PushResult, error) {
 	payload, err := s.readPushPayload(target.Name, target.Entry)
 	if err != nil {
@@ -77,38 +64,26 @@ func (s Service) pushOne(target mapping.Target, opts PushOptions, desc string) (
 
 	var resolvedSecret *secretprovider.SecretRecord
 	if opts.CreateMissing {
-		resolvedSecret, err = s.resolveOrCreateSecretForPush(target.Name, target.Entry)
+		resolvedSecret, err = s.lookupOrCreateMappedSecret(target.Name, target.Entry)
 	} else {
-		resolvedSecret, err = s.resolveExistingSecretForPush(target.Name, target.Entry)
+		resolvedSecret, err = s.lookupMappedSecret(target.Name, target.Entry)
 	}
 	if err != nil {
-		return PushResult{}, err
+		return PushResult{}, fmt.Errorf("resolve %s: %w", target.Name, err)
 	}
 
-	version, err := s.api.CreateSecretVersion(createSecretVersionInput(
-		resolvedSecret.ID,
-		payload,
-		desc,
-		opts.DisablePrevious,
-	))
+	req := secretprovider.CreateSecretVersionInput{
+		SecretID:    resolvedSecret.ID,
+		Data:        payload,
+		Description: &desc,
+	}
+	if opts.DisablePrevious {
+		dp := true
+		req.DisablePrevious = &dp
+	}
+	version, err := s.api.CreateSecretVersion(req)
 	if err != nil {
 		return PushResult{}, fmt.Errorf("push %s: create version: %w", target.Name, err)
 	}
 	return PushResult{Name: target.Name, Revision: version.Revision}, nil
-}
-
-func (s Service) resolveExistingSecretForPush(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
-	resolvedSecret, err := s.lookupMappedSecret(name, entry)
-	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", name, err)
-	}
-	return resolvedSecret, nil
-}
-
-func (s Service) resolveOrCreateSecretForPush(name string, entry mapping.Entry) (*secretprovider.SecretRecord, error) {
-	resolvedSecret, err := s.lookupOrCreateMappedSecret(name, entry)
-	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", name, err)
-	}
-	return resolvedSecret, nil
 }

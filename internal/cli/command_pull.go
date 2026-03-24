@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	pullFlagAll       = "all"
-	pullFlagOverwrite = "overwrite"
+	pullFlagAll = "all"
 )
 
 var pullCommandDef = commandDef{
@@ -17,7 +16,6 @@ var pullCommandDef = commandDef{
 	Summary: "Pull mapped -dev secrets to local files",
 	Flags: []commandFlagDef{
 		{Name: pullFlagAll, Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull"},
-		{Name: pullFlagOverwrite, Kind: commandFlagBool, Help: "Overwrite existing files (default behavior)"},
 	},
 	Doc: commandDoc{
 		Synopsis: "dev-vault [--config <path>] [--profile <name>] pull (--all | <secret-dev> ...) [options]",

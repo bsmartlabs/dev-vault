@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
-	"github.com/bsmartlabs/dev-vault/internal/secrettype"
 )
 
 func TestSecretTypesContractCanonicalPolicy(t *testing.T) {
-	canonical := secrettype.Names()
+	canonical := secretcontract.Names()
 	if len(canonical) == 0 {
 		t.Fatal("expected canonical secret type policy to be non-empty")
 	}
@@ -60,7 +60,7 @@ func TestSecretTypesContractListUsageIncludesCanonicalTypes(t *testing.T) {
 	}
 	usage := buf.String()
 
-	for _, name := range secrettype.Names() {
+	for _, name := range secretcontract.Names() {
 		if !strings.Contains(usage, name) {
 			t.Fatalf("list usage missing secret type %q", name)
 		}
