@@ -56,7 +56,7 @@ This file documents project conventions and hard constraints for contributors an
   - multi-arch build smoke test (`linux/darwin/windows`, `amd64/arm64` where applicable)
 
 ## Package Repo Update
-Publishing is done on Git tags (`v*`) via GoReleaser. The release workflow updates the Homebrew formula and Scoop manifest in `bsmartlabs/homebrew-dev-tools`.
+Publishing is orchestrated by Release Please on pushes to `main`. When a release PR is merged, Release Please creates the `v*` tag/release and the publish job runs GoReleaser, then updates Homebrew/Scoop in `bsmartlabs/homebrew-dev-tools`.
 
 - `Formula/` — Homebrew tap (macOS): `brew tap bsmartlabs/dev-tools && brew install dev-vault`
 - `bucket/` — Scoop bucket (Windows): `scoop bucket add bsmartlabs https://github.com/bsmartlabs/homebrew-dev-tools && scoop install dev-vault`
@@ -75,10 +75,14 @@ scripts/update-package-repos.sh \
 ```
 
 ## Releases
-- Release workflow trigger: pushing a tag matching `v*`.
-- Weekly auto-tagging exists as a workflow, but scheduled runs are disabled by default:
-  - Set repo variable `DEV_VAULT_ENABLE_SCHEDULED_RELEASES=true` to enable scheduled tagging.
-  - `workflow_dispatch` can also be used to create a tag explicitly.
+- Release workflow trigger: push to `main` (and optional `workflow_dispatch`) via `.github/workflows/release.yml`.
+- Release Please opens/updates a release PR from conventional commits.
+- When that release PR is merged, Release Please creates the `v*` tag/release and the publish job runs:
+  - gitleaks
+  - `go test` with 100.0% coverage enforcement
+  - provider contract gate
+  - GoReleaser
+  - optional Homebrew/Scoop tap update (if `HOMEBREW_TAP_GITHUB_TOKEN` is set)
 
 ## Renovate
 - Renovate is enabled (`renovate.json`) and configured to automerge safe updates when CI is green.

@@ -222,3 +222,14 @@ On Apple Silicon:
 act -W .github/workflows/ci.yml -j test --container-architecture linux/arm64
 act -W .github/workflows/ci.yml -j build --container-architecture linux/arm64
 ```
+
+## Releases
+
+Releases are automated with Release Please using conventional commits.
+
+- Pushes to `main` run `.github/workflows/release.yml`
+- Release Please opens/updates a release PR
+- Merging that PR creates the `v*` tag/release and triggers publish steps
+- Publish steps run gitleaks, test+coverage gates, provider contract gate, GoReleaser, and optional Homebrew/Scoop sync
+
+You usually do not create tags manually anymore.
