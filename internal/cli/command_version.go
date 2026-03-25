@@ -1,27 +1,29 @@
 package cli
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"strings"
 
-var versionCommandDef = commandDef{
-	Name:             "version",
-	Summary:          "Print build version information",
-	Config:           0,
-	NeedsRuntimeDeps: false,
-	Doc: commandDoc{
-		Synopsis: "dev-vault version",
-		Description: []string{
-			"Prints the build version/commit/date.",
+	"github.com/spf13/cobra"
+)
+
+func newVersionCmd(deps Dependencies, stdout io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print build version information",
+		Long:  "Prints the build version/commit/date.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return usageError(fmt.Errorf("version does not accept positional arguments: %s", strings.Join(args, " ")))
+			}
+			return nil
 		},
-	},
-	RunParsed: runVersionParsed,
-}
-
-func runVersionParsed(ctx commandContext, parsed *parsedCommand) int {
-	if err := rejectUnexpectedArgs(parsed, "version"); err != nil {
-		return newCommandRuntime(ctx, parsed).writeStderrError(err)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, err := fmt.Fprintf(stdout, "dev-vault %s (commit=%s date=%s)\n", deps.Version, deps.Commit, deps.Date); err != nil {
+				return outputError(err)
+			}
+			return nil
+		},
 	}
-	if _, err := fmt.Fprintf(ctx.stdout, "dev-vault %s (commit=%s date=%s)\n", ctx.deps.Version, ctx.deps.Commit, ctx.deps.Date); err != nil {
-		return exitCodeForError(outputError(err))
-	}
-	return 0
 }

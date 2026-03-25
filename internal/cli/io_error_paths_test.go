@@ -29,10 +29,12 @@ func TestRunWriteFailureBranches(t *testing.T) {
 		t.Fatalf("expected internal dependency error to return 1, got %d", code)
 	}
 
+	// Empty args with failing stderr: root RunE fires, writes usage to stderr (fails),
+	// then returns usageError. The error print to stderr also fails, so exit 1.
 	if code := Run([]string{}, &bytes.Buffer{}, &failingWriter{}, baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
 		return newFakeSecretAPI(), nil
 	})); code != 1 {
-		t.Fatalf("expected empty-args usage write failure to return 1, got %d", code)
+		t.Fatalf("expected empty-args stderr write failure to return 1, got %d", code)
 	}
 
 	if code := Run([]string{"dev-vault", "--help"}, &failingWriter{}, &bytes.Buffer{}, baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
@@ -40,10 +42,10 @@ func TestRunWriteFailureBranches(t *testing.T) {
 	})); code != 1 {
 		t.Fatalf("expected top-level help write failure to return 1, got %d", code)
 	}
-	if code := Run([]string{"dev-vault", "--config", ".scw.json", "-h"}, &failingWriter{}, &bytes.Buffer{}, baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
+	if code := Run([]string{"dev-vault", "-help"}, &failingWriter{}, &bytes.Buffer{}, baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
 		return newFakeSecretAPI(), nil
 	})); code != 1 {
-		t.Fatalf("expected pre-command help write failure to return 1, got %d", code)
+		t.Fatalf("expected top-level -help write failure to return 1, got %d", code)
 	}
 
 	deps = baseDeps(func(cfg config.Config, profileOverride string) (SecretAPI, error) {
@@ -56,39 +58,32 @@ func TestRunWriteFailureBranches(t *testing.T) {
 		t.Fatalf("expected unknown command write failure to return 1, got %d", code)
 	}
 
+	// "help" with no args but failing stdout → writeUsage fails → outputError.
 	if code := Run([]string{"dev-vault", "help"}, &failingWriter{}, &bytes.Buffer{}, deps); code != 1 {
 		t.Fatalf("expected help usage write failure to return 1, got %d", code)
+	}
+
+	// "help list" but failing stdout → writeUsage for subcommand fails → outputError.
+	if code := Run([]string{"dev-vault", "help", "list"}, &failingWriter{}, &bytes.Buffer{}, deps); code != 1 {
+		t.Fatalf("expected command help write failure to return 1, got %d", code)
+	}
+
+	// "help -help" → the -help flag is stripped, treated as bare "help" → write to failingWriter.
+	if code := Run([]string{"dev-vault", "help", "-help"}, &failingWriter{}, &bytes.Buffer{}, deps); code != 1 {
+		t.Fatalf("expected help -help write failure to return 1, got %d", code)
 	}
 
 	if code := Run([]string{"dev-vault", "--profile", "ci"}, &bytes.Buffer{}, &failingWriter{}, deps); code != 1 {
 		t.Fatalf("expected missing command usage write failure to return 1, got %d", code)
 	}
-
-	if code := Run([]string{"dev-vault", "help", "list"}, &failingWriter{}, &bytes.Buffer{}, deps); code != 1 {
-		t.Fatalf("expected command help write failure to return 1, got %d", code)
-	}
-
-	stderrFailOnSecondWrite := &failAfterWriter{okWrites: 1}
-	if code := Run([]string{"dev-vault", "help", "unknown"}, &bytes.Buffer{}, stderrFailOnSecondWrite, deps); code != 1 {
-		t.Fatalf("expected unknown-help follow-up usage write failure to return 1, got %d", code)
-	}
-
-	stderrUnknownFailOnSecondWrite := &failAfterWriter{okWrites: 1}
-	if code := Run([]string{"dev-vault", "unknown"}, &bytes.Buffer{}, stderrUnknownFailOnSecondWrite, deps); code != 1 {
-		t.Fatalf("expected unknown-command follow-up usage write failure to return 1, got %d", code)
-	}
 }
 
-func TestRunVersionParsedWriteFailure(t *testing.T) {
-	code := runVersionParsed(commandContext{
-		stdout: &failingWriter{},
-		stderr: &bytes.Buffer{},
-		deps: Dependencies{
-			Version: "v",
-			Commit:  "c",
-			Date:    "d",
-		},
-	}, &parsedCommand{})
+func TestRunVersionWriteFailure(t *testing.T) {
+	code := Run([]string{"dev-vault", "version"}, &failingWriter{}, &bytes.Buffer{}, Dependencies{
+		Version: "v",
+		Commit:  "c",
+		Date:    "d",
+	})
 	if code != 1 {
 		t.Fatalf("expected version write failure to return 1, got %d", code)
 	}

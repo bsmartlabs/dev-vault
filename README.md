@@ -38,6 +38,24 @@ brew install dev-vault
 go install github.com/bsmartlabs/dev-vault/cmd/dev-vault@latest
 ```
 
+## Shell Completion
+
+Generate autocompletions for your shell:
+
+```bash
+# Bash (add to ~/.bashrc)
+source <(dev-vault completion bash)
+
+# Zsh (add to ~/.zshrc)
+source <(dev-vault completion zsh)
+
+# Fish
+dev-vault completion fish | source
+
+# PowerShell
+dev-vault completion powershell | Invoke-Expression
+```
+
 ## Authentication
 
 `dev-vault` uses the Scaleway Go SDK directly (no `scw` CLI dependency).

@@ -1,31 +1,41 @@
 package cli
 
-import "io"
+import (
+	"bytes"
+	"io"
+)
+
+func buildArgs(ctx commandContext, command string, argv []string) []string {
+	args := []string{"dev-vault"}
+	if ctx.configPath != "" {
+		args = append(args, "--config", ctx.configPath)
+	}
+	if ctx.profileOverride != "" {
+		args = append(args, "--profile", ctx.profileOverride)
+	}
+	args = append(args, command)
+	args = append(args, argv...)
+	return args
+}
 
 func runList(ctx commandContext, argv []string) int {
-	return runCommand(ctx, argv, listCommandDef)
+	return Run(buildArgs(ctx, "list", argv), ctx.stdout, ctx.stderr, ctx.deps)
 }
 
 func runPull(ctx commandContext, argv []string) int {
-	return runCommand(ctx, argv, pullCommandDef)
+	return Run(buildArgs(ctx, "pull", argv), ctx.stdout, ctx.stderr, ctx.deps)
 }
 
 func runPush(ctx commandContext, argv []string) int {
-	return runCommand(ctx, argv, pushCommandDef)
-}
-
-func printVersionUsage(w io.Writer) error {
-	return printCommandUsage(w, versionCommandDef)
+	return Run(buildArgs(ctx, "push", argv), ctx.stdout, ctx.stderr, ctx.deps)
 }
 
 func printListUsage(w io.Writer) error {
-	return printCommandUsage(w, listCommandDef)
-}
-
-func printPullUsage(w io.Writer) error {
-	return printCommandUsage(w, pullCommandDef)
-}
-
-func printPushUsage(w io.Writer) error {
-	return printCommandUsage(w, pushCommandDef)
+	var buf bytes.Buffer
+	code := Run([]string{"dev-vault", "help", "list"}, &buf, io.Discard, Dependencies{})
+	if code != 0 {
+		return nil
+	}
+	_, err := w.Write(buf.Bytes())
+	return err
 }

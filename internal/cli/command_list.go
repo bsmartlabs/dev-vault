@@ -3,52 +3,16 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bsmartlabs/dev-vault/internal/secretcontract"
 	"github.com/bsmartlabs/dev-vault/internal/secretprovider"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
-
-const (
-	listFlagJSON         = "json"
-	listFlagNameContains = "name-contains"
-	listFlagNameRegex    = "name-regex"
-	listFlagPath         = "path"
-	listFlagType         = "type"
-)
-
-var listCommandDef = commandDef{
-	Name:    "list",
-	Summary: "List project -dev secrets metadata",
-	Flags: []commandFlagDef{
-		{Name: listFlagJSON, Kind: commandFlagBool, Help: "Output JSON"},
-		{Name: listFlagNameContains, Kind: commandFlagStringSlice, ValueName: "<substring>", Help: "Substring filter (repeatable, AND semantics)"},
-		{Name: listFlagNameRegex, Kind: commandFlagString, ValueName: "<regexp>", Help: "Go regexp to match secret names"},
-		{Name: listFlagPath, Kind: commandFlagString, ValueName: "<path>", Help: "Exact Scaleway secret path to filter"},
-		{Name: listFlagType, Kind: commandFlagString, ValueName: "<type>", Help: fmt.Sprintf("One of: %s", strings.Join(secretcontract.Names(), "|"))},
-	},
-	Doc: commandDoc{
-		Synopsis: "dev-vault [--config <path>] [--profile <name>] list [options]",
-		Description: []string{
-			"Lists secrets in the configured Scaleway project/region.",
-			"This command always filters to secret names ending with '-dev'.",
-			"It is not limited to entries present in .scw.json mapping.",
-			"It never prints secret payloads, only metadata (name/type/path/id).",
-		},
-		Examples: []string{
-			"dev-vault list",
-			"dev-vault list --json",
-			"dev-vault list --name-contains bweb --name-contains env",
-			"dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value",
-		},
-	},
-	Config:           commandConfigProjectOnly,
-	NeedsRuntimeDeps: true,
-	DecodeParsed:     decodeListParsed,
-	RunParsed:        runListParsed,
-}
 
 type listOptions struct {
 	json         bool
@@ -58,14 +22,68 @@ type listOptions struct {
 	secretType   string
 }
 
-func decodeListParsed(parsed *parsedCommand, values parsedFlagValues) {
-	parsed.listOptions = listOptions{
-		json:         boolFlagValue(values, listFlagJSON),
-		nameContains: sliceFlagValue(values, listFlagNameContains),
-		nameRegex:    stringFlagValue(values, listFlagNameRegex),
-		path:         stringFlagValue(values, listFlagPath),
-		secretType:   stringFlagValue(values, listFlagType),
+func newListCmd(deps Dependencies, stdout, stderr io.Writer, configPath, profileOverride *string) *cobra.Command {
+	var opts listOptions
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List project -dev secrets metadata",
+		Long: strings.Join([]string{
+			"Lists secrets in the configured Scaleway project/region.",
+			"This command always filters to secret names ending with '-dev'.",
+			"It is not limited to entries present in .scw.json mapping.",
+			"It never prints secret payloads, only metadata (name/type/path/id).",
+		}, "\n"),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return usageError(fmt.Errorf("list does not accept positional arguments: %s", strings.Join(args, " ")))
+			}
+			return nil
+		},
+		Example: strings.Join([]string{
+			"dev-vault list",
+			"dev-vault list --json",
+			"dev-vault list --name-contains bweb --name-contains env",
+			"dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value",
+		}, "\n"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if runtimeDepsMissing(deps) {
+				return runtimeError(fmt.Errorf("internal error: missing dependencies"))
+			}
+			ctx := commandContext{stdout: stdout, stderr: stderr, deps: deps}
+			params := commandParams{
+				configPath:      *configPath,
+				profileOverride: *profileOverride,
+				configPolicy:    commandConfigProjectOnly,
+			}
+			return runListCmd(ctx, params, opts)
+		},
 	}
+	cmd.Flags().BoolVar(&opts.json, "json", false, "Output JSON")
+	cmd.Flags().StringArrayVar(&opts.nameContains, "name-contains", nil, "Substring filter (repeatable, AND semantics)")
+	cmd.Flags().StringVar(&opts.nameRegex, "name-regex", "", "Go regexp to match secret names")
+	cmd.Flags().StringVar(&opts.path, "path", "", "Exact Scaleway secret path to filter")
+	cmd.Flags().StringVar(&opts.secretType, "type", "", fmt.Sprintf("One of: %s", strings.Join(secretcontract.Names(), "|")))
+	return cmd
+}
+
+func runListCmd(ctx commandContext, params commandParams, opts listOptions) error {
+	query, err := buildListQuery(opts)
+	if err != nil {
+		return err
+	}
+
+	runtime := newCommandRuntime(ctx, params)
+	resources, err := runtime.prepareResources(params.configPolicy)
+	if err != nil {
+		return err
+	}
+
+	filtered, err := resources.service.List(query)
+	if err != nil {
+		return runtimeError(err)
+	}
+
+	return renderListOutput(ctx, opts.json, filtered)
 }
 
 func buildListQuery(opts listOptions) (secretsync.ListQuery, error) {
@@ -115,31 +133,4 @@ func renderListOutput(ctx commandContext, asJSON bool, filtered []secretsync.Lis
 		}
 	}
 	return nil
-}
-
-func runListParsed(ctx commandContext, parsed *parsedCommand) int {
-	opts := parsed.listOptions
-	runtime := newCommandRuntime(ctx, parsed)
-	if err := rejectUnexpectedArgs(parsed, "list"); err != nil {
-		return runtime.writeStderrError(err)
-	}
-	query, err := buildListQuery(opts)
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	resources, err := runtime.prepareResources(parsed.configPolicy)
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	filtered, err := resources.service.List(query)
-	if err != nil {
-		return runtime.writeStderrError(err)
-	}
-
-	if err := renderListOutput(ctx, opts.json, filtered); err != nil {
-		return runtime.writeStderrError(err)
-	}
-	return 0
 }

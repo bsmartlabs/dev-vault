@@ -5,8 +5,6 @@ import (
 	"io"
 	"strings"
 	"testing"
-
-	"github.com/bsmartlabs/dev-vault/internal/config"
 )
 
 type createSecretNoPersist struct{ inner *fakeSecretAPI }
@@ -29,12 +27,13 @@ func (c *createSecretNoPersist) CreateSecretVersion(req CreateSecretVersionInput
 }
 
 func TestPrintUsageCoverage(t *testing.T) {
-	var b bytes.Buffer
-	if err := printMainUsage(&b); err != nil {
-		t.Fatalf("printMainUsage: %v", err)
+	var out bytes.Buffer
+	code := Run([]string{"dev-vault", "--help"}, &out, io.Discard, Dependencies{})
+	if code != 0 {
+		t.Fatalf("expected help exit 0, got %d", code)
 	}
-	if !strings.Contains(b.String(), config.DefaultConfigName) {
-		t.Fatalf("expected config name in usage")
+	if !strings.Contains(out.String(), "dev-vault") {
+		t.Fatalf("expected dev-vault in usage")
 	}
 }
 

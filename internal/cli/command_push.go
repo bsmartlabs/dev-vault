@@ -2,57 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"io"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
-
-const (
-	pushFlagAll             = "all"
-	pushFlagYes             = "yes"
-	pushFlagDisablePrevious = "disable-previous"
-	pushFlagDescription     = "description"
-	pushFlagCreateMissing   = "create-missing"
-)
-
-var pushCommandDef = commandDef{
-	Name:    "push",
-	Summary: "Push local files as new secret versions",
-	Flags: []commandFlagDef{
-		{Name: pushFlagAll, Kind: commandFlagBool, Help: "Push all mapping entries with mode push"},
-		{Name: pushFlagYes, Kind: commandFlagBool, Help: "Confirm batch push (required when pushing more than one secret)"},
-		{Name: pushFlagDisablePrevious, Kind: commandFlagBool, Help: "Disable previous enabled version when creating a new version"},
-		{Name: pushFlagDescription, Kind: commandFlagString, ValueName: "<text>", Help: "Description for the new version (optional)"},
-		{Name: pushFlagCreateMissing, Kind: commandFlagBool, Help: "Create missing secrets (requires mapping.type)"},
-	},
-	Doc: commandDoc{
-		Synopsis: "dev-vault [--config <path>] [--profile <name>] push (--all | <secret-dev> ...) [options]",
-		Description: []string{
-			"Pushes one or more secrets from disk to Scaleway Secret Manager as a new version.",
-			"Secrets must exist in mapping and names must end with '-dev'.",
-			"Never prints secret payloads.",
-			"",
-			"Formats:",
-			"  - mapping.format=raw reads file bytes as-is.",
-			"  - mapping.format=dotenv reads a .env file and uploads a JSON payload.",
-		},
-		Notes: []string{
-			"--create-missing creates the secret if absent (requires mapping.type).",
-			"Secret creation uses mapping.path (default '/').",
-			"If more than one secret is being pushed, you must pass --yes.",
-		},
-		Examples: []string{
-			"dev-vault push bweb-env-bsmart-dev",
-			"dev-vault push bweb-env-bsmart-dev --description 'local refresh'",
-			"dev-vault push --all --yes",
-			"dev-vault push --config .scw.json --all --yes --disable-previous",
-		},
-	},
-	Config:           commandConfigValidated,
-	NeedsRuntimeDeps: true,
-	DecodeParsed:     decodePushParsed,
-	RunParsed:        runPushParsed,
-}
 
 type pushOptions struct {
 	all             bool
@@ -60,16 +16,6 @@ type pushOptions struct {
 	disablePrevious bool
 	description     string
 	createMissing   bool
-}
-
-func decodePushParsed(parsed *parsedCommand, values parsedFlagValues) {
-	parsed.pushOptions = pushOptions{
-		all:             boolFlagValue(values, pushFlagAll),
-		yes:             boolFlagValue(values, pushFlagYes),
-		disablePrevious: boolFlagValue(values, pushFlagDisablePrevious),
-		description:     stringFlagValue(values, pushFlagDescription),
-		createMissing:   boolFlagValue(values, pushFlagCreateMissing),
-	}
 }
 
 func (o pushOptions) toServicePushOptions() secretsync.PushOptions {
@@ -80,8 +26,48 @@ func (o pushOptions) toServicePushOptions() secretsync.PushOptions {
 	}
 }
 
-func runPushParsed(ctx commandContext, parsed *parsedCommand) int {
-	return runPushBatch(ctx, parsed, parsed.pushOptions)
+func newPushCmd(deps Dependencies, stdout, stderr io.Writer, configPath, profileOverride *string) *cobra.Command {
+	var opts pushOptions
+	cmd := &cobra.Command{
+		Use:   "push (--all | <secret-dev> ...)",
+		Short: "Push local files as new secret versions",
+		Long: `Pushes one or more secrets from disk to Scaleway Secret Manager as a new version.
+Secrets must exist in mapping and names must end with '-dev'.
+Never prints secret payloads.
+
+Formats:
+  - mapping.format=raw reads file bytes as-is.
+  - mapping.format=dotenv reads a .env file and uploads a JSON payload.
+
+Notes:
+  - --create-missing creates the secret if absent (requires mapping.type).
+  - Secret creation uses mapping.path (default '/').
+  - If more than one secret is being pushed, you must pass --yes.`,
+		Args: cobra.ArbitraryArgs,
+		Example: `dev-vault push bweb-env-bsmart-dev
+dev-vault push bweb-env-bsmart-dev --description 'local refresh'
+dev-vault push --all --yes
+dev-vault push --config .scw.json --all --yes --disable-previous`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if runtimeDepsMissing(deps) {
+				return runtimeError(fmt.Errorf("internal error: missing dependencies"))
+			}
+			ctx := commandContext{stdout: stdout, stderr: stderr, deps: deps}
+			params := commandParams{
+				configPath:      *configPath,
+				profileOverride: *profileOverride,
+				configPolicy:    commandConfigValidated,
+				args:            args,
+			}
+			return runPushBatch(ctx, params, opts)
+		},
+	}
+	cmd.Flags().BoolVar(&opts.all, "all", false, "Push all mapping entries with mode push")
+	cmd.Flags().BoolVar(&opts.yes, "yes", false, "Confirm batch push (required when pushing more than one secret)")
+	cmd.Flags().BoolVar(&opts.disablePrevious, "disable-previous", false, "Disable previous enabled version when creating a new version")
+	cmd.Flags().StringVar(&opts.description, "description", "", "Description for the new version (optional)")
+	cmd.Flags().BoolVar(&opts.createMissing, "create-missing", false, "Create missing secrets (requires mapping.type)")
+	return cmd
 }
 
 func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResult) error {
@@ -97,10 +83,10 @@ func reportPushBatchResults(ctx commandContext, result secretsync.PushBatchResul
 	)
 }
 
-func runPushBatch(ctx commandContext, parsed *parsedCommand, opts pushOptions) int {
+func runPushBatch(ctx commandContext, params commandParams, opts pushOptions) error {
 	return runOperationBatch(
 		ctx,
-		parsed,
+		params,
 		mapping.ModePush,
 		opts.all,
 		func(targets []mapping.Target) error {

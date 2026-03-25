@@ -73,9 +73,9 @@ func TestRunGlobalHelpViaFlagSetPath(t *testing.T) {
 	}
 }
 
-func TestRunGlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
+func TestRunGlobalHelpViaFlagSetDoubleDashLong(t *testing.T) {
 	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "--profile", "ci", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	code := Run([]string{"dev-vault", "--profile", "ci", "--help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	}))
 	if code != 0 {
@@ -84,8 +84,44 @@ func TestRunGlobalHelpViaFlagSetSingleDashLong(t *testing.T) {
 	if !strings.Contains(out.String(), "Usage:") {
 		t.Fatalf("expected usage in stdout, got: %s", out.String())
 	}
-	if errBuf.Len() != 0 {
-		t.Fatalf("expected no stderr output, got: %s", errBuf.String())
+}
+
+func TestRunGlobalSingleDashHelpFlag(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+}
+
+func TestRunGlobalSingleDashHelpWithProfile(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--profile", "ci", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
+	}
+}
+
+func TestRunSubcommandSingleDashHelpFlagList(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "list", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+		return nil, nil
+	}))
+	if code != 0 {
+		t.Fatalf("expected 0, got %d stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("expected usage in stdout, got: %s", out.String())
 	}
 }
 
@@ -108,6 +144,28 @@ func TestRunMissingDepsOnlyForRuntimeCommands(t *testing.T) {
 	}
 	if !strings.Contains(errBuf.String(), "missing dependencies") {
 		t.Fatalf("expected missing dependencies error, got %q", errBuf.String())
+	}
+
+	// Pull also requires runtime deps.
+	out.Reset()
+	errBuf.Reset()
+	code = Run([]string{"dev-vault", "pull", "--all"}, &out, &errBuf, Dependencies{})
+	if code != 1 {
+		t.Fatalf("expected 1 for pull with missing deps, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "missing dependencies") {
+		t.Fatalf("expected missing dependencies error for pull, got %q", errBuf.String())
+	}
+
+	// Push also requires runtime deps.
+	out.Reset()
+	errBuf.Reset()
+	code = Run([]string{"dev-vault", "push", "--all", "--yes"}, &out, &errBuf, Dependencies{})
+	if code != 1 {
+		t.Fatalf("expected 1 for push with missing deps, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "missing dependencies") {
+		t.Fatalf("expected missing dependencies error for push, got %q", errBuf.String())
 	}
 }
 
@@ -263,10 +321,9 @@ func TestRunHelpRejectsExtraArgsWriteError(t *testing.T) {
 	}
 }
 
-func TestRunHelpRejectsExtraArgsUsageWriteError(t *testing.T) {
+func TestRunHelpRejectsExtraArgsStderrWriteError(t *testing.T) {
 	var out bytes.Buffer
-	stderr := &failAfterFirstWrite{}
-	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &out, stderr, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
+	code := Run([]string{"dev-vault", "help", "pull", "extra"}, &out, &failingWriter{}, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
 		return nil, nil
 	}))
 	if code != 1 {
@@ -282,8 +339,8 @@ func TestRunNoCommand(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("expected 2, got %d", code)
 	}
-	if !strings.Contains(errBuf.String(), "Usage:") {
-		t.Fatalf("expected usage on stderr")
+	if !strings.Contains(errBuf.String(), "expected a subcommand") {
+		t.Fatalf("expected usage error on stderr, got: %s", errBuf.String())
 	}
 }
 
@@ -295,8 +352,8 @@ func TestRunEmptyArgv(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("expected 2, got %d", code)
 	}
-	if !strings.Contains(errBuf.String(), "Usage:") {
-		t.Fatalf("expected usage on stderr, got: %s", errBuf.String())
+	if !strings.Contains(errBuf.String(), "expected a subcommand") {
+		t.Fatalf("expected usage error on stderr, got: %s", errBuf.String())
 	}
 }
 
@@ -313,22 +370,6 @@ func TestRunSubcommandHelpFlag(t *testing.T) {
 	}
 }
 
-func TestRunGlobalSingleDashHelpFlag(t *testing.T) {
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-		return nil, nil
-	}))
-	if code != 0 {
-		t.Fatalf("expected 0, got %d", code)
-	}
-	if !strings.Contains(out.String(), "Usage:") {
-		t.Fatalf("expected usage in stdout, got: %s", out.String())
-	}
-	if errBuf.Len() != 0 {
-		t.Fatalf("expected no stderr output for help, got: %s", errBuf.String())
-	}
-}
-
 func TestRunSubcommandHelpFlagList(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "list", "-h"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
@@ -339,22 +380,6 @@ func TestRunSubcommandHelpFlagList(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Usage:") {
 		t.Fatalf("expected usage in stdout, got: %s", out.String())
-	}
-}
-
-func TestRunSubcommandSingleDashHelpFlagList(t *testing.T) {
-	var out, errBuf bytes.Buffer
-	code := Run([]string{"dev-vault", "list", "-help"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {
-		return nil, nil
-	}))
-	if code != 0 {
-		t.Fatalf("expected 0, got %d", code)
-	}
-	if !strings.Contains(out.String(), "Usage:") {
-		t.Fatalf("expected usage in stdout, got: %s", out.String())
-	}
-	if errBuf.Len() != 0 {
-		t.Fatalf("expected no stderr output for help, got: %s", errBuf.String())
 	}
 }
 

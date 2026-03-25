@@ -18,7 +18,7 @@ var (
 
 type commandRuntime struct {
 	ctx    commandContext
-	parsed *parsedCommand
+	params commandParams
 }
 
 type runtimeResources struct {
@@ -26,12 +26,12 @@ type runtimeResources struct {
 	service secretsync.Service
 }
 
-func newCommandRuntime(ctx commandContext, parsed *parsedCommand) commandRuntime {
-	return commandRuntime{ctx: ctx, parsed: parsed}
+func newCommandRuntime(ctx commandContext, params commandParams) commandRuntime {
+	return commandRuntime{ctx: ctx, params: params}
 }
 
 func (r commandRuntime) loadWithPolicy(policy commandConfigPolicy) (*config.Loaded, error) {
-	loaded, err := loadConfigForPolicy(r.parsed.configPath, policy)
+	loaded, err := loadConfigForPolicy(r.params.configPath, policy)
 	if err != nil {
 		return nil, runtimeError(err)
 	}
@@ -39,7 +39,7 @@ func (r commandRuntime) loadWithPolicy(policy commandConfigPolicy) (*config.Load
 }
 
 func (r commandRuntime) newService(loaded *config.Loaded) (secretsync.Service, error) {
-	api, err := openAPIForLoaded(loaded, r.parsed.profileOverride, r.ctx.deps)
+	api, err := openAPIForLoaded(loaded, r.params.profileOverride, r.ctx.deps)
 	if err != nil {
 		return secretsync.Service{}, err
 	}
@@ -71,21 +71,13 @@ func (r commandRuntime) prepareResources(policy commandConfigPolicy) (*runtimeRe
 	}, nil
 }
 
-func (r commandRuntime) writeStderrError(err error) int {
-	if _, writeErr := fmt.Fprintln(r.ctx.stderr, err.Error()); writeErr != nil {
-		return exitCodeForError(outputError(writeErr))
-	}
-	return exitCodeForError(err)
-}
-
 func (r commandRuntime) selectMappingTargets(
 	loaded *config.Loaded,
 	mode mapping.Mode,
 	all bool,
 	preflight func(targets []mapping.Target) error,
-	argv []string,
 ) ([]mapping.Target, error) {
-	targets, err := selection.SelectTargetsForMode(loaded.Cfg.Mapping, all, argv, mode)
+	targets, err := selection.SelectTargetsForMode(loaded.Cfg.Mapping, all, r.params.args, mode)
 	if err != nil {
 		return nil, usageError(err)
 	}

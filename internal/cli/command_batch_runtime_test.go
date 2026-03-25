@@ -17,26 +17,17 @@ func TestRunPullBatchServiceInitError(t *testing.T) {
   "mapping":{"x-dev":{"file":"x","mode":"pull"}}
 }`)
 
-	ctx := commandContext{
-		stdout:     &bytes.Buffer{},
-		stderr:     &bytes.Buffer{},
-		configPath: cfgPath,
-		deps: baseDeps(func(config.Config, string) (SecretAPI, error) {
-			return nil, nil
-		}),
-	}
+	deps := baseDeps(func(config.Config, string) (SecretAPI, error) {
+		return nil, nil
+	})
 
-	parsed, err := parseCommand(ctx, []string{"x-dev"}, pullCommandDef)
-	if err != nil {
-		t.Fatalf("parseCommand: %v", err)
-	}
-
-	code := runPullBatch(ctx, parsed, pullOptions{})
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--config", cfgPath, "pull", "x-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected runtime exit code 1, got %d", code)
 	}
-	if got := ctx.stderr.(*bytes.Buffer).String(); !strings.Contains(got, "init secret sync service") {
-		t.Fatalf("expected service init error in stderr, got %q", got)
+	if !strings.Contains(errBuf.String(), "init secret sync service") {
+		t.Fatalf("expected service init error in stderr, got %q", errBuf.String())
 	}
 }
 
@@ -49,25 +40,16 @@ func TestRunPushBatchServiceInitError(t *testing.T) {
   "mapping":{"x-dev":{"file":"x","mode":"push"}}
 }`)
 
-	ctx := commandContext{
-		stdout:     &bytes.Buffer{},
-		stderr:     &bytes.Buffer{},
-		configPath: cfgPath,
-		deps: baseDeps(func(config.Config, string) (SecretAPI, error) {
-			return nil, nil
-		}),
-	}
+	deps := baseDeps(func(config.Config, string) (SecretAPI, error) {
+		return nil, nil
+	})
 
-	parsed, err := parseCommand(ctx, []string{"x-dev"}, pushCommandDef)
-	if err != nil {
-		t.Fatalf("parseCommand: %v", err)
-	}
-
-	code := runPushBatch(ctx, parsed, pushOptions{})
+	var out, errBuf bytes.Buffer
+	code := Run([]string{"dev-vault", "--config", cfgPath, "push", "x-dev"}, &out, &errBuf, deps)
 	if code != 1 {
 		t.Fatalf("expected runtime exit code 1, got %d", code)
 	}
-	if got := ctx.stderr.(*bytes.Buffer).String(); !strings.Contains(got, "init secret sync service") {
-		t.Fatalf("expected service init error in stderr, got %q", got)
+	if !strings.Contains(errBuf.String(), "init secret sync service") {
+		t.Fatalf("expected service init error in stderr, got %q", errBuf.String())
 	}
 }

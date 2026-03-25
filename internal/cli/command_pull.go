@@ -2,62 +2,56 @@ package cli
 
 import (
 	"fmt"
+	"io"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bsmartlabs/dev-vault/internal/mapping"
 	"github.com/bsmartlabs/dev-vault/internal/secretsync"
 )
-
-const (
-	pullFlagAll = "all"
-)
-
-var pullCommandDef = commandDef{
-	Name:    "pull",
-	Summary: "Pull mapped -dev secrets to local files",
-	Flags: []commandFlagDef{
-		{Name: pullFlagAll, Kind: commandFlagBool, Help: "Pull all mapping entries with mode pull"},
-	},
-	Doc: commandDoc{
-		Synopsis: "dev-vault [--config <path>] [--profile <name>] pull (--all | <secret-dev> ...) [options]",
-		Description: []string{
-			"Pulls one or more secrets to disk based on .scw.json mapping.",
-			"Secrets must exist in mapping and names must end with '-dev'.",
-			"Pull reads the latest enabled secret version (Scaleway revision selector: latest_enabled).",
-			"Pull writes files atomically and chmods them to 0600 (on Unix).",
-			"Pull overwrites existing targets and creates missing parent directories.",
-			"Never prints secret payloads.",
-			"",
-			"Formats:",
-			"  - mapping.format=raw writes secret bytes as-is.",
-			"  - mapping.format=dotenv expects a JSON object payload and renders deterministic .env output.",
-		},
-		Examples: []string{
-			"dev-vault pull bweb-env-bsmart-dev",
-			"dev-vault pull --all",
-			"dev-vault pull --config .scw.json bweb-env-bsmart-dev",
-			"dev-vault pull bweb-env-bsmart-dev --config .scw.json",
-		},
-	},
-	Config:           commandConfigValidated,
-	NeedsRuntimeDeps: true,
-	DecodeParsed:     decodePullParsed,
-	RunParsed:        runPullParsed,
-}
 
 type pullOptions struct {
 	all       bool
 	overwrite bool
 }
 
-func decodePullParsed(parsed *parsedCommand, values parsedFlagValues) {
-	parsed.pullOptions = pullOptions{
-		all:       boolFlagValue(values, pullFlagAll),
-		overwrite: true,
-	}
-}
+func newPullCmd(deps Dependencies, stdout, stderr io.Writer, configPath, profileOverride *string) *cobra.Command {
+	var opts pullOptions
+	cmd := &cobra.Command{
+		Use:   "pull (--all | <secret-dev> ...)",
+		Short: "Pull mapped -dev secrets to local files",
+		Long: `Pulls one or more secrets to disk based on .scw.json mapping.
+Secrets must exist in mapping and names must end with '-dev'.
+Pull reads the latest enabled secret version (Scaleway revision selector: latest_enabled).
+Pull writes files atomically and chmods them to 0600 (on Unix).
+Pull overwrites existing targets and creates missing parent directories.
+Never prints secret payloads.
 
-func runPullParsed(ctx commandContext, parsed *parsedCommand) int {
-	return runPullBatch(ctx, parsed, parsed.pullOptions)
+Formats:
+  - mapping.format=raw writes secret bytes as-is.
+  - mapping.format=dotenv expects a JSON object payload and renders deterministic .env output.`,
+		Args: cobra.ArbitraryArgs,
+		Example: `dev-vault pull bweb-env-bsmart-dev
+dev-vault pull --all
+dev-vault pull --config .scw.json bweb-env-bsmart-dev
+dev-vault pull bweb-env-bsmart-dev --config .scw.json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if runtimeDepsMissing(deps) {
+				return runtimeError(fmt.Errorf("internal error: missing dependencies"))
+			}
+			opts.overwrite = true
+			ctx := commandContext{stdout: stdout, stderr: stderr, deps: deps}
+			params := commandParams{
+				configPath:      *configPath,
+				profileOverride: *profileOverride,
+				configPolicy:    commandConfigValidated,
+				args:            args,
+			}
+			return runPullBatch(ctx, params, opts)
+		},
+	}
+	cmd.Flags().BoolVar(&opts.all, "all", false, "Pull all mapping entries with mode pull")
+	return cmd
 }
 
 func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResult) error {
@@ -73,10 +67,10 @@ func reportPullBatchResults(ctx commandContext, result secretsync.PullBatchResul
 	)
 }
 
-func runPullBatch(ctx commandContext, parsed *parsedCommand, opts pullOptions) int {
+func runPullBatch(ctx commandContext, params commandParams, opts pullOptions) error {
 	return runOperationBatch(
 		ctx,
-		parsed,
+		params,
 		mapping.ModePull,
 		opts.all,
 		nil,

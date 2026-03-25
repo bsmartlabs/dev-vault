@@ -193,11 +193,6 @@ func TestRunPushMoreBranches(t *testing.T) {
 }
 
 func TestHelpersAndBranches(t *testing.T) {
-	// stringSliceFlag.String
-	var ss stringSliceFlag
-	_ = ss.String()
-	_ = ss.Set("a")
-
 	// parseSecretType cases + error
 	for _, tt := range []string{"opaque", "certificate", "key_value", "basic_credentials", "database_credentials", "ssh_key"} {
 		if _, err := parseSecretType(tt); err != nil {
@@ -248,65 +243,6 @@ func TestHelpersAndBranches(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
-
-func TestReorderFlags(t *testing.T) {
-	t.Run("FlagsAfterArgs", func(t *testing.T) {
-		got := reorderFlags([]string{"foo-dev", "--overwrite"}, map[string]bool{"overwrite": false})
-		want := []string{"--overwrite", "foo-dev"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-
-	t.Run("ValueFlagSeparateArg", func(t *testing.T) {
-		got := reorderFlags([]string{"foo-dev", "--description", "d"}, map[string]bool{"description": true})
-		want := []string{"--description", "d", "foo-dev"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-
-	t.Run("ValueFlagEquals", func(t *testing.T) {
-		got := reorderFlags([]string{"foo-dev", "--description=d"}, map[string]bool{"description": true})
-		want := []string{"--description=d", "foo-dev"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-
-	t.Run("DoubleDashStopsParsing", func(t *testing.T) {
-		got := reorderFlags([]string{"--description", "d", "--", "foo-dev", "--overwrite"}, map[string]bool{"description": true, "overwrite": false})
-		want := []string{"--description", "d", "foo-dev", "--overwrite"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-
-	t.Run("DoubleDashPreservedForDashPrefixedPositional", func(t *testing.T) {
-		got := reorderFlags([]string{"--", "--config-dev"}, map[string]bool{"overwrite": false})
-		want := []string{"--", "--config-dev"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-
-	t.Run("HyphenIsPositional", func(t *testing.T) {
-		got := reorderFlags([]string{"-", "--json"}, map[string]bool{"json": false})
-		want := []string{"--json", "-"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-
-	t.Run("MissingValueDoesNotPanic", func(t *testing.T) {
-		got := reorderFlags([]string{"--description"}, map[string]bool{"description": true})
-		want := []string{"--description"}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("want=%#v got=%#v", want, got)
-		}
-	})
-}
-
 
 func TestRunPushDefaultDescriptionAndHostnameErrorAndVersionError(t *testing.T) {
 	root := t.TempDir()

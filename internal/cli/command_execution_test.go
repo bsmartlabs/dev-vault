@@ -3,7 +3,6 @@ package cli
 import (
 	"bytes"
 	"errors"
-	"flag"
 	"os"
 	"strings"
 	"testing"
@@ -256,29 +255,21 @@ func TestConfigPolicyContracts(t *testing.T) {
 }
 
 func TestCommandRuntimeInvalidConfigPolicy(t *testing.T) {
-	ctx := commandContext{
+	params := commandParams{
+		configPolicy: commandConfigPolicy(999),
+	}
+	runtime := newCommandRuntime(commandContext{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
 		deps:   baseDeps(func(cfg config.Config, s string) (SecretAPI, error) { return nil, nil }),
-	}
-	parsed := &parsedCommand{
-		fs:           flag.NewFlagSet("test", flag.ContinueOnError),
-		configPolicy: commandConfigPolicy(999),
-	}
-	runtime := newCommandRuntime(ctx, parsed)
+	}, params)
 
-	_, err := runtime.prepareResources(parsed.configPolicy)
+	_, err := runtime.prepareResources(params.configPolicy)
 	if err == nil {
 		t.Fatal("expected prepareResources to fail for invalid policy")
 	}
 
-	code := runtime.writeStderrError(err)
-	if code != 1 {
-		t.Fatalf("expected runtime exit code 1, got %d", code)
-	}
-
-	errText := ctx.stderr.(*bytes.Buffer).String()
-	if !strings.Contains(errText, "unsupported command config policy") {
-		t.Fatalf("expected unsupported policy error, got %q", errText)
+	if !strings.Contains(err.Error(), "unsupported command config policy") {
+		t.Fatalf("expected unsupported policy error, got %q", err.Error())
 	}
 }

@@ -14,14 +14,14 @@ type batchCommandSpec struct {
 
 func runOperationBatch[T any](
 	ctx commandContext,
-	parsed *parsedCommand,
+	params commandParams,
 	mode mapping.Mode,
 	all bool,
 	preflight func([]mapping.Target) error,
 	operation func(secretsync.Service, []mapping.Target) T,
 	report func(commandContext, T) error,
-) int {
-	return runBatchCommand(ctx, parsed, batchCommandSpec{
+) error {
+	return runBatchCommand(ctx, params, batchCommandSpec{
 		mode:      mode,
 		all:       all,
 		preflight: preflight,
@@ -32,25 +32,25 @@ func runOperationBatch[T any](
 	})
 }
 
-func runBatchCommand(ctx commandContext, parsed *parsedCommand, spec batchCommandSpec) int {
-	runtime := newCommandRuntime(ctx, parsed)
-	loaded, err := runtime.loadWithPolicy(parsed.configPolicy)
+func runBatchCommand(ctx commandContext, params commandParams, spec batchCommandSpec) error {
+	runtime := newCommandRuntime(ctx, params)
+	loaded, err := runtime.loadWithPolicy(params.configPolicy)
 	if err != nil {
-		return runtime.writeStderrError(err)
+		return err
 	}
 
-	targets, err := runtime.selectMappingTargets(loaded, spec.mode, spec.all, spec.preflight, parsed.fs.Args())
+	targets, err := runtime.selectMappingTargets(loaded, spec.mode, spec.all, spec.preflight)
 	if err != nil {
-		return runtime.writeStderrError(err)
+		return err
 	}
 
 	service, err := runtime.newService(loaded)
 	if err != nil {
-		return runtime.writeStderrError(runtimeError(err))
+		return runtimeError(err)
 	}
 
 	if err := spec.execute(service, targets); err != nil {
-		return runtime.writeStderrError(err)
+		return runtimeError(err)
 	}
-	return 0
+	return nil
 }

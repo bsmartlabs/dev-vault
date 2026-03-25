@@ -3,7 +3,6 @@ package cli
 import (
 	"bytes"
 	"errors"
-	"flag"
 	"testing"
 	"time"
 
@@ -20,8 +19,8 @@ func TestCommandRuntimeNewServiceErrors(t *testing.T) {
 		},
 	}
 
-	newParsed := func() *parsedCommand {
-		return &parsedCommand{fs: flag.NewFlagSet("test", flag.ContinueOnError)}
+	newParams := func() commandParams {
+		return commandParams{}
 	}
 
 	baseDeps := func(openFn func(config.Config, string) (SecretAPI, error)) Dependencies {
@@ -40,7 +39,7 @@ func TestCommandRuntimeNewServiceErrors(t *testing.T) {
 			deps: baseDeps(func(config.Config, string) (SecretAPI, error) {
 				return nil, errors.New("open failed")
 			}),
-		}, newParsed())
+		}, newParams())
 
 		_, err := runtime.newService(loaded)
 		if err == nil || !errors.Is(err, errRuntimeOpenSecretAPI) {
@@ -55,7 +54,7 @@ func TestCommandRuntimeNewServiceErrors(t *testing.T) {
 			deps: baseDeps(func(config.Config, string) (SecretAPI, error) {
 				return nil, nil
 			}),
-		}, newParsed())
+		}, newParams())
 
 		_, err := runtime.newService(loaded)
 		if err == nil || !errors.Is(err, errRuntimeInitSecretSyncError) {

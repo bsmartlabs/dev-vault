@@ -1,12 +1,14 @@
 package cli
 
 import (
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bsmartlabs/dev-vault/internal/config"
 	"github.com/bsmartlabs/dev-vault/internal/pathpolicy"
@@ -37,127 +39,167 @@ func DefaultDependencies(version, commit, date string, openSecretAPI func(cfg co
 	}
 }
 
+// normalizeDashHelp converts the Go-flag-style "-help" to pflag-style "--help"
+// so that Cobra recognises it. Without this, pflag interprets "-help" as the
+// concatenation of short flags -h -e -l -p and errors on the unknown letters.
+func normalizeDashHelp(args []string) []string {
+	out := make([]string, len(args))
+	copy(out, args)
+	for i, a := range out {
+		if a == "-help" {
+			out[i] = "--help"
+		}
+		if a == "--" {
+			break
+		}
+	}
+	return out
+}
+
 func Run(args []string, stdout, stderr io.Writer, deps Dependencies) int {
 	if len(args) == 0 {
-		if err := printMainUsage(stderr); err != nil {
-			return 1
-		}
-		return 2
-	}
-	if hasPreCommandHelpFlag(args[1:]) {
-		if err := printMainUsage(stdout); err != nil {
-			return 1
-		}
-		return 0
+		args = []string{"dev-vault"}
 	}
 
-	global := flag.NewFlagSet("dev-vault", flag.ContinueOnError)
-	global.SetOutput(stderr)
-	configPath := ""
-	profileOverride := ""
-	bindGlobalOptionFlags(global, &configPath, &profileOverride)
+	var configPath, profileOverride string
 
-	global.Usage = func() {
-		_ = printMainUsage(stderr)
-	}
+	// helpWriteErr captures write errors from Cobra's built-in -h/--help
+	// rendering. Cobra's Help() swallows write errors (always returns nil),
+	// so we use a custom HelpFunc to detect them.
+	var helpWriteErr error
 
-	if err := global.Parse(args[1:]); err != nil {
-		return 2
+	rootCmd := &cobra.Command{
+		Use:   "dev-vault",
+		Short: "Pull/push Scaleway Secret Manager secrets to disk for local development.",
+		Long: `dev-vault
+  Pull/push Scaleway Secret Manager secrets to disk for local development.
+
+Hard safety constraints:
+  - Refuses to operate on secret names that do not end with '-dev'.
+  - Never prints secret payloads.
+  - Pull writes files atomically and chmods them to 0600 (on Unix).
+
+Batch behavior:
+  - mapping.mode is required and must be pull, push, or skip.
+  - pull --all includes only mapping entries with mapping.mode=pull.
+  - push --all includes only mapping entries with mapping.mode=push.
+  - mapping.mode=skip is excluded from both pull --all and push --all.
+  - Explicit pull/push names must satisfy mapping.mode for that command.
+
+Notes for automation/LLMs:
+  - Global options can be passed either before the command or as command options (e.g. 'pull --config ...').
+  - Exit codes: 0=success, 1=runtime error, 2=usage error.`,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SetOut(stderr)
+			_ = cmd.Usage()
+			return usageError(fmt.Errorf("expected a subcommand"))
+		},
 	}
-	rest := global.Args()
-	if len(rest) == 0 {
-		if err := printMainUsage(stderr); err != nil {
-			return 1
+	rootCmd.SetOut(stdout)
+	rootCmd.SetErr(stderr)
+	rootCmd.SetArgs(normalizeDashHelp(args[1:]))
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
+
+	// Override Cobra's built-in HelpFunc so write errors are not swallowed.
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
+		usage := cmd.UsageString()
+		if _, err := fmt.Fprint(cmd.OutOrStdout(), usage); err != nil {
+			helpWriteErr = err
 		}
-		return 2
-	}
+	})
 
-	cmd := rest[0]
-	ctx := commandContext{
-		stdout:          stdout,
-		stderr:          stderr,
-		configPath:      configPath,
-		profileOverride: profileOverride,
-		deps:            deps,
-	}
-	switch cmd {
-	case "help":
-		if len(rest) > 2 {
-			if _, err := fmt.Fprintf(stderr, "help accepts at most one command name, got %d arguments\n", len(rest)-1); err != nil {
-				return 1
-			}
-			if err := printMainUsage(stderr); err != nil {
-				return 1
-			}
-			return 2
-		}
-		if len(rest) > 1 {
-			usagePrinter, ok := usageForCommand(rest[1])
-			if !ok {
-				if _, err := fmt.Fprintf(stderr, "unknown command for help: %s\n", rest[1]); err != nil {
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "",
+		fmt.Sprintf("Path to %s (default: search upward from cwd)", config.DefaultConfigName))
+	rootCmd.PersistentFlags().StringVar(&profileOverride, "profile", "",
+		"Scaleway config profile override (uses ~/.config/scw/config.yaml)")
+
+	rootCmd.AddCommand(
+		newVersionCmd(deps, stdout),
+		newListCmd(deps, stdout, stderr, &configPath, &profileOverride),
+		newPullCmd(deps, stdout, stderr, &configPath, &profileOverride),
+		newPushCmd(deps, stdout, stderr, &configPath, &profileOverride),
+		newHelpCmd(rootCmd, stdout, stderr),
+	)
+
+	if err := rootCmd.Execute(); err != nil {
+		var cmdErr *commandError
+		if errors.As(err, &cmdErr) {
+			if cmdErr.kind != commandErrorHelp {
+				if _, writeErr := fmt.Fprintln(stderr, err.Error()); writeErr != nil {
 					return 1
 				}
-				if err := printMainUsage(stderr); err != nil {
-					return 1
-				}
-				return 2
 			}
-			if err := usagePrinter(stdout); err != nil {
-				return 1
-			}
-			return 0
+			return exitCodeForError(err)
 		}
-		if err := printMainUsage(stdout); err != nil {
+		if _, writeErr := fmt.Fprintln(stderr, err.Error()); writeErr != nil {
 			return 1
 		}
-		return 0
-	default:
-		def, ok := commandForName(cmd)
-		if !ok {
-			if _, err := fmt.Fprintf(stderr, "unknown command: %s\n", cmd); err != nil {
-				return 1
-			}
-			if err := printMainUsage(stderr); err != nil {
-				return 1
-			}
-			return 2
-		}
-		if def.NeedsRuntimeDeps && runtimeDepsMissing(deps) {
-			if _, err := fmt.Fprintln(stderr, "internal error: missing dependencies"); err != nil {
-				return 1
-			}
-			return 1
-		}
-		return runCommand(ctx, rest[1:], def)
+		return 2
 	}
+
+	// Cobra's built-in -h/--help returns nil from Execute() even if the
+	// underlying write to stdout failed. Check the captured error.
+	if helpWriteErr != nil {
+		return exitCodeForError(outputError(helpWriteErr))
+	}
+	return 0
+}
+
+func newHelpCmd(rootCmd *cobra.Command, stdout, stderr io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:                "help [command]",
+		Short:              "Help about any command",
+		DisableFlagParsing: true,
+		SilenceErrors:      true,
+		SilenceUsage:       true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Strip "-help" / "--help" that may leak through when
+			// DisableFlagParsing is true.
+			filtered := make([]string, 0, len(args))
+			for _, a := range args {
+				if a == "-help" || a == "--help" || a == "-h" {
+					continue
+				}
+				filtered = append(filtered, a)
+			}
+			args = filtered
+
+			if len(args) > 1 {
+				return usageError(fmt.Errorf("help accepts at most one command name, got %d arguments", len(args)))
+			}
+			if len(args) == 0 {
+				rootCmd.SetOut(stdout)
+				if err := writeUsage(rootCmd, stdout); err != nil {
+					return outputError(err)
+				}
+				return nil
+			}
+			target, _, err := rootCmd.Find(args)
+			if err != nil || target == rootCmd || target.Name() == "help" {
+				return usageError(fmt.Errorf("unknown command for help: %s", args[0]))
+			}
+			target.SetOut(stdout)
+			if err := writeUsage(target, stdout); err != nil {
+				return outputError(err)
+			}
+			return nil
+		},
+	}
+}
+
+// writeUsage renders the command's usage string to w, returning any write error.
+// Cobra's cmd.Usage() delegates to a template that may silently swallow errors;
+// this helper uses UsageString() + explicit write so the caller can handle I/O
+// failures.
+func writeUsage(cmd *cobra.Command, w io.Writer) error {
+	usage := cmd.UsageString()
+	_, err := strings.NewReader(usage).WriteTo(w)
+	return err
 }
 
 func runtimeDepsMissing(deps Dependencies) bool {
 	return deps.OpenSecretAPI == nil || deps.Now == nil || deps.Hostname == nil || deps.ResolveProjectPath == nil
-}
-
-func hasPreCommandHelpFlag(args []string) bool {
-	for i := 0; i < len(args); i++ {
-		token := args[i]
-		switch token {
-		case "-h", "--help", "-help":
-			return true
-		case "--":
-			return false
-		}
-		if name, hasValue, ok := parseLongFlagToken(token); ok {
-			takesValue, isGlobal := isGlobalOptionFlag(name)
-			if isGlobal {
-				if takesValue && !hasValue {
-					i++
-				}
-				continue
-			}
-		}
-		if strings.HasPrefix(token, "-") {
-			continue
-		}
-		return false
-	}
-	return false
 }
