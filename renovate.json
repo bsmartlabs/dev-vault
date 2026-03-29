@@ -37,7 +37,7 @@
       "description": "Enable Go directive updates in go.mod",
       "matchManagers": ["gomod"],
       "matchDepNames": ["go"],
-      "rangeStrategy": "replace"
+      "rangeStrategy": "bump"
     }
   ]
 }
