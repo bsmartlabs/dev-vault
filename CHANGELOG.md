@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/bsmartlabs/dev-vault/compare/v0.1.0...v0.1.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* **renovate:** enable go directive updates in go.mod ([03bf981](https://github.com/bsmartlabs/dev-vault/commit/03bf981248d819aca7cf20214259790dc200d83e))
+* **renovate:** use bump strategy for go directive updates ([15686fb](https://github.com/bsmartlabs/dev-vault/commit/15686fb92166f41cd35b28b289a7bd4bd3f3bcfb))
+
 ## [0.1.0](https://github.com/bsmartlabs/dev-vault/compare/v0.0.8...v0.1.0) (2026-03-25)
 
 
