@@ -1,92 +1,102 @@
-# AGENTS.md
+# PROJECT KNOWLEDGE BASE
 
-## Overview
-`dev-vault` is a Go CLI that pulls/pushes Scaleway Secret Manager `*-dev` secrets to disk for local development workflows.
+**Generated:** 2026-04-29
+**Commit:** `5fe4e23`
+**Branch:** `main`
 
-Configuration is per-project via a committed `.scw.json` manifest that maps secret names to local file paths relative to the project root.
+## OVERVIEW
+`dev-vault` is a Go 1.26 CLI that syncs Scaleway Secret Manager `*-dev` secrets with local files through a committed `.scw.json` manifest. It is safety-first: metadata may be printed, secret payload bytes never may be.
 
-This file documents project conventions and hard constraints for contributors and automation/agents.
-
-## Hard Safety Rules
-- Never print secret payloads (to stdout/stderr, logs, or error messages).
-- Refuse to operate on any secret name that does not end with `-dev` (this is an invariant, not a convention).
-- Do not commit credentials, tokens, or real secret identifiers into the repository (including README examples).
-- If a secret/token is ever pasted into chat/logs, treat it as compromised and rotate/revoke immediately.
-
-## Commit Rules
-- Conventional Commits are required for all non-release commits.
-- Required format: `<type>(optional-scope): <summary>`.
-- Accepted types include: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
-- Examples: `fix: resolve Playwright webServer cwd`, `refactor(session): split transport lifecycle boundaries`.
-
-## Common Commands
-- Install: `go install github.com/bsmartlabs/dev-vault/cmd/dev-vault@latest`
-- Test (100% coverage required): `go test ./... -coverprofile=coverage.out`
-- Coverage summary: `go tool cover -func=coverage.out | tail -n 1`
-- Run help: `go run ./cmd/dev-vault -h`
-
-## `.scw.json` Notes (v1)
-- File name is fixed: `.scw.json`.
-- Discovery: the CLI searches upward from the current working directory until it finds `.scw.json` (or pass `--config <path>`).
-- The directory containing `.scw.json` is the "project root"; all `mapping.*.file` paths are relative to that root.
-- `mapping` keys:
-  - Are Scaleway secret names.
-  - Must end in `-dev` (hard enforced).
-- `mapping[*].format`:
-  - `raw`: secret bytes are written as-is.
-  - `dotenv`: secret payload is expected to be a JSON object; it is rendered deterministically as a `.env` style file.
-- `mapping[*].mode`:
-  - `pull`: only eligible for `pull --all`.
-  - `push`: only eligible for `push --all`.
-  - `skip`: tracked in config but excluded from `pull --all` and `push --all`.
-  - Required: every mapping entry must set `mode`.
-
-## CI Local Runs (GitHub Actions via `act`)
-- Test job: `act -W .github/workflows/ci.yml -j test`
-- Build job: `act -W .github/workflows/ci.yml -j build`
-- Apple Silicon: add `--container-architecture linux/arm64`
-
-## CI (GitHub Actions)
-- `ci` runs on:
-  - `pull_request` (all PRs, including Renovate PRs)
-  - `push` to `main` only
-- The CI pipeline gates with:
-  - gitleaks scan (downloads the latest gitleaks release at runtime)
-  - `go test` with 100.0% statement coverage enforced
-  - multi-arch build smoke test (`linux/darwin/windows`, `amd64/arm64` where applicable)
-
-## Package Repo Update
-Publishing is orchestrated by Release Please on pushes to `main`. When a release PR is merged, Release Please creates the `v*` tag/release and the publish job runs GoReleaser, then updates Homebrew/Scoop in `bsmartlabs/homebrew-dev-tools`.
-
-- `Formula/` — Homebrew tap (macOS): `brew tap bsmartlabs/dev-tools && brew install dev-vault`
-- `bucket/` — Scoop bucket (Windows): `scoop bucket add bsmartlabs https://github.com/bsmartlabs/homebrew-dev-tools && scoop install dev-vault`
-- `.deb`/`.rpm` packages are published directly to GitHub Releases via nfpm.
-
-Tap update requires `HOMEBREW_TAP_GITHUB_TOKEN` to have write access to `bsmartlabs/homebrew-dev-tools`.
-
-Manual update can be done with `scripts/update-package-repos.sh` after a GitHub release exists with `checksums.txt`:
-
-```bash
-scripts/update-package-repos.sh \
-  --repo bsmartlabs/dev-vault \
-  --tag v1.2.3 \
-  --tap bsmartlabs/homebrew-dev-tools \
-  --token "$HOMEBREW_TAP_GITHUB_TOKEN"
+## STRUCTURE
+```text
+dev-vault/
+├── cmd/dev-vault/                 # thin main: ldflags + real Scaleway opener + cli.Run
+├── internal/cli/                  # Cobra wiring, exit codes, reporting, command runtime
+├── internal/secretsync/           # provider-independent list/pull/push behavior
+├── internal/config/               # .scw.json discovery, strict decode, normalization
+├── internal/secretprovider/       # provider interface, contracts, Scaleway adapter
+├── internal/testdouble/secretapi/ # shared stateful SecretAPI fake
+├── docs/contracts/                # provider compatibility policy
+└── scripts/                       # provider contract and package repo update scripts
 ```
 
-## Releases
-- Release workflow trigger: push to `main` (and optional `workflow_dispatch`) via `.github/workflows/release.yml`.
-- Release Please opens/updates a release PR from conventional commits.
-- When that release PR is merged, Release Please creates the `v*` tag/release and the publish job runs:
-  - gitleaks
-  - `go test` with 100.0% coverage enforcement
-  - provider contract gate
-  - GoReleaser
-  - optional Homebrew/Scoop tap update (if `HOMEBREW_TAP_GITHUB_TOKEN` is set)
+## WHERE TO LOOK
+| Task | Location | Notes |
+|------|----------|-------|
+| CLI entry / exit behavior | `cmd/dev-vault/main.go`, `internal/cli/cli.go` | `main` stays thin; behavior is tested through `cli.Run(args, stdout, stderr, deps)` |
+| Pull/push command flow | `internal/cli/command_pull.go`, `internal/cli/command_push.go`, `internal/cli/command_batch.go`, `internal/cli/runtime.go` | Load config, select targets/preflight, then open provider/service |
+| List command flow | `internal/cli/command_list.go` | Uses project-only config; validates regex/type before provider open; prints metadata only |
+| Target selection | `internal/cli/selection/selector.go` | `--all` sorts by secret name; explicit names dedupe in caller order |
+| Core sync behavior | `internal/secretsync/` | Owns latest-enabled reads, atomic writes, create-version, create-missing, partial batch failures |
+| Manifest policy | `internal/config/config.go`, `internal/mapping/types.go` | Strict JSON; unknown fields/trailing data rejected; `mode` required |
+| Secret safety policy | `internal/secretcontract/policy.go`, `internal/pathpolicy/pathpolicy.go`, `internal/fsx/fsx.go` | `*-dev`, root-contained paths, atomic `0600` writes |
+| Scaleway adapter | `internal/secretprovider/scaleway/api.go` | SDK request/response shaping; profile override; region parsing |
+| Provider contracts | `internal/secretprovider/contracts/`, `internal/secretprovider/scaleway/contracts/`, `docs/contracts/provider-compatibility.md` | Live gate is read-only/list-only and build-tagged `integration` |
+| Test fake | `internal/testdouble/secretapi/fake_secret_api.go` | Reuse for CLI/service tests; use deterministic constructor for stable IDs |
+| Release/package flow | `.github/workflows/release.yml`, `.goreleaser.yaml`, `scripts/update-package-repos.sh` | Release Please -> GoReleaser -> optional Homebrew/Scoop sync |
 
-## Renovate
-- Renovate is enabled (`renovate.json`) and configured to automerge safe updates when CI is green.
-- Avoid introducing workflow triggers that run on every branch push; keep `push` workflows limited to `main` to avoid Renovate noise/cost.
+## CODE MAP
+| Symbol | Type | Location | Role |
+|--------|------|----------|------|
+| `runMain` | function | `cmd/dev-vault/main.go` | Injects build metadata and real Scaleway provider into `cli.Run` |
+| `cli.Run` | function | `internal/cli/cli.go` | Central testable CLI boundary; maps command errors to exit codes |
+| `commandRuntime.prepareResources` | method | `internal/cli/runtime.go` | Loads config, opens provider, constructs `secretsync.Service` |
+| `selection.SelectTargetsForMode` | function | `internal/cli/selection/selector.go` | Enforces `--all`/explicit target semantics and mapping modes |
+| `secretsync.Service` | struct | `internal/secretsync/types.go` | Provider-independent runtime service for list/pull/push |
+| `config.Load` / `LoadProject` | functions | `internal/config/config.go` | Full mapping validation for pull/push; project-only load for list |
+| `secretprovider.SecretAPI` | interface | `internal/secretprovider/types.go` | Boundary between sync logic and provider implementations |
+| `scaleway.Open` | function | `internal/secretprovider/scaleway/api.go` | Production Scaleway SDK opener |
+| `secretcontract.ValidateDevSecretName` | function | `internal/secretcontract/policy.go` | Hard `-dev` invariant |
+| `fsx.AtomicWriteFile` | function | `internal/fsx/fsx.go` | Atomic write helper used by pull |
+
+## HARD SAFETY RULES
+- Never print secret payloads to stdout, stderr, logs, test failures, or errors. Only metadata such as name/type/path/id/revision is allowed.
+- Refuse any secret name that does not end with `-dev`; this is an invariant, not a convention.
+- Do not commit credentials, tokens, real secret identifiers, tenant data, or live project IDs. Use sanitized examples.
+- If a secret/token is pasted into chat/logs, treat it as compromised and rotate/revoke immediately.
+- Live provider contracts must stay read-only/list-only: no payload access, mutation, create, push, or version reads.
+
+## `.scw.json` CONTRACT
+- File name is fixed: `.scw.json`; discovery searches upward unless `--config <path>` is passed.
+- Project root is the directory containing `.scw.json`; `mapping[*].file` is relative to that root and must not escape it.
+- Unknown JSON fields and trailing JSON data are rejected.
+- `mapping` is required for pull/push and optional for list/project-only config.
+- Mapping keys are Scaleway secret names and must end with `-dev`.
+- `mapping[*].mode` is required: `pull`, `push`, or `skip`.
+- `pull --all` selects only `mode=pull`; `push --all` selects only `mode=push`; `skip` is excluded from both.
+- `mapping[*].format` defaults to `raw`; `dotenv` expects JSON object string values on pull and uploads JSON from `.env` on push.
+- `push --create-missing` requires `mapping.type` and uses `mapping.path` default `/`.
+
+## TESTING CONVENTIONS
+- `make test` is the default gate and fails unless coverage is exactly `100.0%`.
+- Unit tests do not call live Scaleway. Use `internal/testdouble/secretapi` for CLI/service behavior.
+- Keep filesystem behavior real where practical: tests use `t.TempDir`, `os.WriteFile`, `os.ReadFile`, and verify atomic write/permission behavior.
+- Provider-sensitive behavior belongs in SDK request-shaping tests plus the read-only provider contract suite; do not mock away provider drift completely.
+- Repo contracts in `internal/repocontracts` assert workflow invariants, including `actions/setup-go@v6` with `go-version-file: go.mod`.
+
+## COMMANDS
+```bash
+go run ./cmd/dev-vault -h
+make test
+go test ./... -coverprofile=coverage.out
+go tool cover -func=coverage.out | tail -n 1
+ALLOW_CONTRACT_SKIP=1 make test-contracts
+DEV_VAULT_TEST_PROJECT_ID=<project-id> DEV_VAULT_TEST_ORGANIZATION_ID=<org-id> DEV_VAULT_TEST_REGION=fr-par scripts/test-provider-contract.sh
+act -W .github/workflows/ci.yml -j test
+act -W .github/workflows/ci.yml -j build
+```
+
+## CI / RELEASE NOTES
+- CI runs on `pull_request` and `push` to `main` only.
+- CI gates: latest gitleaks download with `--redact`, exact 100% coverage, focused Scaleway adapter tests, optional live contracts with `ALLOW_CONTRACT_SKIP=1`, and multi-arch build smoke.
+- GoReleaser builds `linux/darwin/windows` for `amd64/arm64` except `windows/arm64`, with `CGO_ENABLED=0` and ldflags for `main.version`, `main.commit`, `main.date`.
+- Release Please creates the `v*` tag/release; publish then runs gitleaks, coverage, provider gate, GoReleaser, and best-effort Homebrew/Scoop sync.
+- Tap sync needs `HOMEBREW_TAP_GITHUB_TOKEN`; missing token skips cleanly.
+- Renovate automerges safe updates when CI is green; keep workflow `push` triggers limited to `main` to avoid branch noise.
+
+## COMMIT RULES
+- Conventional Commits are required: `<type>(optional-scope): <summary>`.
+- Accepted types include `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
 
 <!-- desloppify-begin -->
 <!-- desloppify-skill-version: 2 -->
