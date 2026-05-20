@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/bsmartlabs/dev-vault/compare/v0.1.1...v0.1.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* **ci:** align setup-go with go.mod ([5fe4e23](https://github.com/bsmartlabs/dev-vault/commit/5fe4e23cca64a1583343c9b457c7125beeb2ba40))
+
 ## [0.1.1](https://github.com/bsmartlabs/dev-vault/compare/v0.1.0...v0.1.1) (2026-03-29)
 
 
