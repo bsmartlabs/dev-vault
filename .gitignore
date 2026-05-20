@@ -12,3 +12,4 @@ coverage*.html
 .desloppify/
 scorecard.png
 .claude/
+.omo/
