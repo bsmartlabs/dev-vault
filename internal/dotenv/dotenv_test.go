@@ -142,4 +142,7 @@ func TestHelpersAndScannerError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected scanner error")
 	}
+	if !strings.Contains(err.Error(), "scan dotenv:") {
+		t.Fatalf("expected scanner error context, got %v", err)
+	}
 }

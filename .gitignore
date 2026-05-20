@@ -10,6 +10,7 @@ coverage*.html
 
 # Desloppify generated artifacts
 .desloppify/
+.agents/
 scorecard.png
 .claude/
 .omo/

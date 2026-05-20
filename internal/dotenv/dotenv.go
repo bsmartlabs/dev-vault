@@ -46,7 +46,7 @@ func Parse(data []byte) (map[string]string, error) {
 		out[key] = val
 	}
 	if err := sc.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan dotenv: %w", err)
 	}
 	return out, nil
 }

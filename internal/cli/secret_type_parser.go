@@ -11,5 +11,5 @@ func parseSecretType(s string) (secretprovider.SecretType, error) {
 	if !secretcontract.IsType(s) {
 		return "", fmt.Errorf("unknown secret type %q", s)
 	}
-	return secretprovider.SecretType(s), nil
+	return secretcontract.Type(s), nil
 }

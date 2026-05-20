@@ -12,18 +12,6 @@ import (
 	"github.com/bsmartlabs/dev-vault/internal/config"
 )
 
-type failAfterFirstWrite struct {
-	writes int
-}
-
-func (w *failAfterFirstWrite) Write(p []byte) (int, error) {
-	w.writes++
-	if w.writes > 1 {
-		return 0, errors.New("write failed")
-	}
-	return len(p), nil
-}
-
 func TestRunGlobalFlagParseError(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := Run([]string{"dev-vault", "--nope"}, &out, &errBuf, baseDeps(func(cfg config.Config, s string) (SecretAPI, error) {

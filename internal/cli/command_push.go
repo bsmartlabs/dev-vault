@@ -49,15 +49,9 @@ dev-vault push bweb-env-bsmart-dev --description 'local refresh'
 dev-vault push --all --yes
 dev-vault push --config .scw.json --all --yes --disable-previous`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if runtimeDepsMissing(deps) {
-				return runtimeError(fmt.Errorf("internal error: missing dependencies"))
-			}
-			ctx := commandContext{stdout: stdout, stderr: stderr, deps: deps}
-			params := commandParams{
-				configPath:      *configPath,
-				profileOverride: *profileOverride,
-				configPolicy:    commandConfigValidated,
-				args:            args,
+			ctx, params, err := newCommandInvocation(deps, stdout, stderr, configPath, profileOverride, commandConfigValidated, args)
+			if err != nil {
+				return err
 			}
 			return runPushBatch(ctx, params, opts)
 		},

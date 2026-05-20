@@ -119,7 +119,6 @@ Rules:
 - Config filename is fixed: `.scw.json`.
 - `mapping` keys are Scaleway secret names and must end with `-dev`.
 - `mapping[*].file` must be relative and cannot escape project root.
-- `mapping[*].mode` is required: `pull` or `push`.
 - `mapping[*].mode` is required: `pull`, `push`, or `skip`.
 - `mapping[*].format` defaults to `raw` (`raw` or `dotenv`).
 - `mapping[*].path` defaults to `/`.

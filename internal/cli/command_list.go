@@ -27,33 +27,24 @@ func newListCmd(deps Dependencies, stdout, stderr io.Writer, configPath, profile
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List project -dev secrets metadata",
-		Long: strings.Join([]string{
-			"Lists secrets in the configured Scaleway project/region.",
-			"This command always filters to secret names ending with '-dev'.",
-			"It is not limited to entries present in .scw.json mapping.",
-			"It never prints secret payloads, only metadata (name/type/path/id).",
-		}, "\n"),
+		Long: `Lists secrets in the configured Scaleway project/region.
+This command always filters to secret names ending with '-dev'.
+It is not limited to entries present in .scw.json mapping.
+It never prints secret payloads, only metadata (name/type/path/id).`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return usageError(fmt.Errorf("list does not accept positional arguments: %s", strings.Join(args, " ")))
 			}
 			return nil
 		},
-		Example: strings.Join([]string{
-			"dev-vault list",
-			"dev-vault list --json",
-			"dev-vault list --name-contains bweb --name-contains env",
-			"dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value",
-		}, "\n"),
+		Example: `dev-vault list
+dev-vault list --json
+dev-vault list --name-contains bweb --name-contains env
+dev-vault list --name-regex '^bweb-env-.*-dev$' --path / --type key_value`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if runtimeDepsMissing(deps) {
-				return runtimeError(fmt.Errorf("internal error: missing dependencies"))
-			}
-			ctx := commandContext{stdout: stdout, stderr: stderr, deps: deps}
-			params := commandParams{
-				configPath:      *configPath,
-				profileOverride: *profileOverride,
-				configPolicy:    commandConfigProjectOnly,
+			ctx, params, err := newCommandInvocation(deps, stdout, stderr, configPath, profileOverride, commandConfigProjectOnly, nil)
+			if err != nil {
+				return err
 			}
 			return runListCmd(ctx, params, opts)
 		},

@@ -2,15 +2,15 @@ package secretprovider
 
 import "github.com/bsmartlabs/dev-vault/internal/secretcontract"
 
-type SecretType string
+type SecretType = secretcontract.Type
 
 const (
-	SecretTypeOpaque              SecretType = SecretType(secretcontract.TypeOpaque)
-	SecretTypeCertificate         SecretType = SecretType(secretcontract.TypeCertificate)
-	SecretTypeKeyValue            SecretType = SecretType(secretcontract.TypeKeyValue)
-	SecretTypeBasicCredentials    SecretType = SecretType(secretcontract.TypeBasicCreds)
-	SecretTypeDatabaseCredentials SecretType = SecretType(secretcontract.TypeDatabaseCreds)
-	SecretTypeSSHKey              SecretType = SecretType(secretcontract.TypeSSHKey)
+	SecretTypeOpaque              SecretType = secretcontract.TypeOpaque
+	SecretTypeCertificate         SecretType = secretcontract.TypeCertificate
+	SecretTypeKeyValue            SecretType = secretcontract.TypeKeyValue
+	SecretTypeBasicCredentials    SecretType = secretcontract.TypeBasicCreds
+	SecretTypeDatabaseCredentials SecretType = secretcontract.TypeDatabaseCreds
+	SecretTypeSSHKey              SecretType = secretcontract.TypeSSHKey
 )
 
 type RevisionSelector = secretcontract.RevisionSelector

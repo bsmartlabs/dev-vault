@@ -176,7 +176,7 @@ func (s *API) CreateSecretVersion(req secretprovider.CreateSecretVersionInput) (
 }
 
 func toScalewaySecretType(name secretprovider.SecretType) (secret.SecretType, error) {
-	switch secretcontract.Type(name) {
+	switch name {
 	case secretcontract.TypeOpaque:
 		return secret.SecretTypeOpaque, nil
 	case secretcontract.TypeCertificate:

@@ -36,16 +36,10 @@ dev-vault pull --all
 dev-vault pull --config .scw.json bweb-env-bsmart-dev
 dev-vault pull bweb-env-bsmart-dev --config .scw.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if runtimeDepsMissing(deps) {
-				return runtimeError(fmt.Errorf("internal error: missing dependencies"))
-			}
 			opts.overwrite = true
-			ctx := commandContext{stdout: stdout, stderr: stderr, deps: deps}
-			params := commandParams{
-				configPath:      *configPath,
-				profileOverride: *profileOverride,
-				configPolicy:    commandConfigValidated,
-				args:            args,
+			ctx, params, err := newCommandInvocation(deps, stdout, stderr, configPath, profileOverride, commandConfigValidated, args)
+			if err != nil {
+				return err
 			}
 			return runPullBatch(ctx, params, opts)
 		},

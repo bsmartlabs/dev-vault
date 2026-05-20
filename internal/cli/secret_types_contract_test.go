@@ -28,6 +28,10 @@ func TestSecretTypesContractCanonicalPolicy(t *testing.T) {
 		}
 	}
 
+	requireProviderSecretType := func(secretprovider.SecretType) {}
+	canonicalType := secretcontract.TypeOpaque
+	requireProviderSecretType(canonicalType)
+
 	rejected := []string{"", "opaque ", "OPAQUE", "not-a-secret-type"}
 	for _, token := range rejected {
 		if _, err := parseSecretType(token); err == nil {
