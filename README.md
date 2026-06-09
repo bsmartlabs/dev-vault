@@ -1,8 +1,11 @@
 # dev-vault
 
-`dev-vault` is a Go CLI that syncs Scaleway Secret Manager `*-dev` secrets with files in a local project.
+`dev-vault` is a Go CLI that syncs Scaleway Secret Manager `*-dev`
+secrets with files in a local project.
 
-It is designed for development workflows where teams need deterministic pull/push operations driven by a committed project manifest (`.scw.json`), without ever printing secret payloads.
+It is designed for development workflows where teams need deterministic
+pull/push operations driven by a committed project manifest (`.scw.json`),
+without ever printing secret payloads.
 
 ## What It Does
 
@@ -28,7 +31,15 @@ It is designed for development workflows where teams need deterministic pull/pus
 ### Homebrew (macOS)
 
 ```bash
-brew tap bsmartlabs/dev-tools
+brew install bsmartlabs/dev-tools/dev-vault
+```
+
+Homebrew tap trust checks require explicit trust for non-official taps. A
+fully-qualified install trusts only the `dev-vault` formula. If the tap is
+already added and you want to keep using the short formula name:
+
+```bash
+brew trust --formula bsmartlabs/dev-tools/dev-vault
 brew install dev-vault
 ```
 
@@ -122,16 +133,19 @@ Rules:
 - `mapping[*].mode` is required: `pull`, `push`, or `skip`.
 - `mapping[*].format` defaults to `raw` (`raw` or `dotenv`).
 - `mapping[*].path` defaults to `/`.
-- `mapping[*].type` is optional, but required when using `push --create-missing`.
+- `mapping[*].type` is optional, but required when using
+  `push --create-missing`.
 - Unknown JSON fields and trailing JSON data are rejected.
 
 ## Command Reference
 
 ```bash
 dev-vault version
-dev-vault list [--name-contains <s> ...] [--name-regex <re>] [--path <p>] [--type <t>] [--json]
+dev-vault list [--name-contains <s> ...] \
+  [--name-regex <re>] [--path <p>] [--type <t>] [--json]
 dev-vault pull (--all | <secret-dev> ...)
-dev-vault push (--all | <secret-dev> ...) [--yes] [--disable-previous] [--description <s>] [--create-missing]
+dev-vault push (--all | <secret-dev> ...) [--yes] \
+  [--disable-previous] [--description <s>] [--create-missing]
 dev-vault help [command]
 ```
 
@@ -164,7 +178,8 @@ Notes:
 - `1`: runtime/output/internal error
 - `2`: usage/argument/validation error
 
-Batch commands (`pull`/`push`) can be partially successful; if at least one target fails, command exits non-zero and reports failures by secret name.
+Batch commands (`pull`/`push`) can be partially successful; if at least one
+target fails, command exits non-zero and reports failures by secret name.
 
 ## Development
 
@@ -229,6 +244,7 @@ Releases are automated with Release Please using conventional commits.
 - Pushes to `main` run `.github/workflows/release.yml`
 - Release Please opens/updates a release PR
 - Merging that PR creates the `v*` tag/release and triggers publish steps
-- Publish steps run gitleaks, test+coverage gates, provider contract gate, GoReleaser, and optional Homebrew/Scoop sync
+- Publish steps run gitleaks, test+coverage gates, provider contract gate,
+  GoReleaser, and optional Homebrew/Scoop sync
 
 You usually do not create tags manually anymore.
