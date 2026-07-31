@@ -4,6 +4,8 @@ github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLf
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/scaleway/scaleway-sdk-go v1.0.0-beta.36 h1:ObX9hZmK+VmijreZO/8x9pQ8/P/ToHD/bdSb4Eg4tUo=
 github.com/scaleway/scaleway-sdk-go v1.0.0-beta.36/go.mod h1:LEsDu4BubxK7/cWhtlQWfuxwL4rf/2UEpxXz1o1EMtM=
+github.com/scaleway/scaleway-sdk-go v1.0.0-beta.37 h1:1Q6K8D0BagYYEnCTkT9fn3YHUFb06bS1OvIHWcc3JQM=
+github.com/scaleway/scaleway-sdk-go v1.0.0-beta.37/go.mod h1:Rtb4r3WZ5x4AqmL3t/wiF/DmQi+7GlU/nCRdqFbClV4=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9 h1:9exaQaMOCwffKiiiYk6/BndUBv+iRViNW+4lEMi0PvY=
