@@ -1,6 +1,6 @@
 module github.com/bsmartlabs/dev-vault
 
-go 1.27.0
+go 1.27.1
 
 require (
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.37
