@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/bsmartlabs/dev-vault/compare/v0.1.2...v0.1.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/scaleway/scaleway-sdk-go to v1.0.0-beta.37 ([#19](https://github.com/bsmartlabs/dev-vault/issues/19)) ([8936bd6](https://github.com/bsmartlabs/dev-vault/commit/8936bd61748b0586e76218569a724b7c0015f958))
+
 ## [0.1.2](https://github.com/bsmartlabs/dev-vault/compare/v0.1.1...v0.1.2) (2026-05-20)
 
 
