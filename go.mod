@@ -3,7 +3,7 @@ module github.com/bsmartlabs/dev-vault
 go 1.27.4
 
 require (
-	github.com/scaleway/scaleway-sdk-go v1.40.0
+	github.com/scaleway/scaleway-sdk-go v1.40.1
 	github.com/spf13/cobra v1.10.2
 )
 
