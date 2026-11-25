@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.3](https://github.com/bsmartlabs/dev-vault/compare/v0.1.2...v0.1.3) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/scaleway/scaleway-sdk-go to v1.0.0-beta.37 ([#19](https://github.com/bsmartlabs/dev-vault/issues/19)) ([8936bd6](https://github.com/bsmartlabs/dev-vault/commit/8936bd61748b0586e76218569a724b7c0015f958))
+* **deps:** update module github.com/scaleway/scaleway-sdk-go to v1.38.0 ([#24](https://github.com/bsmartlabs/dev-vault/issues/24)) ([65d048e](https://github.com/bsmartlabs/dev-vault/commit/65d048eb47371a7fed3a1aba24a100f0bbdc64a9))
+* **deps:** update module github.com/scaleway/scaleway-sdk-go to v1.39.0 ([#26](https://github.com/bsmartlabs/dev-vault/issues/26)) ([beac951](https://github.com/bsmartlabs/dev-vault/commit/beac9510f9392a36998e2639b839a047837cda7d))
+* **deps:** update module github.com/scaleway/scaleway-sdk-go to v1.40.0 ([#29](https://github.com/bsmartlabs/dev-vault/issues/29)) ([d1513f4](https://github.com/bsmartlabs/dev-vault/commit/d1513f469adccd75f71efd0fe1a80b45e4d6dff0))
+* **deps:** update module github.com/scaleway/scaleway-sdk-go to v1.40.1 ([#30](https://github.com/bsmartlabs/dev-vault/issues/30)) ([aba1814](https://github.com/bsmartlabs/dev-vault/commit/aba1814a82cd158ae304fde4ad825c69ec4d4b33))
+
 ## [0.1.2](https://github.com/bsmartlabs/dev-vault/compare/v0.1.1...v0.1.2) (2026-05-20)
 
 
